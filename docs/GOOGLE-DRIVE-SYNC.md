@@ -1,4 +1,4 @@
-# Google-Drive-Synchronisation einrichten
+﻿# Google-Drive-Synchronisation einrichten
 
 Mit der Synchronisation gleicht Hangul Studio deinen Lernstand zwischen mehreren Geräten ab (PC, Tablet, Smartphone).
 Die Daten liegen als **eine kleine Datei** im **versteckten App-Ordner** deines eigenen Google Drive. Nur diese App kann sie lesen, und sie taucht nicht in deiner normalen Dateiübersicht auf.
@@ -71,12 +71,14 @@ VITE_GOOGLE_CLIENT_ID=DEINE-CLIENT-ID.apps.googleusercontent.com
 
 ## Warum werde ich nach einer Zeit abgemeldet?
 
-Google gibt Web-Apps ohne eigenen Server nur einen **Zugriffsschlüssel mit etwa einer Stunde Gültigkeit**. Einen dauerhaften Schlüssel („Refresh-Token“) gibt es für reine Browser-Apps nicht – den könnte nur ein Server sicher aufbewahren. Deshalb gilt:
+Google gibt Web-Apps ohne eigenen Server nur einen **Zugriffsschlüssel mit etwa einer Stunde Gültigkeit**. Einen dauerhaften Schlüssel („Refresh-Token“) bekommt nur ein Server, der ein Geheimnis sicher aufbewahren kann. Eine reine Browser-App wie diese hat keinen. Außerdem darf das kurze Google-Anmeldefenster zur Erneuerung vom Browser nur **nach einem Klick** geöffnet werden, sonst blockiert er es.
 
-- Die App **erneuert die Anmeldung rechtzeitig und unauffällig im Hintergrund**. Das klappt, solange du im Browser bei Google angemeldet bist und er das nicht blockiert.
-- Klappt es nicht (z. B. Safari/iPhone, strenger Tracking-Schutz, Privatmodus), erscheint oben rechts eine Meldung **„Bitte erneut bei Google anmelden“** mit einem Knopf. Ein Klick genügt, deine Daten sind weiterhin sicher.
-- Auf dem Gerät gesammelte Änderungen gehen dabei nicht verloren; sie werden nach der Anmeldung abgeglichen.
+Deshalb arbeitet die App so:
 
+- Der Schlüssel wird **im Browser gemerkt** (nur der schmale Bereich `drive.appdata`). Ein Neuladen der Seite meldet dich also nicht mehr ab, solange die Stunde nicht um ist.
+- Ist er abgelaufen (oder läuft in weniger als 8 Minuten ab), wird er **beim nächsten Klick irgendwo in der App** automatisch erneuert. Das kurze Google-Fenster schließt sich von selbst, wenn du schon zugestimmt hast. Dabei erscheint **keine** Meldung.
+- Nur wenn das nicht klappt (z. B. Fenster geschlossen, Pop-ups blockiert), erscheint oben rechts **„Bitte erneut bei Google anmelden“** mit einem Knopf.
+- Deine Änderungen gehen dabei nicht verloren; sie werden nach der Anmeldung abgeglichen.
 ## Falsche Uhr auf einem Gerät?
 
 Die App verlässt sich **nicht** auf die genaue Uhrzeit der Geräte. Sie nutzt eine „logische Uhr“: Jeder Zeitstempel ist mindestens so groß wie alles, was das Gerät schon von anderen Geräten gesehen hat, und wächst mit jeder Änderung. Eine Änderung nach einem Abgleich gilt daher zuverlässig als neuer, auch wenn die Uhr eines Geräts eine Stunde nachgeht. Zeitzonen spielen keine Rolle (intern wird UTC verwendet). Angezeigt wird die letzte Synchronisation als „vor 5 Min.“ bzw. „heute 20:11“ in der Zeit deines Geräts.

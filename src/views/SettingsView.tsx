@@ -386,7 +386,7 @@ export function SettingsView({ onRestartOnboarding, onShowWhatsNew }: { onRestar
               </div>
               <p className="text-sm text-black/60 dark:text-white/60">
                 {sync.state === 'error' ? <span className="text-[#ff3b30]">{sync.error}</span>
-                  : sync.state === 'needs-auth' ? 'Bitte kurz erneut mit Google verbinden (die Anmeldung ist abgelaufen).'
+                  : sync.state === 'needs-auth' ? 'Die Anmeldung wird beim nächsten Klick automatisch erneuert – oder jetzt erneut verbinden.'
                   : sync.enabled ? `✓ Verbunden${sync.lastSync ? ` · zuletzt synchronisiert ${formatAgo(sync.lastSync)}` : ''}`
                   : 'Noch nicht verbunden.'}
               </p>

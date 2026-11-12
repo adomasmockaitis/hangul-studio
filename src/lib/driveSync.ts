@@ -61,18 +61,36 @@ export function loadGis(): Promise<void> {
   return gisPromise
 }
 
-// ---------- Zugriffstoken (nur im Speicher) ----------
-let token: { value: string; expiresAt: number } | null = null
+// ---------- Zugriffstoken ----------
+// Google gibt Web-Apps ohne Server nur ein kurzlebiges Token (~1 Stunde). Es wird – nur mit dem schmalen
+// Bereich „drive.appdata“ – im Browser gemerkt, damit ein Neuladen der Seite nicht sofort abmeldet.
+const TOKEN_KEY = 'hangul-studio:gtoken'
+type Token = { value: string; expiresAt: number }
+
+function loadStoredToken(): Token | null {
+  try {
+    const t = JSON.parse(localStorage.getItem(TOKEN_KEY) || 'null') as Token | null
+    return t && typeof t.value === 'string' && t.expiresAt - 60_000 > Date.now() ? t : null
+  } catch {
+    return null
+  }
+}
+
+let token: Token | null = loadStoredToken()
+
+function setToken(t: Token | null) {
+  token = t
+  try {
+    if (t) localStorage.setItem(TOKEN_KEY, JSON.stringify(t))
+    else localStorage.removeItem(TOKEN_KEY)
+  } catch {
+    /* ignore */
+  }
+}
 
 /** Ablaufzeitpunkt des aktuellen Tokens (ms) oder null */
 export function tokenExpiresAt(): number | null {
   return token ? token.expiresAt : null
-}
-
-/** Erneuert das Token still (ohne Fenster); wirft NeedAuthError, wenn Google dafür eine Eingabe braucht */
-export async function refreshTokenSilently(clientId: string): Promise<void> {
-  token = null
-  await getToken(clientId, false)
 }
 
 export function hasValidToken(): boolean {
@@ -80,11 +98,14 @@ export function hasValidToken(): boolean {
 }
 
 /**
- * Holt ein Zugriffstoken. interactive=false versucht es still (ohne Fenster) und wirft NeedAuthError,
- * wenn dafür eine Eingabe nötig wäre.
+ * Holt ein Zugriffstoken.
+ * - interactive=false: versucht es still (ohne Anmeldefenster); klappt nur, wenn Google/Browser das ohne Klick erlauben.
+ * - interactive=true: darf ein kurzes Google-Fenster öffnen. Das geht nur zuverlässig direkt nach einem Klick des Nutzers
+ *   (sonst blockiert der Browser das Pop-up). Hat der Nutzer schon zugestimmt, schließt sich das Fenster von selbst.
+ * - force=true: auch dann ein neues Token holen, wenn das alte noch gültig ist (vorzeitige Erneuerung).
  */
-export async function getToken(clientId: string, interactive: boolean): Promise<string> {
-  if (hasValidToken()) return token!.value
+export async function getToken(clientId: string, interactive: boolean, force = false): Promise<string> {
+  if (!force && hasValidToken()) return token!.value
   if (!clientId.trim()) throw new Error('Keine Google-Client-ID hinterlegt')
   await loadGis()
   return new Promise<string>((resolve, reject) => {
@@ -97,7 +118,7 @@ export async function getToken(clientId: string, interactive: boolean): Promise<
           reject(silent ? new NeedAuthError() : new Error(r.error_description || r.error || 'Anmeldung fehlgeschlagen'))
           return
         }
-        token = { value: r.access_token, expiresAt: Date.now() + Number(r.expires_in ?? 3600) * 1000 }
+        setToken({ value: r.access_token, expiresAt: Date.now() + Number(r.expires_in ?? 3600) * 1000 })
         resolve(r.access_token)
       },
       error_callback: (e) => {
@@ -111,13 +132,12 @@ export async function getToken(clientId: string, interactive: boolean): Promise<
 
 export function revokeToken(): void {
   if (token && window.google?.accounts?.oauth2) window.google.accounts.oauth2.revoke(token.value)
-  token = null
+  setToken(null)
 }
 
 export function forgetToken(): void {
-  token = null
+  setToken(null)
 }
-
 // ---------- Drive-REST ----------
 async function drive(path: string, accessToken: string, init: RequestInit = {}): Promise<Response> {
   const res = await fetch(path, { ...init, headers: { Authorization: `Bearer ${accessToken}`, ...(init.headers ?? {}) } })

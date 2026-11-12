@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from 'react'
+﻿import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from 'react'
 import { AlertTriangle, Check, CloudUpload, Info, X } from 'lucide-react'
 
 export type ToastKind = 'success' | 'info' | 'warning' | 'error' | 'sync'
@@ -21,6 +21,8 @@ interface ToastItem extends ToastOptions {
 interface ToastCtx {
   show: (t: ToastOptions) => number
   dismiss: (id: number) => void
+  /** Schließt alle Meldungen mit dieser Kennung */
+  dismissKey: (key: string) => void
 }
 
 const Ctx = createContext<ToastCtx | null>(null)
@@ -62,7 +64,14 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     [dismiss],
   )
 
-  const value = useMemo(() => ({ show, dismiss }), [show, dismiss])
+  const dismissKey = useCallback((key: string) => {
+    setItems((l) => {
+      for (const x of l) if (x.key === key) { const t = timers.current.get(x.id); if (t) clearTimeout(t); timers.current.delete(x.id) }
+      return l.filter((x) => x.key !== key)
+    })
+  }, [])
+
+  const value = useMemo(() => ({ show, dismiss, dismissKey }), [show, dismiss, dismissKey])
 
   return (
     <Ctx.Provider value={value}>

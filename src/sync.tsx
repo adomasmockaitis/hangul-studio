@@ -1,6 +1,6 @@
 ﻿import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useToast } from './components/Toasts'
-import { forgetToken, hasValidToken, NeedAuthError, refreshTokenSilently, revokeToken, syncOnce, tokenExpiresAt, type SyncResult } from './lib/driveSync'
+import { forgetToken, getToken, hasValidToken, NeedAuthError, revokeToken, syncOnce, tokenExpiresAt, type SyncResult } from './lib/driveSync'
 import { fingerprint, LOCAL_ONLY_SETTINGS, type SyncPayload } from './lib/merge'
 import { useApp } from './store'
 
@@ -108,7 +108,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         kind: 'warning',
         key: 'reauth',
         title: 'Bitte erneut bei Google anmelden',
-        text: 'Die Anmeldung ist abgelaufen – das passiert bei Google nach etwa einer Stunde. Deine Daten sind sicher.',
+        text: 'Google gibt Web-Apps nur kurze Anmeldungen. Ein Klick genügt, deine Daten sind sicher.',
         action: { label: 'Anmelden', onClick: () => void connectRef.current() },
         duration: null,
       })
@@ -155,7 +155,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         if (e instanceof NeedAuthError) {
           setState('needs-auth')
           setError(e.message)
-          if (enabled || interactive) askReauth(interactive)
+          if (interactive) askReauth(true) // automatische Läufe bleiben still: die Anmeldung wird beim nächsten Klick erneuert
         } else {
           const msg = e instanceof Error ? e.message : 'Synchronisation fehlgeschlagen'
           setState('error')
@@ -207,27 +207,53 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     return () => clearTimeout(id)
   }, [words, deleted, activity, settings, enabled, clientId, getLocal, run])
 
-  // Anmeldung rechtzeitig vor Ablauf still erneuern (Google-Zugriff gilt nur ~1 Stunde)
-  useEffect(() => {
-    if (!enabled || !clientId) return
-    const check = async () => {
-      if (busy.current) return
-      const exp = tokenExpiresAt()
-      if (exp === null || exp - Date.now() > 6 * 60_000) return
-      try {
-        await refreshTokenSilently(clientId)
-        setState((s) => (s === 'needs-auth' ? 'idle' : s))
-      } catch (e) {
-        if (e instanceof NeedAuthError && Date.now() >= exp - 30_000) {
-          setState('needs-auth')
-          askReauth()
-        }
-      }
-    }
-    const iv = setInterval(check, 60_000)
-    return () => clearInterval(iv)
-  }, [enabled, clientId, askReauth])
+  // Anmeldung erneuern. Google erlaubt das nur direkt nach einem Klick (sonst blockiert der Browser das kurze
+  // Anmeldefenster). Deshalb: Läuft die Anmeldung bald ab oder fehlt sie nach einem Neustart, wird sie beim
+  // nächsten Klick irgendwo in der App erneuert – das Fenster schließt sich von selbst, wenn du schon zugestimmt hast.
+  const [needsGesture, setNeedsGesture] = useState(false)
+  const lastGestureTry = useRef(0)
 
+  useEffect(() => {
+    if (!enabled || !clientId) {
+      setNeedsGesture(false)
+      return
+    }
+    const check = () => {
+      const exp = tokenExpiresAt()
+      setNeedsGesture(exp === null || exp - Date.now() < 8 * 60_000)
+    }
+    check()
+    const iv = setInterval(check, 30_000)
+    return () => clearInterval(iv)
+  }, [enabled, clientId, state])
+
+  useEffect(() => {
+    if (!needsGesture) return
+    const opts = { capture: true } as const
+    const handler = () => {
+      cleanup()
+      if (busy.current || Date.now() - lastGestureTry.current < 60_000) return
+      lastGestureTry.current = Date.now()
+      void (async () => {
+        try {
+          await getToken(clientId, true, true)
+          toast.dismissKey('reauth')
+          setNeedsGesture(false)
+          await run(false)
+        } catch {
+          setState('needs-auth')
+          askReauth(true)
+        }
+      })()
+    }
+    const cleanup = () => {
+      document.removeEventListener('pointerdown', handler, opts)
+      document.removeEventListener('keydown', handler, opts)
+    }
+    document.addEventListener('pointerdown', handler, opts)
+    document.addEventListener('keydown', handler, opts)
+    return cleanup
+  }, [needsGesture, clientId, run, toast, askReauth])
   // Beim Zurückkehren in den Tab und regelmäßig abgleichen
   useEffect(() => {
     if (!enabled || !clientId) return
