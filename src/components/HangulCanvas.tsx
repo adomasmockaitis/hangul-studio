@@ -595,9 +595,19 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
         </div>
       )}
 
-      {/* Schwebende Leiste: Ergebnis + Aktionen, damit man nach dem Prüfen nicht scrollen muss (auf dem Handy über der Tab-Leiste) */}
+      {/* Schwebende Leiste: Ergebnis + Aktionen. Der ganze Kasten färbt sich passend zum Ergebnis (grün = richtig, rot = falsch). */}
       <div className="sticky bottom-[5.25rem] z-20 md:bottom-3">
-        <div className="space-y-2 rounded-2xl border border-black/[0.08] bg-white/85 p-2.5 shadow-lg backdrop-blur-xl dark:border-white/10 dark:bg-[#2c2c2e]/90">
+        <div
+          className={`space-y-2.5 rounded-2xl border p-3 shadow-lg backdrop-blur-xl transition-colors duration-300 ${
+            result && statusColor === 'green'
+              ? 'border-[#34c759]/50 bg-[#e3f8e8]/95 dark:bg-[#10301b]/95'
+              : result && statusColor === 'red'
+                ? 'border-[#ff3b30]/50 bg-[#ffe5e3]/95 dark:bg-[#3a1512]/95'
+                : result && statusColor === 'amber'
+                  ? 'border-[#ff9500]/50 bg-[#fff0d9]/95 dark:bg-[#38250a]/95'
+                  : 'border-black/[0.08] bg-white/85 dark:border-white/10 dark:bg-[#2c2c2e]/90'
+          }`}
+        >
           {/* Vorläufiges Ergebnis (Input Tools), solange Gemini noch prüft */}
           {phase === 'checking' && preview && (
             <div className="fade-up rounded-xl border border-[#007aff]/30 bg-[#007aff]/10 px-3 py-2 text-sm">
@@ -609,17 +619,9 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
             </div>
           )}
 
-          {/* Ergebnis */}
+          {/* Ergebnis (ohne eigenen Rahmen – der ganze Kasten trägt die Farbe) */}
           {result && (
-            <div
-              className={`fade-up flex items-start gap-3 rounded-xl border px-3 py-2.5 ${
-                statusColor === 'green'
-                  ? 'border-[#34c759]/40 bg-[#34c759]/15'
-                  : statusColor === 'amber'
-                    ? 'border-[#ff9500]/40 bg-[#ff9500]/15'
-                    : 'border-[#ff3b30]/40 bg-[#ff3b30]/15'
-              }`}
-            >
+            <div className="fade-up flex items-start gap-3">
               {statusColor === 'green' ? <Check className="mt-0.5 shrink-0 text-[#34c759]" /> : statusColor === 'amber' ? <AlertTriangle className="mt-0.5 shrink-0 text-[#ff9500]" /> : <X className="mt-0.5 shrink-0 text-[#ff3b30]" />}
               <div className="max-h-32 min-w-0 flex-1 overflow-y-auto text-sm">
                 {result.error ? (
@@ -629,58 +631,39 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
                       <button className="btn-soft mt-2" onClick={() => { setResult(null); setPhase('reveal') }}>Stattdessen selbst prüfen</button>
                     )}
                   </>
-                ) : result.correct ? (
-                  <>
-                    <p className="font-semibold">Richtig! {result.read ? <span className="ml-1 text-lg">{result.read}</span> : null}</p>
-                    {result.feedback && <p className="text-black/60 dark:text-white/60">{result.feedback}</p>}
-                    {result.meta && <p className="text-xs text-black/40 dark:text-white/40">{result.meta}</p>}
-                  </>
                 ) : (
                   <>
-                    <p>
-                      <span className="font-semibold">Leider falsch.</span>{' '}
-                      {result.via && !keyboard ? result.via + ' las' : 'Du hast eingegeben'}:{' '}
-                      <span className="text-lg font-semibold">{result.read || '(nichts erkannt)'}</span>
-                      <span className="mx-1.5 text-black/30 dark:text-white/30">·</span>
-                      Gesucht: <span className="text-lg font-semibold">{target}</span>
-                    </p>
+                    {result.correct ? (
+                      <p className="font-semibold">Richtig! {result.read ? <span className="ml-1 text-lg">{result.read}</span> : null}</p>
+                    ) : (
+                      <p>
+                        <span className="font-semibold">Leider falsch.</span>{' '}
+                        {result.via && !keyboard ? result.via + ' las' : 'Du hast eingegeben'}:{' '}
+                        <span className="text-lg font-semibold">{result.read || '(nichts erkannt)'}</span>
+                        <span className="mx-1.5 text-black/30 dark:text-white/30">·</span>
+                        Gesucht: <span className="text-lg font-semibold">{target}</span>
+                      </p>
+                    )}
                     {result.feedback && <p className="text-black/60 dark:text-white/60">{result.feedback}</p>}
-                    {result.meta && <p className="text-xs text-black/40 dark:text-white/40">{result.meta}</p>}
+                    <p className="text-xs text-black/45 dark:text-white/45">
+                      {[
+                        result.meta,
+                        phase === 'result' && result.via === 'Gemini' ? '⚠ Gemini kann sich irren.' : '',
+                        phase === 'result' && result.via === 'Input Tools' && !itFeedback ? 'Hat Input Tools richtig erkannt?' : '',
+                        phase === 'result' && result.via === 'Input Tools' && itFeedback ? 'Danke – gespeichert ✓' : '',
+                        phase === 'result' && result.via === 'Gemini' && disputed ? 'Widerspruch gespeichert ✓' : '',
+                      ].filter(Boolean).join(' · ')}
+                    </p>
                   </>
                 )}
               </div>
             </div>
           )}
 
-          {/* Nebenaktionen: Rückmeldung zur Erkennung bzw. Widerspruch – direkt unter dem Ergebnis */}
-          {phase === 'result' && result?.via === 'Input Tools' && (
-            <div className="flex w-full flex-wrap items-center gap-2 text-sm">
-              <span className="text-black/55 dark:text-white/55">Hat Input Tools richtig erkannt?</span>
-              {itFeedback ? (
-                <span className="font-medium text-[#34c759]">Danke – gespeichert ✓</span>
-              ) : (
-                <>
-                  <button className="btn-soft !px-2.5 !py-1.5" onClick={() => rate(true)}><ThumbsUp size={15} /> Richtig erkannt</button>
-                  <button className="btn-soft !px-2.5 !py-1.5" onClick={() => rate(false)}><ThumbsDown size={15} /> Nicht richtig erkannt</button>
-                </>
-              )}
-            </div>
-          )}
-          {phase === 'result' && result?.via === 'Gemini' && (
-            <div className="flex w-full flex-wrap items-center gap-2 text-xs text-black/45 dark:text-white/45">
-              <span>⚠ Gemini kann sich irren.</span>
-              {disputed ? (
-                <span className="font-medium text-[#34c759]">Widerspruch gespeichert ✓</span>
-              ) : (
-                <button className="btn-soft !px-2.5 !py-1 text-xs" onClick={dispute}><Flag size={13} /> Widerspruch</button>
-              )}
-            </div>
-          )}
-
           {bgNote && <p className="text-xs text-black/50 dark:text-white/50">{bgNote}</p>}
 
-          {/* Aktionen: Hauptaktion immer rechts, Nebenaktion links */}
-          <div className="flex items-center gap-2">
+          {/* Aktionen: alle Knöpfe gleich hoch; Hauptaktion immer rechts */}
+          <div className="flex flex-wrap items-center gap-2">
             {phase === 'reveal' ? (
               <>
                 <button className="btn-red flex-1 !py-3" onClick={() => finishReveal(false)}><X size={16} /> Noch unsicher</button>
@@ -688,6 +671,15 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
               </>
             ) : phase === 'result' ? (
               <>
+                {result?.via === 'Gemini' && !disputed && (
+                  <button className="btn-soft !py-3" onClick={dispute}><Flag size={15} /> Widerspruch</button>
+                )}
+                {result?.via === 'Input Tools' && !itFeedback && (
+                  <>
+                    <button className="btn-soft !py-3" onClick={() => rate(true)}><ThumbsUp size={15} /> Richtig erkannt</button>
+                    <button className="btn-soft !py-3" onClick={() => rate(false)}><ThumbsDown size={15} /> Nicht erkannt</button>
+                  </>
+                )}
                 {!result?.correct && <button className="btn-soft !py-3" onClick={retry}>Nochmal versuchen</button>}
                 {onNext && <button className="btn-primary ml-auto !py-3" onClick={onNext}>{nextLabel} <ArrowRight size={16} /></button>}
               </>
