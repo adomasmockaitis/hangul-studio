@@ -1,5 +1,5 @@
 ﻿import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { ArrowDown, ArrowUp, Download, Zap, Eye, EyeOff, Loader2, Monitor, Moon, RefreshCw, RotateCcw, Sparkles, Sun, Trash2, Upload } from 'lucide-react'
+import { ArrowDown, ArrowUp, Cloud, CloudOff, Download, Zap, Eye, EyeOff, Loader2, Monitor, Moon, RefreshCw, RotateCcw, Sparkles, Sun, Trash2, Upload } from 'lucide-react'
 import { PageHeader, Segmented, Toggle } from '../components/ui'
 import { playSound } from '../lib/sounds'
 import { listModels, measureModels, MODEL_PRESETS, TIPS_TIME_FACTOR, setLastWorkingModel, warmup, type SpeedResult } from '../lib/gemini'
@@ -8,6 +8,7 @@ import { clearDisputes, loadDisputes } from '../lib/geminiDisputes'
 import { clearSamples, loadSamples, summarize } from '../lib/inputToolsLog'
 import { BATCH_SIZE, clearPending, loadPending, processPending } from '../lib/inputToolsQueue'
 import { useApp } from '../store'
+import { useSync } from '../sync'
 import { CONJUGATION_KEYS, CONJUGATION_LABELS, type CanvasBackground, type CheckMethod, type StrokeStyleMode, type ThemeMode } from '../types'
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
@@ -32,6 +33,7 @@ function Row({ title, desc, children, stack }: { title: string; desc?: string; c
 }
 
 export function SettingsView({ onRestartOnboarding }: { onRestartOnboarding?: () => void }) {
+  const sync = useSync()
   const { settings, updateSettings, exportBackup, importBackup, words, resetStats, restoreDemo, clearAll } = useApp()
   const [showKey, setShowKey] = useState(false)
   const [withKey, setWithKey] = useState(false)
@@ -338,6 +340,65 @@ export function SettingsView({ onRestartOnboarding }: { onRestartOnboarding?: ()
               </label>
             ))}
           </div>
+        </Row>
+      </Section>
+
+      <Section title="Synchronisation (Google Drive)">
+        <Row
+          title="Geräte automatisch abgleichen"
+          desc="Speichert deinen Lernstand in einem versteckten App-Ordner deines eigenen Google Drive und gleicht ihn zwischen PC, Tablet und Smartphone ab. Nur diese App kann die Datei lesen."
+          stack
+        >
+          {!sync.clientId ? (
+            <>
+              <p className="text-sm text-black/60 dark:text-white/60">
+                Für die Anmeldung braucht die App eine <b>Google-Client-ID</b>. Wie du sie in wenigen Minuten erstellst, steht in der{' '}
+                <a className="font-medium text-[#007aff]" href="https://github.com/adomasmockaitis/hangul-studio/blob/main/docs/GOOGLE-DRIVE-SYNC.md" target="_blank" rel="noreferrer">Anleitung</a>.
+              </p>
+              <input
+                className="input"
+                spellCheck={false}
+                placeholder="1234567890-abc….apps.googleusercontent.com"
+                value={settings.googleClientId}
+                onChange={(e) => updateSettings({ googleClientId: e.target.value })}
+              />
+            </>
+          ) : (
+            <>
+              <div className="flex flex-wrap items-center gap-3">
+                {!sync.enabled || sync.state === 'needs-auth' ? (
+                  <button className="btn-primary" onClick={() => void sync.connect()} disabled={sync.state === 'syncing'}>
+                    {sync.state === 'syncing' ? <Loader2 size={16} className="animate-spin" /> : <Cloud size={16} />}
+                    {sync.enabled ? 'Erneut verbinden' : 'Mit Google Drive verbinden'}
+                  </button>
+                ) : (
+                  <>
+                    <button className="btn-primary" onClick={() => void sync.syncNow()} disabled={sync.state === 'syncing'}>
+                      {sync.state === 'syncing' ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />} Jetzt synchronisieren
+                    </button>
+                    <button className="btn-soft" onClick={sync.disconnect}><CloudOff size={16} /> Trennen</button>
+                  </>
+                )}
+              </div>
+              <p className="text-sm text-black/60 dark:text-white/60">
+                {sync.state === 'error' ? <span className="text-[#ff3b30]">{sync.error}</span>
+                  : sync.state === 'needs-auth' ? 'Bitte kurz erneut mit Google verbinden (die Anmeldung ist abgelaufen).'
+                  : sync.enabled ? `✓ Verbunden${sync.lastSync ? ` · zuletzt synchronisiert ${new Date(sync.lastSync).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' })}` : ''}`
+                  : 'Noch nicht verbunden.'}
+              </p>
+              <div className="flex items-center justify-between gap-3 rounded-xl bg-black/[0.04] p-3 dark:bg-white/5">
+                <div>
+                  <p className="text-sm font-medium">API-Key mitsynchronisieren</p>
+                  <p className="text-xs text-black/50 dark:text-white/50">Standardmäßig aus: Der Key bleibt nur auf diesem Gerät.</p>
+                </div>
+                <Toggle checked={settings.syncApiKey} onChange={(syncApiKey) => updateSettings({ syncApiKey })} label="API-Key synchronisieren" />
+              </div>
+              <details className="text-sm text-black/55 dark:text-white/55">
+                <summary className="cursor-pointer">Eigene Client-ID verwenden</summary>
+                <input className="input mt-2" spellCheck={false} placeholder="…apps.googleusercontent.com" value={settings.googleClientId} onChange={(e) => updateSettings({ googleClientId: e.target.value })} />
+              </details>
+            </>
+          )}
         </Row>
       </Section>
 

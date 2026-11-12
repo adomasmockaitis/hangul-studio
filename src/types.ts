@@ -27,6 +27,8 @@ export interface WordItem {
   createdAt: number
   conjugations?: Conjugations
   stats: WordStats
+  /** Zeitpunkt der letzten Änderung (für den Geräte-Abgleich) */
+  updatedAt?: number
 }
 
 export type ThemeMode = 'light' | 'dark' | 'system'
@@ -62,6 +64,12 @@ export interface Settings {
   soundVolume: number
   activeConjugations: ConjugationKey[]
   strokeWidth: number
+  /** Eigene Google-Client-ID für die Drive-Synchronisation (überschreibt die eingebaute) – bleibt auf dem Gerät */
+  googleClientId: string
+  /** API-Key bei der Synchronisation mitnehmen (aus Sicherheitsgründen standardmäßig aus) – bleibt auf dem Gerät */
+  syncApiKey: boolean
+  /** Zeitpunkt der letzten Änderung der (synchronisierten) Einstellungen */
+  settingsUpdatedAt?: number
 }
 
 /** date (YYYY-MM-DD) -> Anzahl geprüfter Karten */

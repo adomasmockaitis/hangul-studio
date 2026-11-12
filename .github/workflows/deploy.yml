@@ -28,6 +28,8 @@ jobs:
       - run: npm run build
         env:
           VITE_BASE: /hangul-studio/
+          # Öffentliche Google-Client-ID (kein Geheimnis); als Repository-Variable GOOGLE_CLIENT_ID setzen
+          VITE_GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

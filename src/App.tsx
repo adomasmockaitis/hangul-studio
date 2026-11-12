@@ -4,6 +4,7 @@ import { AiStatusPill } from './components/AiStatusPill'
 import { isOnboarded, Onboarding } from './components/Onboarding'
 import { warmup } from './lib/gemini'
 import { AppProvider, useApp } from './store'
+import { SyncProvider } from './sync'
 import { Dashboard } from './views/Dashboard'
 import { Dictionary } from './views/Dictionary'
 import { Learn } from './views/Learn'
@@ -96,7 +97,9 @@ function Shell() {
 export default function App() {
   return (
     <AppProvider>
-      <Shell />
+      <SyncProvider>
+        <Shell />
+      </SyncProvider>
     </AppProvider>
   )
 }

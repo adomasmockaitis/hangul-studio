@@ -61,6 +61,7 @@ Eine schlichte Web-App im Apple-Look (iOS/macOS), die komplett im Browser läuft
 - **Dezente Klänge** (richtig, falsch, geschafft), synthetisiert im Browser. Lautstärke und Ein/Aus einstellbar.
 - Hell-/Dunkelmodus (oder System), Navigation per Sidebar (Desktop) bzw. Tab-Leiste (Mobil/Tablet).
 - **Backup** als `.json` zum Übertragen zwischen PC, Tablet und Smartphone.
+- **Google-Drive-Synchronisation** (optional): gleicht Vokabeln, Lernstand und Einstellungen automatisch zwischen deinen Geräten ab, über einen versteckten App-Ordner in *deinem* Drive. Einrichtung: [docs/GOOGLE-DRIVE-SYNC.md](docs/GOOGLE-DRIVE-SYNC.md).
 
 ---
 
@@ -143,6 +144,7 @@ korean;german;pronunciation;wordType;tags;presentPolite;presentFormal;pastPolite
 - **Alles liegt lokal im Browser** (`localStorage`): Vokabeln, Lernstand, Einstellungen und API-Key. Es gibt keinen eigenen Server und kein Konto.
 - Daten gelten **pro Gerät und pro Adresse**. Die gehostete Seite und `localhost` haben getrennte Daten.
 - **Umziehen:** *Einstellungen → Backup → Exportieren* und auf dem anderen Gerät *Importieren* (zusammenführen oder ersetzen). Der API-Key ist nur auf Wunsch im Backup.
+- **Automatisch abgleichen (optional):** Mit der Google-Drive-Synchronisation (*Einstellungen → Synchronisation*) wird dein Stand in einer einzigen Datei im versteckten App-Ordner deines eigenen Drive gehalten. Die App fragt dafür nur den Zugriff auf diesen App-Ordner an (`drive.appdata`), nicht auf deine anderen Dateien. Jede Person, die sich anmeldet, nutzt ihr eigenes Konto und ihren eigenen Ordner; der Betreiber der Seite sieht keine Daten. Zusammenführung: pro Wort gewinnt die neuere Änderung, beim Lernstand gehen keine Zähler verloren, gelöschte Wörter werden übertragen. Der API-Key wird nur auf ausdrücklichen Wunsch mitsynchronisiert. Details und Einrichtung: [docs/GOOGLE-DRIVE-SYNC.md](docs/GOOGLE-DRIVE-SYNC.md).
 - **Was ins Internet geht:**
   - **Gemini:** Bei der KI-Prüfung ein kleines Bild deiner Schrift (nur beim Prüfen), beim Datei-Scanner die hochgeladene Datei bzw. der Text, jeweils direkt an Google.
   - **Input Tools:** Die Strichkoordinaten deiner Schrift (kein Bild) an Google.
@@ -187,6 +189,8 @@ src/
     srs.ts                Wiederholungslogik
     sounds.ts             synthetisierte Klänge
     devExport.ts          Entwickler-Export (.zip)
+    driveSync.ts, merge.ts   Google-Drive-Anbindung und Zusammenführung der Geräte-Stände
+  sync.tsx                Steuerung der automatischen Synchronisation
 ```
 
 ---
