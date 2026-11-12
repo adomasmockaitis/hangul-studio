@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react'
+﻿import { useMemo, useState } from 'react'
 import { ArrowLeft, ArrowRight, GraduationCap, Play, Volume2 } from 'lucide-react'
 import { HangulCanvas } from '../components/HangulCanvas'
+import { DoneCard } from '../components/DoneCard'
 import { WriteQuestion } from '../components/questions'
 import { Runner, type Q } from '../components/Runner'
 import { PageHeader, Segmented } from '../components/ui'
@@ -45,6 +46,7 @@ export function ConjugationTrainer({ onDashboard }: { onDashboard: () => void })
   const [questions, setQuestions] = useState<Q[] | null>(null)
   const [learn, setLearn] = useState<Pair[] | null>(null)
   const [idx, setIdx] = useState(0)
+  const [learnDone, setLearnDone] = useState(false)
 
   const pool = useMemo<Pair[]>(
     () =>
@@ -61,6 +63,7 @@ export function ConjugationTrainer({ onDashboard }: { onDashboard: () => void })
     if (mode === 'learn') {
       setLearn(pool)
       setIdx(0)
+      setLearnDone(false)
       return
     }
     const picked = shuffle(pool).slice(0, count || pool.length)
@@ -115,6 +118,13 @@ export function ConjugationTrainer({ onDashboard }: { onDashboard: () => void })
           <span className="text-sm tabular-nums text-black/55 dark:text-white/55">{idx + 1} / {learn.length}</span>
           <button className="btn-soft" disabled={idx >= learn.length - 1} onClick={() => setIdx(idx + 1)}><ArrowRight size={16} /></button>
         </div>
+        {learnDone ? (
+          <DoneCard
+            text={`Du bist alle ${learn.length} Formen durchgegangen.`}
+            onDashboard={onDashboard}
+            onRepeat={() => { setIdx(0); setLearnDone(false) }}
+          />
+        ) : (
         <div className="space-y-5" key={`${p.word.id}-${p.form}`}>
           <div className="card fade-up p-6 text-center">
             <BaseWord word={p.word} show={show} />
@@ -131,11 +141,12 @@ export function ConjugationTrainer({ onDashboard }: { onDashboard: () => void })
             <HangulCanvas
               target={p.answer}
               onResult={() => undefined}
-              onNext={idx < learn.length - 1 ? () => setIdx(idx + 1) : undefined}
-              nextLabel="Nächste Form"
+              onNext={idx < learn.length - 1 ? () => setIdx(idx + 1) : () => setLearnDone(true)}
+              nextLabel={idx < learn.length - 1 ? 'Nächste Form' : 'Abschließen'}
             />
           </div>
         </div>
+        )}
       </div>
     )
   }
