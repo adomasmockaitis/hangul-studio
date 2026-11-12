@@ -1,0 +1,46 @@
+﻿@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif;
+  --color-accent: #007aff;
+}
+
+:root { color-scheme: light; }
+.dark { color-scheme: dark; }
+
+html, body, #root { height: 100%; }
+body {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  background: #f2f2f7;
+  color: #1c1c1e;
+}
+.dark body { background: #000; color: #f5f5f7; }
+
+/* Dropdowns: explizite Farben, damit Text nie weiß auf weiß ist */
+select { color: #0f172a; background-color: #ffffff; }
+select option, select optgroup { background-color: #ffffff; color: #0f172a; }
+.dark select { color: #f4f4f5; background-color: #27272a; }
+.dark select option, .dark select optgroup { background-color: #27272a; color: #f4f4f5; }
+
+@utility card {
+  @apply rounded-2xl border border-black/[0.06] bg-white/80 shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-[#1c1c1e]/80;
+}
+@utility btn {
+  @apply inline-flex items-center justify-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-medium transition active:scale-[0.97] disabled:opacity-40;
+}
+@utility btn-primary { @apply btn bg-[#007aff] text-white hover:bg-[#0a84ff]; }
+@utility btn-soft { @apply btn bg-black/[0.05] text-[#1c1c1e] hover:bg-black/10 dark:bg-white/10 dark:text-white dark:hover:bg-white/15; }
+@utility btn-green { @apply btn bg-[#34c759] text-white hover:brightness-105; }
+@utility btn-red { @apply btn bg-[#ff3b30] text-white hover:brightness-105; }
+@utility input {
+  @apply w-full rounded-xl border border-black/10 bg-white/70 px-3.5 py-2.5 text-sm outline-none transition focus:border-[#007aff] focus:ring-2 focus:ring-[#007aff]/30 dark:border-white/10 dark:bg-white/5;
+}
+@utility label { @apply text-xs font-medium uppercase tracking-wide text-black/50 dark:text-white/50; }
+
+@keyframes fade-up { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.fade-up { animation: fade-up .35s ease-out both; }
+
+@keyframes stroke-draw { from { stroke-dashoffset: var(--len); } to { stroke-dashoffset: 0; } }
+

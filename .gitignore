@@ -1,0 +1,11 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.vite/
+.env
+.env.*
+# lokale Entwicklungs-Einstellungen des Editors/Assistenten
+.claude/
+# Windows
+Thumbs.db
+Desktop.ini
