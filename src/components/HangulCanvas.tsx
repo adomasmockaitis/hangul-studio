@@ -650,52 +650,58 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
 
       {bgNote && <p className="text-xs text-black/50 dark:text-white/50">{bgNote}</p>}
 
-      {/* Aktionen */}
-      <div className="flex flex-wrap items-center gap-2">
-        {phase === 'reveal' ? (
-          <>
-            <button className="btn-green flex-1" onClick={() => finishReveal(true)}><Check size={16} /> Richtig gewusst</button>
-            <button className="btn-red flex-1" onClick={() => finishReveal(false)}><X size={16} /> Noch unsicher</button>
-          </>
-        ) : phase === 'result' ? (
-          <>
-            {result?.via === 'Input Tools' && (
-              <div className="flex w-full flex-wrap items-center gap-2 text-sm">
-                <span className="text-black/55 dark:text-white/55">Hat Input Tools richtig erkannt?</span>
-                {itFeedback ? (
-                  <span className="font-medium text-[#34c759]">Danke – gespeichert ✓</span>
-                ) : (
-                  <>
-                    <button className="btn-soft" onClick={() => rate(true)}><ThumbsUp size={15} /> Richtig erkannt</button>
-                    <button className="btn-soft" onClick={() => rate(false)}><ThumbsDown size={15} /> Nicht richtig erkannt</button>
-                  </>
-                )}
-              </div>
-            )}
-            {result?.via === 'Gemini' && (
-              <div className="flex w-full flex-wrap items-center gap-2 text-xs text-black/45 dark:text-white/45">
-                <span>⚠ Gemini kann sich irren.</span>
-                {disputed ? (
-                  <span className="font-medium text-[#34c759]">Widerspruch gespeichert ✓</span>
-                ) : (
-                  <button className="btn-soft !px-2.5 !py-1 text-xs" onClick={dispute}><Flag size={13} /> Widerspruch</button>
-                )}
-              </div>
-            )}
-            {!result?.correct && <button className="btn-soft" onClick={retry}>Nochmal versuchen</button>}
-            {onNext && <button className="btn-primary ml-auto" onClick={onNext}>{nextLabel} <ArrowRight size={16} /></button>}
-          </>
-        ) : (
-          <button className="btn-primary flex-1 sm:flex-none" onClick={() => void check()} disabled={phase === 'checking' || (keyboard && !typed.trim())}>
-            {phase === 'checking' ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
-            {phase === 'checking' ? 'Prüfe... (wechsle bei Überlastung automatisch Server)' : 'Prüfen'}
-          </button>
-        )}
-        {!keyboard && phase === 'idle' && (
-          <span className="text-xs text-black/45 dark:text-white/45">
-            {firstMethod === 'inputtools' ? 'Prüfung: Input Tools' : firstMethod === 'gemini' ? 'Prüfung: Gemini' : 'Selbst-Check'}
-          </span>
-        )}
+      {/* Nebenaktionen (Feedback zur Erkennung, Widerspruch) */}
+      {phase === 'result' && result?.via === 'Input Tools' && (
+        <div className="flex w-full flex-wrap items-center gap-2 text-sm">
+          <span className="text-black/55 dark:text-white/55">Hat Input Tools richtig erkannt?</span>
+          {itFeedback ? (
+            <span className="font-medium text-[#34c759]">Danke – gespeichert ✓</span>
+          ) : (
+            <>
+              <button className="btn-soft" onClick={() => rate(true)}><ThumbsUp size={15} /> Richtig erkannt</button>
+              <button className="btn-soft" onClick={() => rate(false)}><ThumbsDown size={15} /> Nicht richtig erkannt</button>
+            </>
+          )}
+        </div>
+      )}
+      {phase === 'result' && result?.via === 'Gemini' && (
+        <div className="flex w-full flex-wrap items-center gap-2 text-xs text-black/45 dark:text-white/45">
+          <span>⚠ Gemini kann sich irren.</span>
+          {disputed ? (
+            <span className="font-medium text-[#34c759]">Widerspruch gespeichert ✓</span>
+          ) : (
+            <button className="btn-soft !px-2.5 !py-1 text-xs" onClick={dispute}><Flag size={13} /> Widerspruch</button>
+          )}
+        </div>
+      )}
+
+      {/* Hauptaktionen: schweben am unteren Rand, damit man nicht scrollen muss (auf dem Handy über der Tab-Leiste) */}
+      <div className="sticky bottom-[5.25rem] z-20 md:bottom-3">
+        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-black/[0.08] bg-white/80 p-2 shadow-lg backdrop-blur-xl dark:border-white/10 dark:bg-[#2c2c2e]/85">
+          {phase === 'reveal' ? (
+            <>
+              <button className="btn-green flex-1 !py-3" onClick={() => finishReveal(true)}><Check size={16} /> Richtig gewusst</button>
+              <button className="btn-red flex-1 !py-3" onClick={() => finishReveal(false)}><X size={16} /> Noch unsicher</button>
+            </>
+          ) : phase === 'result' ? (
+            <>
+              {!result?.correct && <button className="btn-soft !py-3" onClick={retry}>Nochmal versuchen</button>}
+              {onNext && <button className="btn-primary ml-auto !py-3" onClick={onNext}>{nextLabel} <ArrowRight size={16} /></button>}
+            </>
+          ) : (
+            <>
+              <button className="btn-primary flex-1 !py-3 sm:flex-none" onClick={() => void check()} disabled={phase === 'checking' || (keyboard && !typed.trim())}>
+                {phase === 'checking' ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
+                {phase === 'checking' ? 'Prüfe... (wechsle bei Überlastung automatisch Server)' : 'Prüfen'}
+              </button>
+              {!keyboard && phase === 'idle' && (
+                <span className="px-1 text-xs text-black/45 dark:text-white/45">
+                  {firstMethod === 'inputtools' ? 'Prüfung: Input Tools' : firstMethod === 'gemini' ? 'Prüfung: Gemini' : 'Selbst-Check'}
+                </span>
+              )}
+            </>
+          )}
+        </div>
       </div>
     </div>
   )
