@@ -41,6 +41,7 @@ export const DEFAULT_SETTINGS: Settings = {
   showStrokeOrder: false,
   strokeOrderStyle: 'numbers',
   autoSpeak: false,
+  speechMode: 'both',
   soundEffects: true,
   soundVolume: 0.5,
   activeConjugations: ['presentPolite'],

@@ -1,9 +1,9 @@
-import { useMemo, useState } from 'react'
+﻿import { useMemo, useState } from 'react'
 import { Loader2, Pencil, Plus, Search, Sparkles, Trash2, Volume2 } from 'lucide-react'
 import { Modal, PageHeader } from '../components/ui'
 import { parseTags, UploadScanner } from '../components/UploadScanner'
 import { completeWord } from '../lib/gemini'
-import { speak } from '../lib/speech'
+import { speakWord } from '../lib/speech'
 import { useApp } from '../store'
 import { CONJUGATION_KEYS, CONJUGATION_LABELS, WORD_TYPE_LABELS, type Conjugations, type WordItem, type WordType } from '../types'
 
@@ -131,7 +131,7 @@ export function Dictionary() {
                   {rate >= 0 && <span className={rate > 0.4 ? 'font-medium text-[#ff3b30]' : ''}>· {Math.round(rate * 100)}% Fehler</span>}
                 </p>
               </div>
-              <button className="btn-soft !p-2" onClick={() => speak(w.korean)} aria-label="Vorlesen"><Volume2 size={16} /></button>
+              <button className="btn-soft !p-2" onClick={() => speakWord(w, settings.speechMode)} aria-label="Vorlesen"><Volume2 size={16} /></button>
               <button className="btn-soft !p-2" onClick={() => setEditing({ id: w.id, draft: toDraft(w) })} aria-label="Bearbeiten"><Pencil size={16} /></button>
               <button className="btn-soft !p-2 !text-[#ff3b30]" onClick={() => confirm(`„${w.korean}“ löschen?`) && deleteWord(w.id)} aria-label="Löschen"><Trash2 size={16} /></button>
             </div>

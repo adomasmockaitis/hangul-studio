@@ -1,6 +1,6 @@
 ﻿import { useEffect, useState } from 'react'
 import { ChevronDown, Volume2 } from 'lucide-react'
-import { speak } from '../lib/speech'
+import { speak, speakWord } from '../lib/speech'
 import { useApp } from '../store'
 import { CONJUGATION_LABELS, WORD_TYPE_LABELS, type ConjugationKey, type WordItem } from '../types'
 import { HangulCanvas } from './HangulCanvas'
@@ -22,7 +22,7 @@ export function WordCard({ word, mode, onResult, onRevise, onNext, nextLabel }: 
   const [done, setDone] = useState(false)
 
   useEffect(() => {
-    if (settings.autoSpeak) speak(word.korean)
+    if (settings.autoSpeak) speakWord(word, settings.speechMode)
     // nur bei neuer Karte vorlesen
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [word.id])
@@ -53,7 +53,7 @@ export function WordCard({ word, mode, onResult, onRevise, onNext, nextLabel }: 
         )}
 
         <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-          <button className="btn-soft" onClick={() => speak(word.korean)}><Volume2 size={16} /> Anhören</button>
+          <button className="btn-soft" onClick={() => speakWord(word, settings.speechMode)}><Volume2 size={16} /> Anhören</button>
           {word.pronunciation && (
             <button className="btn-soft" onClick={() => setShowPron((s) => !s)}>
               {showPron ? 'Aussprachehilfe ausblenden' : 'Aussprachehilfe einblenden'}
@@ -95,7 +95,7 @@ export function WordCard({ word, mode, onResult, onRevise, onNext, nextLabel }: 
           </div>
           <div className="flex shrink-0 items-center gap-2">
             {!hideKorean && <span className="text-3xl font-bold sm:text-4xl">{word.korean}</span>}
-            <button className="btn-soft !p-2" onClick={() => speak(word.korean)} aria-label="Anhören"><Volume2 size={18} /></button>
+            <button className="btn-soft !p-2" onClick={() => speakWord(word, settings.speechMode)} aria-label="Anhören"><Volume2 size={18} /></button>
           </div>
         </div>
         <HangulCanvas

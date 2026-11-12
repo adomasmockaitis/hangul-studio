@@ -1,6 +1,7 @@
 ﻿import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { ArrowDown, ArrowUp, Cloud, CloudOff, Download, Zap, Eye, EyeOff, Loader2, Monitor, Moon, RefreshCw, RotateCcw, Sparkles, Sun, Trash2, Upload } from 'lucide-react'
 import { PageHeader, Segmented, Toggle } from '../components/ui'
+import { speakWord } from '../lib/speech'
 import { playSound } from '../lib/sounds'
 import { formatAgo } from '../lib/time'
 import { listModels, measureModels, MODEL_PRESETS, TIPS_TIME_FACTOR, setLastWorkingModel, warmup, type SpeedResult } from '../lib/gemini'
@@ -10,7 +11,7 @@ import { clearSamples, loadSamples, summarize } from '../lib/inputToolsLog'
 import { BATCH_SIZE, clearPending, loadPending, processPending } from '../lib/inputToolsQueue'
 import { useApp } from '../store'
 import { useSync } from '../sync'
-import { CONJUGATION_KEYS, CONJUGATION_LABELS, type CanvasBackground, type CheckMethod, type StrokeStyleMode, type ThemeMode } from '../types'
+import { CONJUGATION_KEYS, CONJUGATION_LABELS, type CanvasBackground, type CheckMethod, type SpeechMode, type StrokeStyleMode, type ThemeMode } from '../types'
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -319,6 +320,16 @@ export function SettingsView({ onRestartOnboarding, onShowWhatsNew }: { onRestar
       <Section title="Audio & Lernen">
         <Row title="Wort automatisch vorlesen bei neuer Karte">
           <Toggle checked={settings.autoSpeak} onChange={(autoSpeak) => updateSettings({ autoSpeak })} label="Auto-Vorlesen" />
+        </Row>
+        <Row title="Was wird vorgelesen?" desc="Deutsch wird gekürzt gesprochen, z. B. „Schüler/in, Student/in“ → „Schüler, Student“.">
+          <div className="flex flex-wrap items-center gap-2">
+            <Segmented<SpeechMode>
+              value={settings.speechMode}
+              onChange={(speechMode) => updateSettings({ speechMode })}
+              options={[{ value: 'both', label: 'Koreanisch + Deutsch' }, { value: 'ko', label: 'Nur Koreanisch' }, { value: 'de', label: 'Nur Deutsch' }]}
+            />
+            <button className="btn-soft !px-2.5 !py-1 text-xs" onClick={() => speakWord({ korean: '학생', german: 'Schüler/in, Student/in' }, settings.speechMode)}>▶ Probe</button>
+          </div>
         </Row>
         <Row title="Klänge für richtig / falsch" desc="Dezente, leise Töne als Rückmeldung.">
           <Toggle checked={settings.soundEffects} onChange={(soundEffects) => updateSettings({ soundEffects })} label="Klänge" />

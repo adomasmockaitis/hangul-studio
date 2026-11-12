@@ -24,6 +24,14 @@ export interface Release {
 }
 export const RELEASES: Release[] = [
   {
+    id: '2026-11-german-audio',
+    size: 'minor',
+    title: 'Neu in Hangul Studio',
+    subtitle: 'Deutsch vorlesen',
+    summary: 'Wörter werden auch auf Deutsch vorgelesen (gekürzt) – einstellbar: Koreanisch + Deutsch, nur Koreanisch oder nur Deutsch.',
+    features: [],
+  },
+  {
     id: '2026-11-done-card',
     size: 'minor',
     title: 'Neu in Hangul Studio',

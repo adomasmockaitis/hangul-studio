@@ -39,6 +39,8 @@ export interface CheckStep {
   enabled: boolean
 }
 export type StrokeStyleMode = 'numbers' | 'animation'
+/** Was beim Vorlesen eines Worts gesprochen wird */
+export type SpeechMode = 'both' | 'ko' | 'de'
 
 export interface Settings {
   geminiApiKey: string
@@ -59,6 +61,8 @@ export interface Settings {
   showStrokeOrder: boolean
   strokeOrderStyle: StrokeStyleMode
   autoSpeak: boolean
+  /** Vorlesen: Koreanisch + Deutsch, nur Koreanisch oder nur Deutsch */
+  speechMode: SpeechMode
   /** Dezente Klänge bei richtig/falsch usw. */
   soundEffects: boolean
   soundVolume: number

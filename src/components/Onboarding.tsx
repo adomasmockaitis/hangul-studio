@@ -5,11 +5,12 @@ import {
 } from 'lucide-react'
 import { dynamicTimeoutMs, TIPS_TIME_FACTOR } from '../lib/gemini'
 import { markReleaseSeen } from '../lib/releases'
+import { speakWord } from '../lib/speech'
 import { playSound } from '../lib/sounds'
 import { useApp } from '../store'
 import { useSync } from '../sync'
 import {
-  CONJUGATION_KEYS, CONJUGATION_LABELS, type CanvasBackground, type CheckMethod, type StrokeStyleMode, type ThemeMode,
+  CONJUGATION_KEYS, CONJUGATION_LABELS, type CanvasBackground, type CheckMethod, type SpeechMode, type StrokeStyleMode, type ThemeMode,
 } from '../types'
 import { HangulCanvas } from './HangulCanvas'
 import { StrokeOrder } from './StrokeOrder'
@@ -409,6 +410,20 @@ export function Onboarding({ onClose }: { onClose: () => void }) {
                   <p className="text-sm text-black/50 dark:text-white/50">Bei jeder neuen Lernkarte.</p>
                 </div>
                 <Toggle checked={settings.autoSpeak} onChange={(autoSpeak) => updateSettings({ autoSpeak })} label="Auto-Vorlesen" />
+              </div>
+              <div className="space-y-3 p-4">
+                <div>
+                  <p className="font-medium">Was soll vorgelesen werden?</p>
+                  <p className="text-sm text-black/50 dark:text-white/50">Deutsch wird gekürzt gesprochen: „Schüler/in, Student/in“ → „Schüler, Student“.</p>
+                </div>
+                <div className="grid gap-2 sm:grid-cols-3">
+                  {([['both', 'Koreanisch + Deutsch'], ['ko', 'Nur Koreanisch'], ['de', 'Nur Deutsch']] as [SpeechMode, string][]).map(([v, label]) => (
+                    <Choice key={v} active={settings.speechMode === v} onClick={() => { updateSettings({ speechMode: v }); speakWord({ korean: '학생', german: 'Schüler/in, Student/in' }, v) }} className="!py-2.5 text-center">
+                      <span className="text-sm font-medium">{label}</span>
+                    </Choice>
+                  ))}
+                </div>
+                <p className="text-xs text-black/40 dark:text-white/40">Ein Tipp auf eine Auswahl spielt eine Hörprobe ab.</p>
               </div>
               <div className="flex items-center justify-between gap-3 p-4">
                 <div>

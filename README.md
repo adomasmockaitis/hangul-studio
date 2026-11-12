@@ -30,7 +30,7 @@ Eine schlichte Web-App im Apple-Look (iOS/macOS), die komplett im Browser läuft
 ## Features
 
 ### Lernen
-- **Lernkarten** mit koreanischem Grundwort, deutscher Bedeutung (groß direkt am Zeichenfeld), Audio (Sprachausgabe `ko-KR`) und optionaler Aussprachehilfe in Hangul (z. B. `[학꾜]`, nie Romanisierung).
+- **Lernkarten** mit koreanischem Grundwort, deutscher Bedeutung (groß direkt am Zeichenfeld), Audio (Sprachausgabe: Koreanisch `ko-KR` und die Bedeutung auf Deutsch, gekürzt – z. B. „Schüler/in, Student/in“ → „Schüler, Student“; einstellbar: Koreanisch + Deutsch, nur Koreanisch oder nur Deutsch) und optionaler Aussprachehilfe in Hangul (z. B. `[학꾜]`, nie Romanisierung).
 - **Beugungsformen** bei Verben und Adjektiven zum Aufklappen: Präsens höflich (-아요/-어요), Präsens formell (-습니다/-ㅂ니다), Vergangenheit und Zukunft. Welche Formen angezeigt werden, stellst du ein.
 - **Filter und Sortierung** nach Tags (`#Verb`, `#Nomen`, `#Kapitel1` …) und Hinzufügedatum.
 - **Daily Smart Test:** wählt bis zu 15 Wörter nach Fehlerquote, Wiederholungs-Abstand und „noch nie geübt“ (eine einfache Spaced-Repetition-Logik mit `easeFactor` und `streak`).
