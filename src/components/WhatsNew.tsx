@@ -1,5 +1,5 @@
 import { Bell, CheckCircle2, Clock, Cloud, MousePointerClick, Pin, ShieldCheck, type LucideIcon } from 'lucide-react'
-import { LATEST_RELEASE, markReleaseSeen, unseenReleases, type ReleaseIcon } from '../lib/releases'
+import { LATEST_RELEASE, markReleaseSeen, releasePopup, type ReleaseIcon } from '../lib/releases'
 import { playSound } from '../lib/sounds'
 import { useSync } from '../sync'
 
@@ -8,15 +8,15 @@ const ICONS: Record<ReleaseIcon, LucideIcon> = {
 }
 
 /**
- * Großes „Das ist neu“-Fenster im Apple-Stil. Zeigt alle noch nicht gesehenen Updates
- * (so geht nichts verloren, wenn mehrere Updates hintereinander erscheinen).
+ * Großes „Das ist neu“-Fenster im Apple-Stil. Ein Fenster pro Besuch: bis zu drei große Updates
+ * untereinander, dazu kleine Verbesserungen als Zeilen unter „Außerdem“.
  */
 export function WhatsNew({ onClose }: { onClose: () => void }) {
   const sync = useSync()
-  const unseen = unseenReleases()
-  // Aus den Einstellungen aufgerufen, obwohl alles gesehen ist: dann das neueste Update zeigen
-  const releases = unseen.length ? unseen : [LATEST_RELEASE]
-  const wantsSync = releases.some((r) => r.cta === 'sync')
+  const popup = releasePopup(true)
+  const majors = popup?.majors ?? []
+  const minors = popup?.minors ?? []
+  const wantsSync = majors.some((r) => r.cta === 'sync')
   const canConnect = wantsSync && !!sync.clientId && !(sync.enabled && sync.state !== 'needs-auth')
 
   const close = () => {
@@ -34,7 +34,7 @@ export function WhatsNew({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="space-y-7">
-          {releases.map((r) => (
+          {majors.map((r) => (
             <section key={r.id}>
               <h3 className="mb-3 text-center text-[15px] font-semibold text-[#007aff]">{r.subtitle}</h3>
               <ul className="space-y-5">
@@ -55,6 +55,20 @@ export function WhatsNew({ onClose }: { onClose: () => void }) {
               </ul>
             </section>
           ))}
+
+          {minors.length > 0 && (
+            <section>
+              <h3 className="mb-2 text-center text-[15px] font-semibold text-black/50 dark:text-white/50">Außerdem</h3>
+              <ul className="space-y-1.5 rounded-2xl bg-black/[0.04] p-3 text-sm text-black/65 dark:bg-white/5 dark:text-white/65">
+                {minors.map((r) => (
+                  <li key={r.id} className="flex gap-2">
+                    <span className="text-[#007aff]">•</span>
+                    <span>{r.summary}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
         </div>
 
         {wantsSync && (
