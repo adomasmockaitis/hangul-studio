@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Datenschutz – Hangul Studio</title>
+  <style>
+    :root { color-scheme: light dark; --bg:#f2f2f7; --fg:#1c1c1e; --muted:#6b6b70; --card:#fff; --line:#e3e3e8; --accent:#007aff; }
+    @media (prefers-color-scheme: dark) { :root { --bg:#000; --fg:#f5f5f7; --muted:#a1a1a6; --card:#1c1c1e; --line:#2c2c2e; --accent:#0a84ff; } }
+    body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.6 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",system-ui,sans-serif; }
+    main { max-width:760px; margin:0 auto; padding:32px 20px 64px; }
+    h1 { font-size:32px; letter-spacing:-0.02em; margin:0 0 4px; }
+    h2 { font-size:20px; margin:32px 0 8px; }
+    p, li { color:var(--fg); }
+    .muted { color:var(--muted); }
+    .card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:4px 20px 20px; margin-top:20px; }
+    a { color:var(--accent); }
+    code { background:var(--line); padding:1px 6px; border-radius:6px; font-size:0.9em; }
+    hr { border:0; border-top:1px solid var(--line); margin:40px 0; }
+  </style>
+</head>
+<body>
+<main>
+  <p><a href="./">← Zur App</a></p>
+  <h1>Datenschutzerklärung</h1>
+  <p class="muted">Hangul Studio · Stand: November 2026</p>
+
+  <div class="card">
+    <h2>1. Worum es geht</h2>
+    <p>Hangul Studio ist eine kostenlose, private Lern-App für Koreanisch. Sie läuft vollständig in deinem Browser. Es gibt <b>keinen eigenen Server</b>, <b>kein Benutzerkonto</b>, <b>keine Werbung</b> und <b>kein Tracking oder Analyse-Tools</b>.</p>
+
+    <h2>2. Verantwortlich</h2>
+    <p>Betreiber des Projekts: <a href="https://github.com/adomasmockaitis" target="_blank" rel="noreferrer">adomasmockaitis</a> (GitHub). Fragen zum Datenschutz bitte als Anfrage im Projekt: <a href="https://github.com/adomasmockaitis/hangul-studio/issues" target="_blank" rel="noreferrer">github.com/adomasmockaitis/hangul-studio/issues</a>.</p>
+
+    <h2>3. Welche Daten es gibt und wo sie liegen</h2>
+    <p>Vokabeln, Lernstand, Einstellungen und – falls du ihn einträgst – dein Gemini-API-Key werden <b>ausschließlich lokal in deinem Browser</b> (<code>localStorage</code>) gespeichert. Der Betreiber hat darauf keinen Zugriff. Löschst du die Browserdaten, sind sie weg; ein Backup kannst du in den Einstellungen exportieren.</p>
+
+    <h2>4. Google-Anmeldung und Google Drive (optional)</h2>
+    <p>Wenn du die Synchronisation aktivierst, meldest du dich mit deinem Google-Konto an. Die App fragt dabei nur den Zugriff auf den <b>versteckten App-Datenordner</b> deines eigenen Google Drive an (Berechtigung <code>drive.appdata</code>). Sie kann <b>keine anderen Dateien</b> in deinem Drive sehen oder ändern.</p>
+    <ul>
+      <li>In diesem Ordner liegt eine Datei mit deinen Vokabeln, deinem Lernstand und deinen Einstellungen. Der API-Key wird nur dann mitgespeichert, wenn du das ausdrücklich einschaltest.</li>
+      <li>Die Daten gehen direkt zwischen deinem Browser und Google. Sie laufen <b>nicht</b> über Server des Betreibers; der Betreiber kann sie nicht einsehen.</li>
+      <li>Die App speichert keine Google-Zugangsdaten. Das kurzlebige Zugriffstoken bleibt nur im Arbeitsspeicher des Browser-Tabs.</li>
+      <li>Du kannst die Verbindung jederzeit in der App trennen und den Zugriff sowie die gespeicherten App-Daten unter <a href="https://myaccount.google.com/connections" target="_blank" rel="noreferrer">myaccount.google.com/connections</a> löschen.</li>
+    </ul>
+    <p>Die Nutzung und Übertragung von Informationen, die von Google-APIs empfangen werden, durch Hangul Studio entspricht der <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noreferrer">Google API Services User Data Policy</a>, einschließlich der Anforderungen zur eingeschränkten Nutzung (Limited Use). Die Daten werden ausschließlich für die Synchronisationsfunktion verwendet, nicht an Dritte weitergegeben und nicht für Werbung genutzt.</p>
+
+    <h2>5. KI-Prüfung der Handschrift (optional)</h2>
+    <ul>
+      <li><b>Gemini (Google):</b> Nur wenn du einen API-Key einträgst und auf „Prüfen“ klickst, wird ein kleines Bild deiner Handschrift an die Gemini-API von Google gesendet. Beim Datei-Scanner gilt das für die hochgeladene Datei bzw. den eingefügten Text. Es gelten die Bedingungen von Google für die Gemini-API.</li>
+      <li><b>Input Tools (Google):</b> Bei dieser Prüfmethode werden die Koordinaten deiner Striche (kein Bild) an einen Google-Dienst zur Handschrifterkennung gesendet.</li>
+      <li>Beides passiert nur auf deine Aktion hin. Ohne Key und mit abgeschalteten Methoden findet keine solche Übertragung statt (Selbst-Check).</li>
+    </ul>
+
+    <h2>6. Hosting</h2>
+    <p>Die Seite wird über <b>GitHub Pages</b> ausgeliefert. Dabei kann GitHub technisch bedingt Zugriffsdaten (z. B. IP-Adresse) verarbeiten; siehe die <a href="https://docs.github.com/de/site-policy/privacy-policies/github-general-privacy-statement" target="_blank" rel="noreferrer">Datenschutzerklärung von GitHub</a>. Der Betreiber der App erhält daraus keine Auswertung.</p>
+
+    <h2>7. Sprachausgabe und Töne</h2>
+    <p>Die Sprachausgabe nutzt die Funktionen deines Browsers bzw. Geräts. Die Klänge werden im Browser erzeugt. Dabei werden keine Daten übertragen.</p>
+
+    <h2>8. Deine Rechte</h2>
+    <p>Da der Betreiber keine personenbezogenen Daten von dir erhält oder speichert, kannst du alle deine Daten selbst einsehen, exportieren und löschen: in den Einstellungen der App, in deinem Browser und – bei aktivierter Synchronisation – in deinem Google-Konto. Bei Fragen melde dich über die oben genannte Adresse.</p>
+
+    <h2>9. Änderungen</h2>
+    <p>Diese Erklärung wird angepasst, wenn sich Funktionen der App ändern. Die jeweils aktuelle Fassung steht auf dieser Seite.</p>
+  </div>
+
+  <hr />
+
+  <h1 style="font-size:24px">Privacy Policy (summary)</h1>
+  <div class="card">
+    <p>Hangul Studio is a free, private Korean-learning web app that runs entirely in your browser. There is no backend, no account, no ads and no analytics. Your vocabulary, progress and settings are stored locally in your browser (<code>localStorage</code>).</p>
+    <p><b>Google Drive sync (optional):</b> If you enable it, the app requests only the <code>drive.appdata</code> scope: access to a hidden, app-specific folder in <i>your own</i> Google Drive. It cannot see or modify your other files. A single file with your vocabulary, progress and settings is stored there. Data is transferred directly between your browser and Google; the developer has no access. The access token is kept in memory only. You can disconnect in the app and revoke access at <a href="https://myaccount.google.com/connections" target="_blank" rel="noreferrer">myaccount.google.com/connections</a>.</p>
+    <p>Hangul Studio's use and transfer of information received from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noreferrer">Google API Services User Data Policy</a>, including the Limited Use requirements. Data is used only to provide the sync feature, is not shared with third parties and is not used for advertising.</p>
+    <p><b>Handwriting check (optional):</b> If you add a Gemini API key and press “Check”, a small image of your handwriting is sent to Google's Gemini API; the “Input Tools” method sends stroke coordinates to a Google handwriting-recognition service. This only happens on your action.</p>
+    <p><b>Hosting:</b> GitHub Pages, which may process technical access data under its own privacy statement.</p>
+    <p><b>Contact:</b> <a href="https://github.com/adomasmockaitis/hangul-studio/issues" target="_blank" rel="noreferrer">github.com/adomasmockaitis/hangul-studio/issues</a></p>
+  </div>
+</main>
+</body>
+</html>

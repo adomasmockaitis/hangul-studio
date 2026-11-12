@@ -478,6 +478,12 @@ export function SettingsView({ onRestartOnboarding }: { onRestartOnboarding?: ()
           </div>
         </Row>
       </Section>
+      <p className="mb-6 px-2 text-center text-xs text-black/40 dark:text-white/40">
+        <a className="underline" href={`${import.meta.env.BASE_URL}datenschutz.html`} target="_blank" rel="noreferrer">Datenschutz</a>
+        {' · '}
+        <a className="underline" href="https://github.com/adomasmockaitis/hangul-studio" target="_blank" rel="noreferrer">Quellcode auf GitHub</a>
+      </p>
+
       <Section title="Daten">
         <Row title="Lernstände zurücksetzen" desc={`Setzt Statistiken aller ${words.length} Wörter zurück.`}>
           <button className="btn-soft" onClick={() => confirm('Alle Lernstände zurücksetzen?') && resetStats()}><RotateCcw size={16} /> Zurücksetzen</button>
