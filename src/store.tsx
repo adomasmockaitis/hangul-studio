@@ -1,6 +1,7 @@
 ﻿import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { createDemoWords, newStats } from './data/demo'
 import { DEFAULT_MODEL, OBSOLETE_MODELS } from './lib/gemini'
+import { configureSounds } from './lib/sounds'
 import { applyReview, dateKey } from './lib/srs'
 import type { Activity, BackupFile, CheckMethod, CheckStep, Settings, WordItem, WordType } from './types'
 
@@ -37,6 +38,8 @@ export const DEFAULT_SETTINGS: Settings = {
   showStrokeOrder: false,
   strokeOrderStyle: 'numbers',
   autoSpeak: false,
+  soundEffects: true,
+  soundVolume: 0.5,
   activeConjugations: ['presentPolite'],
   strokeWidth: 6,
 }
@@ -156,6 +159,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     mq.addEventListener('change', apply)
     return () => mq.removeEventListener('change', apply)
   }, [settings.theme])
+
+  useEffect(() => {
+    configureSounds({ enabled: settings.soundEffects, volume: settings.soundVolume })
+  }, [settings.soundEffects, settings.soundVolume])
 
   const updateSettings = useCallback((patch: Partial<Settings>) => setSettings((s) => ({ ...s, ...patch })), [])
 

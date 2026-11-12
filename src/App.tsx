@@ -1,6 +1,7 @@
 ﻿import { useEffect, useState } from 'react'
 import { BookOpen, GraduationCap, LayoutDashboard, Repeat2, Settings as SettingsIcon, type LucideIcon } from 'lucide-react'
 import { AiStatusPill } from './components/AiStatusPill'
+import { isOnboarded, Onboarding } from './components/Onboarding'
 import { warmup } from './lib/gemini'
 import { AppProvider, useApp } from './store'
 import { Dashboard } from './views/Dashboard'
@@ -21,6 +22,7 @@ const NAV: { id: ViewId; label: string; short: string; icon: LucideIcon }[] = [
 function Shell() {
   const { settings } = useApp()
   const [view, setView] = useState<ViewId>('dashboard')
+  const [onboarding, setOnboarding] = useState(() => !isOnboarded())
 
   // Start-Check im Hintergrund (höchstens alle 30 Min. ein Request)
   useEffect(() => {
@@ -69,8 +71,10 @@ function Shell() {
         {view === 'dictionary' && <Dictionary />}
         {view === 'learn' && <Learn key={quizKey} initialQuiz={quiz} onDashboard={() => go('dashboard')} />}
         {view === 'conjugation' && <ConjugationTrainer key={quizKey} onDashboard={() => go('dashboard')} />}
-        {view === 'settings' && <SettingsView />}
+        {view === 'settings' && <SettingsView onRestartOnboarding={() => setOnboarding(true)} />}
       </main>
+
+      {onboarding && <Onboarding onClose={() => { setOnboarding(false); setView('dashboard') }} />}
 
       {/* Bottom-Tab-Bar (Mobile/Tablet) */}
       <nav className="fixed inset-x-0 bottom-0 z-40 flex border-t border-black/[0.08] bg-white/75 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden dark:border-white/10 dark:bg-[#1c1c1e]/75">

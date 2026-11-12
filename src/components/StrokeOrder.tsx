@@ -13,6 +13,7 @@ const JAMO_GAP = 0.25 // zusätzliche Pause zwischen Buchstaben
 const SYL_GAP = 0.5 // zusätzliche Pause zwischen Silben
 
 const blockSvg = 'h-[132px] w-[132px] rounded-xl border border-black/10 bg-white dark:border-white/10 dark:bg-white/5'
+const blockSvgSmall = 'h-[104px] w-[104px] rounded-xl border border-black/10 bg-white dark:border-white/10 dark:bg-white/5'
 
 function Ghost({ layout }: { layout: SyllableLayout }) {
   return (
@@ -58,10 +59,10 @@ function Caption({ layout }: { layout: SyllableLayout }) {
 }
 
 /** Zahlen & Pfeile: jede Silbe als fertiger Block, Striche fortlaufend durchnummeriert */
-function NumberBlock({ layout }: { layout: SyllableLayout }) {
+function NumberBlock({ layout, small = false }: { layout: SyllableLayout; small?: boolean }) {
   return (
-    <div className="flex w-[132px] shrink-0 flex-col items-center gap-1">
-      <svg viewBox="0 0 100 100" className={blockSvg}>
+    <div className={`flex ${small ? 'w-[104px]' : 'w-[132px]'} shrink-0 flex-col items-center gap-1`}>
+      <svg viewBox="0 0 100 100" className={small ? blockSvgSmall : blockSvg}>
         <Guides />
         <Ghost layout={layout} />
         {layout.strokes.map((s, n) => {
@@ -85,7 +86,7 @@ function NumberBlock({ layout }: { layout: SyllableLayout }) {
 }
 
 /** Strikt sequenzielle Animation: Silbe für Silbe, Buchstabe für Buchstabe, Strich für Strich – im Silbenblock */
-function Animated({ layouts }: { layouts: SyllableLayout[] }) {
+function Animated({ layouts, compact = false }: { layouts: SyllableLayout[]; compact?: boolean }) {
   const { starts, total } = useMemo(() => {
     let t = 0.2
     const starts = layouts.map((l) => {
@@ -133,12 +134,21 @@ function Animated({ layouts }: { layouts: SyllableLayout[] }) {
     setPlaying((p) => !p)
   }
 
+  // Kompakte Vorschau (Onboarding): Animation läuft in Schleife, ohne Bedienelemente
+  useEffect(() => {
+    if (!compact || time < total) return
+    const id = setTimeout(replay, 1400)
+    return () => clearTimeout(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [compact, time, total])
+
   let active = -1
   starts.forEach((arr, i) => { if (arr.length && time >= arr[0]) active = i })
   const finished = time >= total
 
   return (
     <>
+      {!compact && (
       <div className="mb-2 flex flex-wrap items-center gap-2">
         <button className="btn-soft !px-2.5 !py-1 text-xs" onClick={togglePlay}>
           {playing ? <><Pause size={13} /> Pause</> : <><Play size={13} /> Weiter</>}
@@ -148,10 +158,11 @@ function Animated({ layouts }: { layouts: SyllableLayout[] }) {
           <button key={s} className={`${speed === s ? 'btn-primary' : 'btn-soft'} !px-2.5 !py-1 text-xs`} onClick={() => setSpeed(s)}>{s}x</button>
         ))}
       </div>
-      <div className="flex flex-wrap gap-3">
+      )}
+      <div className={compact ? 'flex flex-wrap justify-center gap-3' : 'flex flex-wrap gap-3'}>
         {layouts.map((l, li) => (
-          <div key={li} className="flex w-[132px] shrink-0 flex-col items-center gap-1">
-            <svg viewBox="0 0 100 100" className={`${blockSvg} transition ${!finished && li === active ? 'ring-2 ring-[#007aff]' : ''}`}>
+          <div key={li} className={`flex ${compact ? 'w-[104px]' : 'w-[132px]'} shrink-0 flex-col items-center gap-1`}>
+            <svg viewBox="0 0 100 100" className={`${compact ? blockSvgSmall : blockSvg} transition ${!finished && li === active ? 'ring-2 ring-[#007aff]' : ''}`}>
               <Guides />
               <Ghost layout={l} />
               {l.strokes.map((s, si) => {
@@ -181,11 +192,19 @@ function Animated({ layouts }: { layouts: SyllableLayout[] }) {
   )
 }
 
-export function StrokeOrder({ text, mode }: { text: string; mode: StrokeStyleMode }) {
+export function StrokeOrder({ text, mode, compact = false }: { text: string; mode: StrokeStyleMode; compact?: boolean }) {
   const layouts = useMemo(
     () => Array.from(text).map((ch) => layoutSyllable(ch)).filter((l): l is SyllableLayout => !!l),
     [text],
   )
+  if (compact) {
+    // Schlichte Vorschau ohne Kopfzeile (z. B. im Onboarding)
+    return mode === 'animation' ? (
+      <Animated key={text} layouts={layouts} compact />
+    ) : (
+      <div className="flex flex-wrap justify-center gap-3">{layouts.map((l, i) => <NumberBlock key={i} layout={l} small />)}</div>
+    )
+  }
   // Minimiert-Zustand wird gemerkt, damit er beim Wechsel zur nächsten Karte bleibt
   const [collapsed, setCollapsed] = useState(() => {
     try {

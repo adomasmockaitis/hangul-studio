@@ -57,6 +57,9 @@ export interface Settings {
   showStrokeOrder: boolean
   strokeOrderStyle: StrokeStyleMode
   autoSpeak: boolean
+  /** Dezente Klänge bei richtig/falsch usw. */
+  soundEffects: boolean
+  soundVolume: number
   activeConjugations: ConjugationKey[]
   strokeWidth: number
 }

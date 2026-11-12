@@ -1,6 +1,7 @@
 ﻿import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { ArrowDown, ArrowUp, Download, Zap, Eye, EyeOff, Loader2, Monitor, Moon, RefreshCw, RotateCcw, Sun, Trash2, Upload } from 'lucide-react'
+import { ArrowDown, ArrowUp, Download, Zap, Eye, EyeOff, Loader2, Monitor, Moon, RefreshCw, RotateCcw, Sparkles, Sun, Trash2, Upload } from 'lucide-react'
 import { PageHeader, Segmented, Toggle } from '../components/ui'
+import { playSound } from '../lib/sounds'
 import { listModels, measureModels, MODEL_PRESETS, TIPS_TIME_FACTOR, setLastWorkingModel, warmup, type SpeedResult } from '../lib/gemini'
 import { exportAllDevData } from '../lib/devExport'
 import { clearDisputes, loadDisputes } from '../lib/geminiDisputes'
@@ -30,7 +31,7 @@ function Row({ title, desc, children, stack }: { title: string; desc?: string; c
   )
 }
 
-export function SettingsView() {
+export function SettingsView({ onRestartOnboarding }: { onRestartOnboarding?: () => void }) {
   const { settings, updateSettings, exportBackup, importBackup, words, resetStats, restoreDemo, clearAll } = useApp()
   const [showKey, setShowKey] = useState(false)
   const [withKey, setWithKey] = useState(false)
@@ -159,6 +160,12 @@ export function SettingsView() {
   return (
     <div className="mx-auto max-w-2xl">
       <PageHeader title="Einstellungen" />
+
+      <Section title="Einrichtung">
+        <Row title="Einrichtung erneut starten" desc="Führt dich nochmal Schritt für Schritt durch die wichtigsten Einstellungen.">
+          <button className="btn-soft" onClick={onRestartOnboarding}><Sparkles size={16} /> Einrichtung starten</button>
+        </Row>
+      </Section>
 
       <Section title="Darstellung">
         <Row title="Theme">
@@ -307,6 +314,18 @@ export function SettingsView() {
         <Row title="Wort automatisch vorlesen bei neuer Karte">
           <Toggle checked={settings.autoSpeak} onChange={(autoSpeak) => updateSettings({ autoSpeak })} label="Auto-Vorlesen" />
         </Row>
+        <Row title="Klänge für richtig / falsch" desc="Dezente, leise Töne als Rückmeldung.">
+          <Toggle checked={settings.soundEffects} onChange={(soundEffects) => updateSettings({ soundEffects })} label="Klänge" />
+        </Row>
+        {settings.soundEffects && (
+          <Row title="Lautstärke der Klänge">
+            <div className="flex flex-wrap items-center gap-2">
+              <input type="range" min={0.1} max={1} step={0.05} value={settings.soundVolume} onChange={(e) => updateSettings({ soundVolume: +e.target.value })} className="w-36 accent-[#007aff]" />
+              <button className="btn-soft !px-2.5 !py-1 text-xs" onClick={() => playSound('success')}>▶ Richtig</button>
+              <button className="btn-soft !px-2.5 !py-1 text-xs" onClick={() => playSound('error')}>▶ Falsch</button>
+            </div>
+          </Row>
+        )}
         <Row title="Aktive Beugungsformen" desc="Gelten für Lernkarten und den Beugungs-Trainer." stack>
           <div className="grid gap-2 sm:grid-cols-2">
             {CONJUGATION_KEYS.map((k) => (

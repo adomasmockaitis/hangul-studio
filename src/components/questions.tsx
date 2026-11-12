@@ -1,6 +1,7 @@
 ﻿import { useEffect, useState, type ReactNode } from 'react'
 import { ArrowRight, Check, Volume2, X } from 'lucide-react'
 import { speak } from '../lib/speech'
+import { playSound } from '../lib/sounds'
 import type { WordItem } from '../types'
 import { HangulCanvas } from './HangulCanvas'
 import type { QResult } from './Runner'
@@ -109,6 +110,7 @@ export function TypeQuestion({ word, onResult, onNext, nextLabel }: Common & { w
     if (res !== null || !text.trim()) return
     const ok = matchesGerman(text, word.german)
     setRes(ok)
+    playSound(ok ? 'success' : 'error')
     onResult({ correct: ok, read: text.trim() })
   }
   return (
@@ -165,6 +167,7 @@ export function ChoiceQuestion({ word, options, onResult, onNext, nextLabel }: C
               onClick={() => {
                 if (picked !== null) return
                 setPicked(o)
+                playSound(right ? 'success' : 'error')
                 onResult({ correct: right, read: o })
               }}
             >

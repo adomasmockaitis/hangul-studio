@@ -1,5 +1,6 @@
-﻿import { useState, type ReactNode } from 'react'
+﻿import { useEffect, useState, type ReactNode } from 'react'
 import { Check, Flame, Home, Repeat, X } from 'lucide-react'
+import { playSound } from '../lib/sounds'
 import { currentStreak } from '../lib/srs'
 import { useApp } from '../store'
 
@@ -17,6 +18,14 @@ export interface Q {
   /** Richtige Lösung für die Auswertung */
   solution: string
   render: (a: { onResult: (r: QResult) => void; onRevise: (correct: boolean) => void; onNext: () => void; nextLabel: string }) => ReactNode
+}
+
+/** Spielt beim Erscheinen der Auswertung einmal den Geschafft-Klang */
+function CompleteSound() {
+  useEffect(() => {
+    playSound('complete')
+  }, [])
+  return null
 }
 
 interface Done extends QResult {
@@ -45,6 +54,7 @@ export function Runner({ questions, onDashboard, onBack, backLabel }: Props) {
     const tone = pct >= 80 ? '#34c759' : pct >= 50 ? '#ff9500' : '#ff3b30'
     return (
       <div className="fade-up space-y-4">
+        <CompleteSound />
         <div className="card p-6 text-center">
           <div className="relative mx-auto grid h-36 w-36 place-items-center">
             <svg viewBox="0 0 120 120" className="absolute inset-0 -rotate-90">

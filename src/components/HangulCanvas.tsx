@@ -4,6 +4,7 @@ import {
 } from 'lucide-react'
 import { dynamicTimeoutMs, readHandwriting } from '../lib/gemini'
 import { recognizeInk } from '../lib/inputTools'
+import { playSound } from '../lib/sounds'
 import { addDispute } from '../lib/geminiDisputes'
 import { addSample, bumpAgreement, updateSample } from '../lib/inputToolsLog'
 import { BATCH_SIZE, enqueuePending, processPending, removePending, updateByPendingId, type SampleBase } from '../lib/inputToolsQueue'
@@ -224,6 +225,7 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
   const record = (correct: boolean, read?: string) => {
     if (recordedRef.current) return
     recordedRef.current = true
+    playSound(correct ? 'success' : 'error')
     onResult(correct, { image: imageRef.current ? 'data:image/png;base64,' + imageRef.current : undefined, read })
   }
 
