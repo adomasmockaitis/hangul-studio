@@ -3,7 +3,7 @@ import { BookOpen, GraduationCap, LayoutDashboard, Repeat2, Settings as Settings
 import { AiStatusPill } from './components/AiStatusPill'
 import { isOnboarded, Onboarding } from './components/Onboarding'
 import { WhatsNew } from './components/WhatsNew'
-import { getSeenRelease, LATEST_RELEASE } from './lib/releases'
+import { unseenReleases } from './lib/releases'
 import { warmup } from './lib/gemini'
 import { AppProvider, useApp } from './store'
 import { SyncProvider } from './sync'
@@ -28,7 +28,7 @@ function Shell() {
   const [view, setView] = useState<ViewId>('dashboard')
   const [onboarding, setOnboarding] = useState(() => !isOnboarded())
   // Update-Fenster: nur für bestehende Nutzer, einmal pro neuem Release
-  const [whatsNew, setWhatsNew] = useState(() => isOnboarded() && getSeenRelease() !== LATEST_RELEASE.id)
+  const [whatsNew, setWhatsNew] = useState(() => isOnboarded() && unseenReleases().length > 0)
 
   // Start-Check im Hintergrund (höchstens alle 30 Min. ein Request)
   useEffect(() => {

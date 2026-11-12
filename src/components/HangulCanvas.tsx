@@ -595,112 +595,116 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
         </div>
       )}
 
-      {/* Vorläufiges Ergebnis (Input Tools), solange Gemini noch prüft */}
-      {phase === 'checking' && preview && (
-        <div className="fade-up rounded-2xl border border-[#007aff]/30 bg-[#007aff]/10 p-3 text-sm">
-          <p>
-            <span className="font-semibold">Vorläufig (Input Tools):</span> „<span className="text-lg font-semibold">{preview.read || '?'}</span>“ –{' '}
-            {preview.hit ? '✓ passt zum Zielwort' : '✗ passt nicht zum Zielwort'}
-          </p>
-          <p className="text-xs text-black/50 dark:text-white/50">Gemini prüft noch – das endgültige Ergebnis ersetzt diese Schätzung.</p>
-        </div>
-      )}
+      {/* Schwebende Leiste: Ergebnis + Aktionen, damit man nach dem Prüfen nicht scrollen muss (auf dem Handy über der Tab-Leiste) */}
+      <div className="sticky bottom-[5.25rem] z-20 md:bottom-3">
+        <div className="space-y-2 rounded-2xl border border-black/[0.08] bg-white/85 p-2.5 shadow-lg backdrop-blur-xl dark:border-white/10 dark:bg-[#2c2c2e]/90">
+          {/* Vorläufiges Ergebnis (Input Tools), solange Gemini noch prüft */}
+          {phase === 'checking' && preview && (
+            <div className="fade-up rounded-xl border border-[#007aff]/30 bg-[#007aff]/10 px-3 py-2 text-sm">
+              <p>
+                <span className="font-semibold">Vorläufig (Input Tools):</span> „<span className="text-lg font-semibold">{preview.read || '?'}</span>“ –{' '}
+                {preview.hit ? '✓ passt zum Zielwort' : '✗ passt nicht zum Zielwort'}
+              </p>
+              <p className="text-xs text-black/50 dark:text-white/50">Gemini prüft noch – das endgültige Ergebnis ersetzt diese Schätzung.</p>
+            </div>
+          )}
 
-      {/* Feedback */}
-      {result && (
-        <div
-          className={`fade-up flex items-start gap-3 rounded-2xl border p-3.5 ${
-            statusColor === 'green'
-              ? 'border-[#34c759]/40 bg-[#34c759]/15'
-              : statusColor === 'amber'
-                ? 'border-[#ff9500]/40 bg-[#ff9500]/15'
-                : 'border-[#ff3b30]/40 bg-[#ff3b30]/15'
-          }`}
-        >
-          {statusColor === 'green' ? <Check className="mt-0.5 text-[#34c759]" /> : statusColor === 'amber' ? <AlertTriangle className="mt-0.5 text-[#ff9500]" /> : <X className="mt-0.5 text-[#ff3b30]" />}
-          <div className="min-w-0 flex-1 text-sm">
-            {result.error ? (
-              <>
-                <p className="font-medium">{result.error}</p>
-                {result.error.startsWith('KI') && (
-                  <button className="btn-soft mt-2" onClick={() => { setResult(null); setPhase('reveal') }}>Stattdessen selbst prüfen</button>
+          {/* Ergebnis */}
+          {result && (
+            <div
+              className={`fade-up flex items-start gap-3 rounded-xl border px-3 py-2.5 ${
+                statusColor === 'green'
+                  ? 'border-[#34c759]/40 bg-[#34c759]/15'
+                  : statusColor === 'amber'
+                    ? 'border-[#ff9500]/40 bg-[#ff9500]/15'
+                    : 'border-[#ff3b30]/40 bg-[#ff3b30]/15'
+              }`}
+            >
+              {statusColor === 'green' ? <Check className="mt-0.5 shrink-0 text-[#34c759]" /> : statusColor === 'amber' ? <AlertTriangle className="mt-0.5 shrink-0 text-[#ff9500]" /> : <X className="mt-0.5 shrink-0 text-[#ff3b30]" />}
+              <div className="max-h-32 min-w-0 flex-1 overflow-y-auto text-sm">
+                {result.error ? (
+                  <>
+                    <p className="font-medium">{result.error}</p>
+                    {result.error.startsWith('KI') && (
+                      <button className="btn-soft mt-2" onClick={() => { setResult(null); setPhase('reveal') }}>Stattdessen selbst prüfen</button>
+                    )}
+                  </>
+                ) : result.correct ? (
+                  <>
+                    <p className="font-semibold">Richtig! {result.read ? <span className="ml-1 text-lg">{result.read}</span> : null}</p>
+                    {result.feedback && <p className="text-black/60 dark:text-white/60">{result.feedback}</p>}
+                    {result.meta && <p className="text-xs text-black/40 dark:text-white/40">{result.meta}</p>}
+                  </>
+                ) : (
+                  <>
+                    <p>
+                      <span className="font-semibold">Leider falsch.</span>{' '}
+                      {result.via && !keyboard ? result.via + ' las' : 'Du hast eingegeben'}:{' '}
+                      <span className="text-lg font-semibold">{result.read || '(nichts erkannt)'}</span>
+                      <span className="mx-1.5 text-black/30 dark:text-white/30">·</span>
+                      Gesucht: <span className="text-lg font-semibold">{target}</span>
+                    </p>
+                    {result.feedback && <p className="text-black/60 dark:text-white/60">{result.feedback}</p>}
+                    {result.meta && <p className="text-xs text-black/40 dark:text-white/40">{result.meta}</p>}
+                  </>
                 )}
-              </>
-            ) : result.correct ? (
+              </div>
+            </div>
+          )}
+
+          {/* Nebenaktionen: Rückmeldung zur Erkennung bzw. Widerspruch – direkt unter dem Ergebnis */}
+          {phase === 'result' && result?.via === 'Input Tools' && (
+            <div className="flex w-full flex-wrap items-center gap-2 text-sm">
+              <span className="text-black/55 dark:text-white/55">Hat Input Tools richtig erkannt?</span>
+              {itFeedback ? (
+                <span className="font-medium text-[#34c759]">Danke – gespeichert ✓</span>
+              ) : (
+                <>
+                  <button className="btn-soft !px-2.5 !py-1.5" onClick={() => rate(true)}><ThumbsUp size={15} /> Richtig erkannt</button>
+                  <button className="btn-soft !px-2.5 !py-1.5" onClick={() => rate(false)}><ThumbsDown size={15} /> Nicht richtig erkannt</button>
+                </>
+              )}
+            </div>
+          )}
+          {phase === 'result' && result?.via === 'Gemini' && (
+            <div className="flex w-full flex-wrap items-center gap-2 text-xs text-black/45 dark:text-white/45">
+              <span>⚠ Gemini kann sich irren.</span>
+              {disputed ? (
+                <span className="font-medium text-[#34c759]">Widerspruch gespeichert ✓</span>
+              ) : (
+                <button className="btn-soft !px-2.5 !py-1 text-xs" onClick={dispute}><Flag size={13} /> Widerspruch</button>
+              )}
+            </div>
+          )}
+
+          {bgNote && <p className="text-xs text-black/50 dark:text-white/50">{bgNote}</p>}
+
+          {/* Aktionen: Hauptaktion immer rechts, Nebenaktion links */}
+          <div className="flex items-center gap-2">
+            {phase === 'reveal' ? (
               <>
-                <p className="font-semibold">Richtig! {result.read ? <span className="ml-1 text-lg">{result.read}</span> : null}</p>
-                {result.feedback && <p className="text-black/60 dark:text-white/60">{result.feedback}</p>}
-                {result.meta && <p className="text-xs text-black/40 dark:text-white/40">{result.meta}</p>}
+                <button className="btn-red flex-1 !py-3" onClick={() => finishReveal(false)}><X size={16} /> Noch unsicher</button>
+                <button className="btn-green flex-1 !py-3" onClick={() => finishReveal(true)}><Check size={16} /> Richtig gewusst</button>
+              </>
+            ) : phase === 'result' ? (
+              <>
+                {!result?.correct && <button className="btn-soft !py-3" onClick={retry}>Nochmal versuchen</button>}
+                {onNext && <button className="btn-primary ml-auto !py-3" onClick={onNext}>{nextLabel} <ArrowRight size={16} /></button>}
               </>
             ) : (
               <>
-                <p className="font-semibold">Leider falsch.</p>
-                <p>
-                  {result.via && !keyboard ? result.via + ' las' : 'Du hast eingegeben'}:{' '}
-                  <span className="text-lg font-semibold">{result.read || '(nichts erkannt)'}</span>
-                </p>
-                <p>Gesucht: <span className="text-lg font-semibold">{target}</span></p>
-                {result.feedback && <p className="text-black/60 dark:text-white/60">{result.feedback}</p>}
-                {result.meta && <p className="text-xs text-black/40 dark:text-white/40">{result.meta}</p>}
+                {!keyboard && phase === 'idle' && (
+                  <span className="px-1 text-xs text-black/45 dark:text-white/45">
+                    {firstMethod === 'inputtools' ? 'Prüfung: Input Tools' : firstMethod === 'gemini' ? 'Prüfung: Gemini' : 'Selbst-Check'}
+                  </span>
+                )}
+                <button className="btn-primary ml-auto !py-3" onClick={() => void check()} disabled={phase === 'checking' || (keyboard && !typed.trim())}>
+                  {phase === 'checking' ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
+                  {phase === 'checking' ? 'Prüfe…' : 'Prüfen'}
+                </button>
               </>
             )}
           </div>
-        </div>
-      )}
-
-      {bgNote && <p className="text-xs text-black/50 dark:text-white/50">{bgNote}</p>}
-
-      {/* Nebenaktionen (Feedback zur Erkennung, Widerspruch) */}
-      {phase === 'result' && result?.via === 'Input Tools' && (
-        <div className="flex w-full flex-wrap items-center gap-2 text-sm">
-          <span className="text-black/55 dark:text-white/55">Hat Input Tools richtig erkannt?</span>
-          {itFeedback ? (
-            <span className="font-medium text-[#34c759]">Danke – gespeichert ✓</span>
-          ) : (
-            <>
-              <button className="btn-soft" onClick={() => rate(true)}><ThumbsUp size={15} /> Richtig erkannt</button>
-              <button className="btn-soft" onClick={() => rate(false)}><ThumbsDown size={15} /> Nicht richtig erkannt</button>
-            </>
-          )}
-        </div>
-      )}
-      {phase === 'result' && result?.via === 'Gemini' && (
-        <div className="flex w-full flex-wrap items-center gap-2 text-xs text-black/45 dark:text-white/45">
-          <span>⚠ Gemini kann sich irren.</span>
-          {disputed ? (
-            <span className="font-medium text-[#34c759]">Widerspruch gespeichert ✓</span>
-          ) : (
-            <button className="btn-soft !px-2.5 !py-1 text-xs" onClick={dispute}><Flag size={13} /> Widerspruch</button>
-          )}
-        </div>
-      )}
-
-      {/* Hauptaktionen: schweben am unteren Rand, damit man nicht scrollen muss (auf dem Handy über der Tab-Leiste) */}
-      <div className="sticky bottom-[5.25rem] z-20 md:bottom-3">
-        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-black/[0.08] bg-white/80 p-2 shadow-lg backdrop-blur-xl dark:border-white/10 dark:bg-[#2c2c2e]/85">
-          {phase === 'reveal' ? (
-            <>
-              <button className="btn-green flex-1 !py-3" onClick={() => finishReveal(true)}><Check size={16} /> Richtig gewusst</button>
-              <button className="btn-red flex-1 !py-3" onClick={() => finishReveal(false)}><X size={16} /> Noch unsicher</button>
-            </>
-          ) : phase === 'result' ? (
-            <>
-              {!result?.correct && <button className="btn-soft !py-3" onClick={retry}>Nochmal versuchen</button>}
-              {onNext && <button className="btn-primary ml-auto !py-3" onClick={onNext}>{nextLabel} <ArrowRight size={16} /></button>}
-            </>
-          ) : (
-            <>
-              <button className="btn-primary flex-1 !py-3 sm:flex-none" onClick={() => void check()} disabled={phase === 'checking' || (keyboard && !typed.trim())}>
-                {phase === 'checking' ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
-                {phase === 'checking' ? 'Prüfe... (wechsle bei Überlastung automatisch Server)' : 'Prüfen'}
-              </button>
-              {!keyboard && phase === 'idle' && (
-                <span className="px-1 text-xs text-black/45 dark:text-white/45">
-                  {firstMethod === 'inputtools' ? 'Prüfung: Input Tools' : firstMethod === 'gemini' ? 'Prüfung: Gemini' : 'Selbst-Check'}
-                </span>
-              )}
-            </>
-          )}
         </div>
       </div>
     </div>
