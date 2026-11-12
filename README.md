@@ -58,6 +58,7 @@ Eine schlichte Web-App im Apple-Look (iOS/macOS), die komplett im Browser läuft
 ### Dashboard und Komfort
 - Dashboard mit Tages-Streak, gelernten Wörtern, Erfolgsquote, Top-Fehlerwörtern und 7-Tage-Aktivität.
 - **Onboarding** beim ersten Start: führt Schritt für Schritt durch alle Einstellungen, mit Live-Vorschauen und Ausprobier-Zeichenfeld. Jederzeit neu startbar.
+- **Hinweise oben rechts** (z. B. „Synchronisiert“ oder „Bitte erneut anmelden“) und ein **„Das ist neu“-Fenster** bei Updates, das neue Funktionen zeigt und direkt zum Einrichten führt (z. B. Google verbinden).
 - **Dezente Klänge** (richtig, falsch, geschafft), synthetisiert im Browser. Lautstärke und Ein/Aus einstellbar.
 - Hell-/Dunkelmodus (oder System), Navigation per Sidebar (Desktop) bzw. Tab-Leiste (Mobil/Tablet).
 - **Backup** als `.json` zum Übertragen zwischen PC, Tablet und Smartphone.

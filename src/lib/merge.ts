@@ -106,6 +106,14 @@ export function fingerprint(p: SyncPayload): string {
   })
 }
 
+/** Größter Zeitstempel in einem Stand (für die logische Uhr) */
+export function maxStamp(words: WordItem[], deleted: Record<string, number>, settingsUpdatedAt = 0): number {
+  let m = settingsUpdatedAt
+  for (const w of words) if ((w.updatedAt ?? 0) > m) m = w.updatedAt!
+  for (const t of Object.values(deleted)) if (t > m) m = t
+  return m
+}
+
 export function emptyPayload(): SyncPayload {
   return { app: 'hangul-studio', kind: 'sync', version: 2, updatedAt: 0, words: [], deleted: {}, activity: {}, settings: {}, settingsUpdatedAt: 0 }
 }

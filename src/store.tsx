@@ -1,9 +1,10 @@
 ﻿import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { createDemoWords, newStats } from './data/demo'
 import { DEFAULT_MODEL, OBSOLETE_MODELS } from './lib/gemini'
+import { observe, stamp } from './lib/clock'
 import { configureSounds } from './lib/sounds'
 import { applyReview, dateKey } from './lib/srs'
-import { LOCAL_ONLY_SETTINGS, type SyncPayload } from './lib/merge'
+import { LOCAL_ONLY_SETTINGS, maxStamp, type SyncPayload } from './lib/merge'
 import type { Activity, BackupFile, CheckMethod, CheckStep, Settings, WordItem, WordType } from './types'
 
 const K_DELETED = 'hangul-studio:deleted'
@@ -153,6 +154,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [activity, setActivity] = useState<Activity>(() => load<Activity>(K_ACTIVITY, {}))
   const [deleted, setDeleted] = useState<Record<string, number>>(() => load<Record<string, number>>(K_DELETED, {}))
 
+  // Beim Start: bereits gespeicherte Zeitstempel in die logische Uhr übernehmen
+  useEffect(() => {
+    observe(maxStamp(words, deleted, settings.settingsUpdatedAt ?? 0))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   useEffect(() => save(K_DELETED, deleted), [deleted])
   useEffect(() => save(K_WORDS, words), [words])
   useEffect(() => save(K_SETTINGS, settings), [settings])
@@ -178,7 +185,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const updateSettings = useCallback((patch: Partial<Settings>) => {
     // Nur-Gerät-Einstellungen (Client-ID, Key-Sync) zählen nicht als „geänderte Einstellungen“ für den Abgleich
     const syncRelevant = Object.keys(patch).some((k) => !(LOCAL_ONLY_SETTINGS as readonly string[]).includes(k) && k !== 'geminiApiKey')
-    setSettings((s) => ({ ...s, ...patch, ...(syncRelevant ? { settingsUpdatedAt: Date.now() } : {}) }))
+    setSettings((s) => ({ ...s, ...patch, ...(syncRelevant ? { settingsUpdatedAt: stamp() } : {}) }))
   }, [])
 
   /** Löschmarke entfernen, wenn ein Wort (wieder) angelegt wird */
@@ -191,7 +198,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     })
 
   const addWord: Ctx['addWord'] = useCallback((w) => {
-    const now = Date.now()
+    const now = stamp()
     setWords((ws) => [...ws, { ...w, id: crypto.randomUUID(), createdAt: now, updatedAt: now, stats: newStats() }])
     clearTombstones([w.korean])
   }, [])
@@ -199,7 +206,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const addWords: Ctx['addWords'] = useCallback(
     (list) => {
       const known = new Set(words.map((w) => w.korean))
-      const now = Date.now()
+      const now = stamp()
       const fresh = list.filter((w) => !known.has(w.korean)).map((w) => ({ ...w, updatedAt: now }))
       if (fresh.length) {
         setWords((ws) => [...ws, ...fresh])
@@ -211,19 +218,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
   )
 
   const updateWord: Ctx['updateWord'] = useCallback((id, patch) => {
-    setWords((ws) => ws.map((w) => (w.id === id ? { ...w, ...patch, updatedAt: Date.now() } : w)))
+    setWords((ws) => ws.map((w) => (w.id === id ? { ...w, ...patch, updatedAt: stamp() } : w)))
   }, [])
 
   const deleteWord = useCallback((id: string) => {
     setWords((ws) => {
       const gone = ws.find((w) => w.id === id)
-      if (gone) setDeleted((d) => ({ ...d, [gone.korean]: Date.now() }))
+      if (gone) setDeleted((d) => ({ ...d, [gone.korean]: stamp() }))
       return ws.filter((w) => w.id !== id)
     })
   }, [])
 
   const recordReview = useCallback((id: string, correct: boolean) => {
-    setWords((ws) => ws.map((w) => (w.id === id ? { ...w, stats: applyReview(w.stats, correct), updatedAt: Date.now() } : w)))
+    setWords((ws) => ws.map((w) => (w.id === id ? { ...w, stats: applyReview(w.stats, correct), updatedAt: stamp() } : w)))
     const k = dateKey()
     setActivity((a) => ({ ...a, [k]: (a[k] ?? 0) + 1 }))
   }, [])
@@ -236,7 +243,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const s = w.stats
         return {
           ...w,
-          updatedAt: Date.now(),
+          updatedAt: stamp(),
           stats: nowCorrect
             ? { ...s, wrongCount: Math.max(0, s.wrongCount - 1), correctCount: s.correctCount + 1, streak: Math.max(1, s.streak), easeFactor: Math.min(3, +(s.easeFactor + 0.3).toFixed(2)) }
             : { ...s, correctCount: Math.max(0, s.correctCount - 1), wrongCount: s.wrongCount + 1, streak: 0, easeFactor: Math.max(1.3, +(s.easeFactor - 0.3).toFixed(2)) },
@@ -246,14 +253,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const resetStats = useCallback(() => {
-    const now = Date.now()
+    const now = stamp()
     // Zurücksetzen gilt als neue Änderung, damit es beim Abgleich nicht von alten Ständen überschrieben wird
     setWords((ws) => ws.map((w) => ({ ...w, stats: { ...newStats(), lastReviewed: null }, updatedAt: now })))
     setActivity({})
   }, [])
 
   const restoreDemo = useCallback(() => {
-    const now = Date.now()
+    const now = stamp()
     setWords((cur) => {
       setDeleted((d) => {
         const next = { ...d }
@@ -268,7 +275,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const clearAll = useCallback(() => {
-    const now = Date.now()
+    const now = stamp()
     setWords((cur) => {
       setDeleted((d) => {
         const next = { ...d }
@@ -281,6 +288,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const applySyncPayload: Ctx['applySyncPayload'] = useCallback((p) => {
+    // Logische Uhr nachziehen: spätere Änderungen auf diesem Gerät gelten dann sicher als neuer als alles Übernommene
+    observe(maxStamp(p.words, p.deleted, p.settingsUpdatedAt))
     setWords(p.words)
     setDeleted(p.deleted)
     setActivity(p.activity)
@@ -329,7 +338,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
     const incoming = data.words.map(sanitizeWord).filter((w): w is WordItem => !!w)
     const inAct = data.activity && typeof data.activity === 'object' ? data.activity : {}
-    const now = Date.now()
+    const now = stamp()
     if (mode === 'replace') {
       setWords((cur) => {
         // Nicht mehr vorhandene Wörter als gelöscht markieren, damit die Synchronisation das mitnimmt

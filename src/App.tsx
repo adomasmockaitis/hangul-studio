@@ -2,9 +2,12 @@
 import { BookOpen, GraduationCap, LayoutDashboard, Repeat2, Settings as SettingsIcon, type LucideIcon } from 'lucide-react'
 import { AiStatusPill } from './components/AiStatusPill'
 import { isOnboarded, Onboarding } from './components/Onboarding'
+import { WhatsNew } from './components/WhatsNew'
+import { getSeenRelease, LATEST_RELEASE } from './lib/releases'
 import { warmup } from './lib/gemini'
 import { AppProvider, useApp } from './store'
 import { SyncProvider } from './sync'
+import { ToastProvider } from './components/Toasts'
 import { Dashboard } from './views/Dashboard'
 import { Dictionary } from './views/Dictionary'
 import { Learn } from './views/Learn'
@@ -24,6 +27,8 @@ function Shell() {
   const { settings } = useApp()
   const [view, setView] = useState<ViewId>('dashboard')
   const [onboarding, setOnboarding] = useState(() => !isOnboarded())
+  // Update-Fenster: nur für bestehende Nutzer, einmal pro neuem Release
+  const [whatsNew, setWhatsNew] = useState(() => isOnboarded() && getSeenRelease() !== LATEST_RELEASE.id)
 
   // Start-Check im Hintergrund (höchstens alle 30 Min. ein Request)
   useEffect(() => {
@@ -72,9 +77,10 @@ function Shell() {
         {view === 'dictionary' && <Dictionary />}
         {view === 'learn' && <Learn key={quizKey} initialQuiz={quiz} onDashboard={() => go('dashboard')} />}
         {view === 'conjugation' && <ConjugationTrainer key={quizKey} onDashboard={() => go('dashboard')} />}
-        {view === 'settings' && <SettingsView onRestartOnboarding={() => setOnboarding(true)} />}
+        {view === 'settings' && <SettingsView onRestartOnboarding={() => setOnboarding(true)} onShowWhatsNew={() => setWhatsNew(true)} />}
       </main>
 
+      {!onboarding && whatsNew && <WhatsNew onClose={() => setWhatsNew(false)} />}
       {onboarding && <Onboarding onClose={() => { setOnboarding(false); setView('dashboard') }} />}
 
       {/* Bottom-Tab-Bar (Mobile/Tablet) */}
@@ -97,9 +103,11 @@ function Shell() {
 export default function App() {
   return (
     <AppProvider>
-      <SyncProvider>
-        <Shell />
-      </SyncProvider>
+      <ToastProvider>
+        <SyncProvider>
+          <Shell />
+        </SyncProvider>
+      </ToastProvider>
     </AppProvider>
   )
 }

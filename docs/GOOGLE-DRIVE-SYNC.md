@@ -69,6 +69,18 @@ VITE_GOOGLE_CLIENT_ID=DEINE-CLIENT-ID.apps.googleusercontent.com
 - **API-Key:** wird nur mitsynchronisiert, wenn du es ausdrücklich einschaltest.
 - Läuft die Google-Anmeldung ab (nach etwa einer Stunde ohne Aktivität), erscheint **Erneut verbinden**. Auf manchen Geräten (z. B. iPhone/Safari) kann das öfter nötig sein.
 
+## Warum werde ich nach einer Zeit abgemeldet?
+
+Google gibt Web-Apps ohne eigenen Server nur einen **Zugriffsschlüssel mit etwa einer Stunde Gültigkeit**. Einen dauerhaften Schlüssel („Refresh-Token“) gibt es für reine Browser-Apps nicht – den könnte nur ein Server sicher aufbewahren. Deshalb gilt:
+
+- Die App **erneuert die Anmeldung rechtzeitig und unauffällig im Hintergrund**. Das klappt, solange du im Browser bei Google angemeldet bist und er das nicht blockiert.
+- Klappt es nicht (z. B. Safari/iPhone, strenger Tracking-Schutz, Privatmodus), erscheint oben rechts eine Meldung **„Bitte erneut bei Google anmelden“** mit einem Knopf. Ein Klick genügt, deine Daten sind weiterhin sicher.
+- Auf dem Gerät gesammelte Änderungen gehen dabei nicht verloren; sie werden nach der Anmeldung abgeglichen.
+
+## Falsche Uhr auf einem Gerät?
+
+Die App verlässt sich **nicht** auf die genaue Uhrzeit der Geräte. Sie nutzt eine „logische Uhr“: Jeder Zeitstempel ist mindestens so groß wie alles, was das Gerät schon von anderen Geräten gesehen hat, und wächst mit jeder Änderung. Eine Änderung nach einem Abgleich gilt daher zuverlässig als neuer, auch wenn die Uhr eines Geräts eine Stunde nachgeht. Zeitzonen spielen keine Rolle (intern wird UTC verwendet). Angezeigt wird die letzte Synchronisation als „vor 5 Min.“ bzw. „heute 20:11“ in der Zeit deines Geräts.
+
 ## Trennen und Löschen
 
 - *Trennen* beendet die Verbindung auf diesem Gerät. Die Datei in Drive bleibt bestehen.

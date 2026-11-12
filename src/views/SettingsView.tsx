@@ -2,6 +2,7 @@
 import { ArrowDown, ArrowUp, Cloud, CloudOff, Download, Zap, Eye, EyeOff, Loader2, Monitor, Moon, RefreshCw, RotateCcw, Sparkles, Sun, Trash2, Upload } from 'lucide-react'
 import { PageHeader, Segmented, Toggle } from '../components/ui'
 import { playSound } from '../lib/sounds'
+import { formatAgo } from '../lib/time'
 import { listModels, measureModels, MODEL_PRESETS, TIPS_TIME_FACTOR, setLastWorkingModel, warmup, type SpeedResult } from '../lib/gemini'
 import { exportAllDevData } from '../lib/devExport'
 import { clearDisputes, loadDisputes } from '../lib/geminiDisputes'
@@ -32,7 +33,7 @@ function Row({ title, desc, children, stack }: { title: string; desc?: string; c
   )
 }
 
-export function SettingsView({ onRestartOnboarding }: { onRestartOnboarding?: () => void }) {
+export function SettingsView({ onRestartOnboarding, onShowWhatsNew }: { onRestartOnboarding?: () => void; onShowWhatsNew?: () => void }) {
   const sync = useSync()
   const { settings, updateSettings, exportBackup, importBackup, words, resetStats, restoreDemo, clearAll } = useApp()
   const [showKey, setShowKey] = useState(false)
@@ -166,6 +167,9 @@ export function SettingsView({ onRestartOnboarding }: { onRestartOnboarding?: ()
       <Section title="Einrichtung">
         <Row title="Einrichtung erneut starten" desc="Führt dich nochmal Schritt für Schritt durch die wichtigsten Einstellungen.">
           <button className="btn-soft" onClick={onRestartOnboarding}><Sparkles size={16} /> Einrichtung starten</button>
+        </Row>
+        <Row title="Neuigkeiten" desc="Zeigt noch einmal, was im letzten Update neu ist.">
+          <button className="btn-soft" onClick={onShowWhatsNew}>Neuigkeiten anzeigen</button>
         </Row>
       </Section>
 
@@ -383,7 +387,7 @@ export function SettingsView({ onRestartOnboarding }: { onRestartOnboarding?: ()
               <p className="text-sm text-black/60 dark:text-white/60">
                 {sync.state === 'error' ? <span className="text-[#ff3b30]">{sync.error}</span>
                   : sync.state === 'needs-auth' ? 'Bitte kurz erneut mit Google verbinden (die Anmeldung ist abgelaufen).'
-                  : sync.enabled ? `✓ Verbunden${sync.lastSync ? ` · zuletzt synchronisiert ${new Date(sync.lastSync).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' })}` : ''}`
+                  : sync.enabled ? `✓ Verbunden${sync.lastSync ? ` · zuletzt synchronisiert ${formatAgo(sync.lastSync)}` : ''}`
                   : 'Noch nicht verbunden.'}
               </p>
               <div className="flex items-center justify-between gap-3 rounded-xl bg-black/[0.04] p-3 dark:bg-white/5">

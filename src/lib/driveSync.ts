@@ -64,6 +64,17 @@ export function loadGis(): Promise<void> {
 // ---------- Zugriffstoken (nur im Speicher) ----------
 let token: { value: string; expiresAt: number } | null = null
 
+/** Ablaufzeitpunkt des aktuellen Tokens (ms) oder null */
+export function tokenExpiresAt(): number | null {
+  return token ? token.expiresAt : null
+}
+
+/** Erneuert das Token still (ohne Fenster); wirft NeedAuthError, wenn Google dafür eine Eingabe braucht */
+export async function refreshTokenSilently(clientId: string): Promise<void> {
+  token = null
+  await getToken(clientId, false)
+}
+
 export function hasValidToken(): boolean {
   return !!token && token.expiresAt - 60_000 > Date.now()
 }
