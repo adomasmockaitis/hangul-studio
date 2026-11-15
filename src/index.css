@@ -129,7 +129,8 @@ select option, select optgroup { background-color: var(--color-surface); color: 
   box-shadow: var(--glass-shadow);
 }
 @utility btn {
-  @apply inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold transition active:scale-[0.97] disabled:opacity-40;
+  @apply inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold active:scale-[0.95] disabled:opacity-40;
+  transition: transform .28s cubic-bezier(.3, 1.35, .5, 1), background-color .2s ease, filter .2s ease, opacity .2s ease;
 }
 @utility btn-primary { @apply btn bg-blue text-white hover:brightness-110; }
 @utility btn-soft { @apply btn bg-fill-3 text-label hover:bg-fill-1; }
@@ -139,6 +140,43 @@ select option, select optgroup { background-color: var(--color-surface); color: 
   @apply min-h-11 w-full rounded-xl border border-separator bg-surface px-3.5 py-2 text-base outline-none transition focus:border-blue focus:ring-2 focus:ring-blue/30;
 }
 @utility label { @apply text-xs font-medium text-label-2; }
+
+/* Bewegung im Apple-Stil: weich auslaufend, bei Bedienelementen mit leichtem Federn */
+@utility ease-spring { transition-timing-function: cubic-bezier(.3, 1.35, .5, 1); }
+
+/* Seitenwechsel */
+@keyframes page-in { from { opacity: 0; transform: translateY(10px) scale(.992); } to { opacity: 1; transform: none; } }
+/* backwards statt both: nach dem Ende bleibt kein transform zurück, das fixierte Sheets einsperren würde */
+.page-in { animation: page-in .42s cubic-bezier(.22, 1, .36, 1) backwards; }
+/* Unterseite (z. B. Einstellungen → KI): schiebt sich von rechts herein */
+@keyframes push-in { from { opacity: 0; transform: translateX(28px); } to { opacity: 1; transform: none; } }
+.push-in { animation: push-in .38s cubic-bezier(.22, 1, .36, 1) backwards; }
+
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+.fade-in { animation: fade-in .22s ease-out both; }
+
+/* Zeilen und Karten erscheinen kurz nacheinander */
+.stagger > * { animation: fade-up .4s cubic-bezier(.22, 1, .36, 1) both; }
+.stagger > :nth-child(1) { animation-delay: 0ms; }
+.stagger > :nth-child(2) { animation-delay: 30ms; }
+.stagger > :nth-child(3) { animation-delay: 60ms; }
+.stagger > :nth-child(4) { animation-delay: 90ms; }
+.stagger > :nth-child(5) { animation-delay: 120ms; }
+.stagger > :nth-child(6) { animation-delay: 150ms; }
+.stagger > :nth-child(7) { animation-delay: 180ms; }
+.stagger > :nth-child(8) { animation-delay: 210ms; }
+.stagger > :nth-child(n+9) { animation-delay: 240ms; }
+
+/* Rückmeldung: Symbol federt herein, bei „falsch“ kurzes Kopfschütteln */
+@keyframes pop-in { 0% { opacity: 0; transform: scale(.4); } 60% { opacity: 1; transform: scale(1.18); } 100% { transform: none; } }
+.pop-in { animation: pop-in .45s cubic-bezier(.3, 1.35, .5, 1) both; }
+@keyframes shake { 0%, 100% { transform: none; } 20% { transform: translateX(-7px); } 40% { transform: translateX(6px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(2px); } }
+.shake { animation: shake .4s ease-out; }
+@keyframes pulse-once { 0% { transform: scale(1); } 45% { transform: scale(1.025); } 100% { transform: none; } }
+.pulse-once { animation: pulse-once .45s cubic-bezier(.22, 1, .36, 1); }
+/* Aktives Tab-Symbol hüpft kurz */
+@keyframes tab-bounce { 0% { transform: scale(.8); } 55% { transform: scale(1.14); } 100% { transform: none; } }
+.tab-bounce { animation: tab-bounce .4s cubic-bezier(.3, 1.35, .5, 1); }
 
 @keyframes fade-up { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 .fade-up { animation: fade-up .35s ease-out both; }

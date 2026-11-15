@@ -39,6 +39,7 @@ export function Practice({ sub }: { sub: string }) {
           />
         }
       />
+      <div key={mode} className="page-in">
       {mode === 'beugung' ? (
         <ConjugationTrainer onDashboard={toStart} />
       ) : words.length === 0 ? (
@@ -48,6 +49,7 @@ export function Practice({ sub }: { sub: string }) {
       ) : (
         <QuizSetup onDashboard={toStart} />
       )}
+      </div>
     </div>
   )
 }

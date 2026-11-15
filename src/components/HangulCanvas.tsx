@@ -612,7 +612,8 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
       {/* Schwebende Leiste: Ergebnis + Aktionen. Der ganze Kasten färbt sich passend zum Ergebnis (grün = richtig, rot = falsch). */}
       <div ref={barRef} className="sticky bottom-[var(--tabbar-space)] z-20 md:bottom-3">
         <div
-          className={`space-y-2.5 rounded-[22px] border p-3 shadow-lg backdrop-blur-xl transition-colors duration-300 ${
+          key={result ? statusColor : 'idle'}
+          className={`space-y-2.5 rounded-[22px] border p-3 shadow-lg backdrop-blur-xl transition-colors duration-300 ${result ? (statusColor === 'green' ? 'pulse-once' : 'shake') : ''} ${
             result && statusColor === 'green'
               ? 'border-green/50 bg-[#e3f8e8]/95 dark:bg-[#10301b]/95'
               : result && statusColor === 'red'
@@ -636,7 +637,7 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
           {/* Ergebnis (ohne eigenen Rahmen – der ganze Kasten trägt die Farbe) */}
           {result && (
             <div className="fade-up flex items-start gap-3">
-              {statusColor === 'green' ? <Check className="mt-0.5 shrink-0 text-green" /> : statusColor === 'amber' ? <AlertTriangle className="mt-0.5 shrink-0 text-orange" /> : <X className="mt-0.5 shrink-0 text-red" />}
+              {statusColor === 'green' ? <Check className="pop-in mt-0.5 shrink-0 text-green" /> : statusColor === 'amber' ? <AlertTriangle className="mt-0.5 shrink-0 text-orange" /> : <X className="pop-in mt-0.5 shrink-0 text-red" />}
               <div className="max-h-32 min-w-0 flex-1 overflow-y-auto text-sm">
                 {result.error ? (
                   <>

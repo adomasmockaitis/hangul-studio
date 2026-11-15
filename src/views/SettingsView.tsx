@@ -16,7 +16,7 @@ import { CONJUGATION_KEYS, CONJUGATION_LABELS, type CanvasBackground, type Check
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="mb-6">
+    <section className="push-in mb-6">
       <h2 className="label mb-1.5 px-4">{title}</h2>
       <div className="card divide-y divide-separator overflow-hidden">{children}</div>
     </section>
@@ -189,13 +189,13 @@ export function SettingsView({ sub = '', onRestartOnboarding, onShowWhatsNew }: 
     <div className="mx-auto max-w-2xl">
       {page ? (
         <>
-          <button className="-ml-2 mb-1 flex min-h-11 items-center gap-0.5 rounded-full px-2 text-base font-medium text-blue transition hover:bg-fill-4" onClick={() => navigate('/einstellungen')}>
+          <button className="-ml-2 mb-1 flex min-h-11 items-center gap-0.5 rounded-full px-2 text-base font-medium text-blue transition hover:bg-fill-4" onClick={() => { playSound('nav'); navigate('/einstellungen') }}>
             <ChevronLeft size={22} /> Einstellungen
           </button>
           <PageHeader title={PAGES[page].title} />
         </>
       ) : (
-        <>
+        <div className="page-in">
           <PageHeader title="Einstellungen" />
           {GROUPS.map((g, gi) => (
             <List key={gi}>
@@ -205,7 +205,7 @@ export function SettingsView({ sub = '', onRestartOnboarding, onShowWhatsNew }: 
               })}
             </List>
           ))}
-        </>
+        </div>
       )}
 
       {page === 'ueber' && <Section title="Einrichtung">
@@ -374,7 +374,7 @@ export function SettingsView({ sub = '', onRestartOnboarding, onShowWhatsNew }: 
             <button className="btn-soft !px-2.5 !py-1 text-xs" onClick={() => speakWord({ korean: '학생', german: 'Schüler/in, Student/in' }, settings.speechMode)}>▶ Probe</button>
           </div>
         </Row>
-        <Row title="Klänge für richtig / falsch" desc="Dezente, leise Töne als Rückmeldung.">
+        <Row title="Klänge" desc="Dezente, leise Töne bei richtig und falsch, beim Seitenwechsel und bei Schaltern.">
           <Toggle checked={settings.soundEffects} onChange={(soundEffects) => updateSettings({ soundEffects })} label="Klänge" />
         </Row>
         {settings.soundEffects && (

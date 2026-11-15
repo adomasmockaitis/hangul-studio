@@ -1,5 +1,6 @@
-import { createContext, useCallback, useContext, useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { ChevronRight, X } from 'lucide-react'
+import { playSound } from '../lib/sounds'
 
 export function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label?: string }) {
   return (
@@ -8,11 +9,14 @@ export function Toggle({ checked, onChange, label }: { checked: boolean; onChang
       role="switch"
       aria-checked={checked}
       aria-label={label}
-      onClick={() => onChange(!checked)}
-      className={`relative h-[31px] w-[51px] shrink-0 rounded-full transition-colors ${checked ? 'bg-green' : 'bg-fill-1'}`}
+      onClick={() => {
+        playSound(checked ? 'off' : 'on')
+        onChange(!checked)
+      }}
+      className={`group relative h-[31px] w-[51px] shrink-0 rounded-full transition-colors duration-300 ${checked ? 'bg-green' : 'bg-fill-1'}`}
     >
       <span
-        className={`absolute top-[2px] h-[27px] w-[27px] rounded-full bg-white shadow-md transition-all ${checked ? 'left-[22px]' : 'left-[2px]'}`}
+        className={`ease-spring absolute top-[2px] h-[27px] w-[27px] rounded-full bg-white shadow-md transition-all duration-300 group-active:scale-x-110 ${checked ? 'left-[22px]' : 'left-[2px]'}`}
       />
     </button>
   )
@@ -21,17 +25,47 @@ export function Toggle({ checked, onChange, label }: { checked: boolean; onChang
 export function Segmented<T extends string>({
   value, onChange, options, label,
 }: { value: T; onChange: (v: T) => void; options: { value: T; label: ReactNode }[]; label?: string }) {
+  // Gleitende Auswahl-Kapsel: Position und Breite der gewählten Option messen
+  const wrap = useRef<HTMLDivElement>(null)
+  const [thumb, setThumb] = useState<{ left: number; width: number } | null>(null)
+  const [animate, setAnimate] = useState(false)
+  useLayoutEffect(() => {
+    const box = wrap.current
+    if (!box) return
+    const measure = () => {
+      const el = box.querySelector<HTMLElement>('[aria-checked="true"]')
+      setThumb(el ? { left: el.offsetLeft, width: el.offsetWidth } : null)
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(box)
+    return () => ro.disconnect()
+  }, [value, options.length])
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setAnimate(true))
+    return () => cancelAnimationFrame(id)
+  }, [])
   return (
-    <div role="radiogroup" aria-label={label} className="inline-flex rounded-full bg-fill-3 p-0.5">
+    <div ref={wrap} role="radiogroup" aria-label={label} className="relative inline-flex rounded-full bg-fill-3 p-0.5">
+      {thumb && (
+        <span
+          aria-hidden
+          className={`ease-spring pointer-events-none absolute bottom-0.5 top-0.5 rounded-full bg-surface shadow-sm dark:bg-[#636366] ${animate ? 'transition-[left,width] duration-300' : ''}`}
+          style={{ left: thumb.left, width: thumb.width }}
+        />
+      )}
       {options.map((o) => (
         <button
           key={o.value}
           type="button"
           role="radio"
           aria-checked={value === o.value}
-          onClick={() => onChange(o.value)}
-          className={`flex min-h-9 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium transition ${
-            value === o.value ? 'bg-surface shadow-sm dark:bg-[#636366]' : 'text-label-2'
+          onClick={() => {
+            if (o.value !== value) playSound('tap')
+            onChange(o.value)
+          }}
+          className={`relative flex min-h-9 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors duration-200 active:opacity-60 ${
+            value === o.value ? 'text-label' : 'text-label-2'
           }`}
         >
           {o.label}
@@ -132,9 +166,12 @@ export function Sheet({
 }) {
   const ref = useDialog(open, onClose)
   const titleId = useId()
+  useEffect(() => {
+    if (open) playSound('open')
+  }, [open])
   if (!open && !keepMounted) return null
   return (
-    <div className={`fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center sm:p-6 ${open ? '' : 'hidden'}`} onMouseDown={onClose}>
+    <div className={`fade-in fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center sm:p-6 ${open ? '' : 'hidden'}`} onMouseDown={onClose}>
       <div
         ref={ref}
         role="dialog"
@@ -203,7 +240,7 @@ export function ListRow({
   )
   const cls = 'flex min-h-11 w-full items-center gap-3 px-4 py-2.5 text-left'
   return onClick ? (
-    <button type="button" onClick={onClick} className={`${cls} transition hover:bg-fill-4 active:bg-fill-3`}>{body}</button>
+    <button type="button" onClick={() => { playSound('nav'); onClick() }} className={`${cls} transition hover:bg-fill-4 active:bg-fill-3`}>{body}</button>
   ) : (
     <div className={cls}>{body}</div>
   )
@@ -239,7 +276,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
     <ConfirmContext.Provider value={ask}>
       {children}
       {o && (
-        <div className="fixed inset-0 z-[80] grid place-items-center bg-black/40 p-6" onMouseDown={() => done(false)}>
+        <div className="fade-in fixed inset-0 z-[80] grid place-items-center bg-black/40 p-6" onMouseDown={() => done(false)}>
           <div
             ref={ref}
             role="alertdialog"

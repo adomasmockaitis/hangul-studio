@@ -24,6 +24,14 @@ export interface Release {
 }
 export const RELEASES: Release[] = [
   {
+    id: '2026-11-motion',
+    size: 'minor',
+    title: 'Neu in Hangul Studio',
+    subtitle: 'Mehr Bewegung und Klang',
+    summary: 'Sanfte Übergänge beim Seitenwechsel, gleitende Auswahl in Leisten und Umschaltern, federnde Knöpfe und leise Töne beim Tippen (abschaltbar unter Audio & Lernen).',
+    features: [],
+  },
+  {
     id: '2026-11-pages-polish',
     size: 'minor',
     title: 'Neu in Hangul Studio',

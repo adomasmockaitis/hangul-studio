@@ -4,6 +4,7 @@ import { AiStatusPill } from './components/AiStatusPill'
 import { isOnboarded, Onboarding } from './components/Onboarding'
 import { WhatsNew } from './components/WhatsNew'
 import { releasePopup } from './lib/releases'
+import { playSound } from './lib/sounds'
 import { warmup } from './lib/gemini'
 import { navigate, useRoute, type Tab } from './lib/route'
 import { AppProvider, useApp } from './store'
@@ -42,8 +43,10 @@ function Shell() {
     document.getElementById('main')?.scrollTo({ top: 0 })
   }, [tab, sub, navKey])
 
+  const idx = NAV.findIndex((n) => n.id === tab)
   const go = (id: Tab) => {
     if (id === tab) setNavKey((k) => k + 1)
+    else playSound('nav')
     navigate('/' + id)
   }
 
@@ -59,17 +62,19 @@ function Shell() {
               <p className="text-xs text-label-2">Koreanisch lernen</p>
             </div>
           </div>
-          <nav aria-label="Hauptnavigation" className="space-y-1">
+          <nav aria-label="Hauptnavigation" className="relative space-y-1">
+            {/* Auswahl gleitet zur gewählten Zeile (44 px Zeile + 4 px Abstand) */}
+            <span aria-hidden className="ease-spring pointer-events-none absolute inset-x-0 top-0 h-11 rounded-full bg-fill-2 transition-transform duration-300" style={{ transform: `translateY(${idx * 48}px)` }} />
             {NAV.map((n) => (
               <button
                 key={n.id}
                 onClick={() => go(n.id)}
                 aria-current={tab === n.id ? 'page' : undefined}
-                className={`flex min-h-11 w-full items-center gap-3 rounded-full px-3.5 text-left text-base transition ${
-                  tab === n.id ? 'bg-fill-2 font-semibold text-label' : 'font-medium text-label-2 hover:bg-fill-4'
+                className={`relative flex min-h-11 w-full items-center gap-3 rounded-full px-3.5 text-left text-base transition-colors active:opacity-60 ${
+                  tab === n.id ? 'font-semibold text-label' : 'font-medium text-label-2 hover:bg-fill-4'
                 }`}
               >
-                <n.icon size={20} className={tab === n.id ? 'text-blue' : ''} /> {n.label}
+                <n.icon key={tab === n.id ? 'on' : 'off'} size={20} className={tab === n.id ? 'tab-bounce text-blue' : ''} /> {n.label}
               </button>
             ))}
           </nav>
@@ -79,10 +84,12 @@ function Shell() {
 
       <AiStatusPill compact className="glass fixed right-3 top-[max(0.75rem,env(safe-area-inset-top))] z-30 md:hidden" />
       <main id="main" className="min-w-0 flex-1 overflow-y-auto px-4 pb-32 pt-16 sm:px-8 md:pb-10 md:pt-10">
-        {tab === 'start' && <Dashboard />}
-        {tab === 'woerter' && <Dictionary key={navKey} />}
-        {tab === 'ueben' && <Practice key={`${sub}-${navKey}`} sub={sub} />}
-        {tab === 'einstellungen' && <SettingsView sub={sub} onRestartOnboarding={() => setOnboarding(true)} onShowWhatsNew={() => setWhatsNew(true)} />}
+        <div key={`${tab}-${navKey}`} className="page-in">
+          {tab === 'start' && <Dashboard />}
+          {tab === 'woerter' && <Dictionary />}
+          {tab === 'ueben' && <Practice sub={sub} />}
+          {tab === 'einstellungen' && <SettingsView sub={sub} onRestartOnboarding={() => setOnboarding(true)} onShowWhatsNew={() => setWhatsNew(true)} />}
+        </div>
       </main>
 
       {!onboarding && whatsNew && <WhatsNew onClose={() => setWhatsNew(false)} />}
@@ -91,21 +98,24 @@ function Shell() {
       {/* Tableiste (Handy / Tablet hoch): schwebende Glas-Kapsel */}
       <nav
         aria-label="Hauptnavigation"
-        className="glass fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-40 mx-auto flex max-w-md rounded-full p-1 md:hidden"
+        className="glass fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-40 mx-auto max-w-md rounded-full p-1 md:hidden"
       >
+        <div className="relative flex">
+        <span aria-hidden className="ease-spring pointer-events-none absolute inset-y-0 left-0 w-1/4 rounded-full bg-fill-2 transition-transform duration-300" style={{ transform: `translateX(${idx * 100}%)` }} />
         {NAV.map((n) => (
           <button
             key={n.id}
             onClick={() => go(n.id)}
             aria-current={tab === n.id ? 'page' : undefined}
-            className={`flex min-h-[3.25rem] min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-full px-1 text-[0.6875rem] font-medium transition ${
-              tab === n.id ? 'bg-fill-2 text-blue' : 'text-label-2'
+            className={`relative flex min-h-[3.25rem] min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-full px-1 text-[0.6875rem] font-medium transition-colors active:opacity-60 ${
+              tab === n.id ? 'text-blue' : 'text-label-2'
             }`}
           >
-            <n.icon size={22} strokeWidth={tab === n.id ? 2.4 : 1.9} />
+            <n.icon key={tab === n.id ? 'on' : 'off'} size={22} strokeWidth={tab === n.id ? 2.4 : 1.9} className={tab === n.id ? 'tab-bounce' : ''} />
             <span className="max-w-full truncate">{n.label}</span>
           </button>
         ))}
+        </div>
       </nav>
     </div>
   )

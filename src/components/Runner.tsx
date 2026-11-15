@@ -73,7 +73,7 @@ export function Runner({ questions, onDashboard, onBack, backLabel }: Props) {
           </p>
         </div>
 
-        <div className="card divide-y divide-separator overflow-hidden">
+        <div className="stagger card divide-y divide-separator overflow-hidden">
           {done.map((d, n) => (
             <div key={n} className="flex items-center gap-3 px-4 py-3">
               <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-white ${d.correct ? 'bg-green' : 'bg-red'}`}>

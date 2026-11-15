@@ -129,7 +129,7 @@ export function Dictionary() {
         </select>
       </div>
 
-      <div className="card divide-y divide-separator overflow-hidden">
+      <div className="stagger card divide-y divide-separator overflow-hidden">
         {list.length === 0 && <p className="p-6 text-center text-sm text-label-2">Keine Wörter gefunden.</p>}
         {list.map((w) => {
           const rate = errorRate(w)

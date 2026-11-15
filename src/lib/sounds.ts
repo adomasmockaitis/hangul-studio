@@ -2,7 +2,7 @@
  * Dezente Klänge per Web Audio (keine Audiodateien): weiche Glockentöne wie bei iOS.
  * Alles bewusst leise; die Lautstärke lässt sich in den Einstellungen anpassen.
  */
-export type SoundName = 'success' | 'error' | 'tap' | 'complete'
+export type SoundName = 'success' | 'error' | 'tap' | 'complete' | 'nav' | 'on' | 'off' | 'open'
 
 const cfg = { enabled: true, volume: 0.5 }
 let ctx: AudioContext | null = null
@@ -84,6 +84,20 @@ export function playSound(name: SoundName) {
       break
     case 'tap': // winziges Tick
       tone(ac, master, 1760, 0, 0.05, { gain: 0.3 })
+      break
+    case 'nav': // Seitenwechsel: sehr leises, weiches Tick
+      tone(ac, master, 1320, 0, 0.045, { gain: 0.16, lowpass: 3000 })
+      break
+    case 'on': // Schalter an: kurzer Doppelton nach oben
+      tone(ac, master, 1175, 0, 0.04, { gain: 0.2 })
+      tone(ac, master, 1568, 0.035, 0.05, { gain: 0.2 })
+      break
+    case 'off': // Schalter aus: derselbe Doppelton nach unten
+      tone(ac, master, 1568, 0, 0.04, { gain: 0.18 })
+      tone(ac, master, 1175, 0.035, 0.05, { gain: 0.18 })
+      break
+    case 'open': // Fenster öffnet sich: sanftes Aufgleiten
+      tone(ac, master, 660, 0, 0.11, { gain: 0.16, glideTo: 990, lowpass: 2400, attack: 0.02 })
       break
     case 'complete': // sanfter Dur-Akkord als Arpeggio
       ;[1046.5, 1318.5, 1568, 2093].forEach((f, i) => bell(ac, master, f, i * 0.085, 0.65, 0.42))

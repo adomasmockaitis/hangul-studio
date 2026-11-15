@@ -22,7 +22,7 @@ export function DoneCard({
 
   return (
     <div className="card fade-up p-8 text-center">
-      <div className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-full bg-green text-white shadow-lg">
+      <div className="pop-in mx-auto mb-4 grid h-16 w-16 place-items-center rounded-full bg-green text-white shadow-lg">
         <Check size={34} strokeWidth={3} />
       </div>
       <h2 className="text-2xl font-bold">{title}</h2>
