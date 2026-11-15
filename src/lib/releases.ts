@@ -24,6 +24,14 @@ export interface Release {
 }
 export const RELEASES: Release[] = [
   {
+    id: '2026-11-settings-pages',
+    size: 'minor',
+    title: 'Neu in Hangul Studio',
+    subtitle: 'Aufgeräumte Einstellungen',
+    summary: 'Die Einstellungen sind jetzt eine kurze Liste mit Unterseiten: Darstellung, KI & Prüfung, Schreiben, Audio & Lernen, Sync & Backup, Über, Erweitert.',
+    features: [],
+  },
+  {
     id: '2026-11-new-design',
     size: 'major',
     title: 'Neu in Hangul Studio',

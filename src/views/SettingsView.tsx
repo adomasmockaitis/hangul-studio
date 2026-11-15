@@ -1,6 +1,7 @@
 ﻿import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { ArrowDown, ArrowUp, Cloud, CloudOff, Download, Zap, Eye, EyeOff, Loader2, Monitor, Moon, RefreshCw, RotateCcw, Sparkles, Sun, Trash2, Upload } from 'lucide-react'
-import { PageHeader, Segmented, Toggle, useConfirm } from '../components/ui'
+import { ArrowDown, ArrowUp, ChevronLeft, Cloud, CloudOff, Download, Zap, Eye, EyeOff, Info, Loader2, Monitor, Moon, PenLine, RefreshCw, RotateCcw, Sparkles, Sun, Trash2, Upload, Volume2, Wrench, type LucideIcon } from 'lucide-react'
+import { List, ListRow, PageHeader, Segmented, Toggle, useConfirm } from '../components/ui'
+import { navigate } from '../lib/route'
 import { speakWord } from '../lib/speech'
 import { playSound } from '../lib/sounds'
 import { formatAgo } from '../lib/time'
@@ -16,8 +17,8 @@ import { CONJUGATION_KEYS, CONJUGATION_LABELS, type CanvasBackground, type Check
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="mb-6">
-      <h2 className="label mb-2 px-2">{title}</h2>
-      <div className="card divide-y divide-separator">{children}</div>
+      <h2 className="label mb-1.5 px-4">{title}</h2>
+      <div className="card divide-y divide-separator overflow-hidden">{children}</div>
     </section>
   )
 }
@@ -34,7 +35,20 @@ function Row({ title, desc, children, stack }: { title: string; desc?: string; c
   )
 }
 
-export function SettingsView({ onRestartOnboarding, onShowWhatsNew }: { onRestartOnboarding?: () => void; onShowWhatsNew?: () => void }) {
+type PageId = 'darstellung' | 'ki' | 'schreiben' | 'audio' | 'sync' | 'ueber' | 'erweitert'
+const PAGES: Record<PageId, { title: string; icon: LucideIcon; color: string }> = {
+  darstellung: { title: 'Darstellung', icon: Sun, color: 'var(--color-blue)' },
+  ki: { title: 'KI & Prüfung', icon: Sparkles, color: 'var(--color-purple)' },
+  schreiben: { title: 'Schreiben', icon: PenLine, color: 'var(--color-orange)' },
+  audio: { title: 'Audio & Lernen', icon: Volume2, color: 'var(--color-red)' },
+  sync: { title: 'Sync & Backup', icon: Cloud, color: 'var(--color-green)' },
+  ueber: { title: 'Über & Neuigkeiten', icon: Info, color: 'var(--color-indigo)' },
+  erweitert: { title: 'Erweitert', icon: Wrench, color: '#8e8e93' },
+}
+
+/** Einstellungen: kurze Hauptliste, jede Gruppe auf einer eigenen Unterseite (#/einstellungen/ki). */
+export function SettingsView({ sub = '', onRestartOnboarding, onShowWhatsNew }: { sub?: string; onRestartOnboarding?: () => void; onShowWhatsNew?: () => void }) {
+  const page = (sub in PAGES ? sub : '') as PageId | ''
   const sync = useSync()
   const confirm = useConfirm()
   const { settings, updateSettings, exportBackup, importBackup, words, resetStats, restoreDemo, clearAll } = useApp()
@@ -162,20 +176,48 @@ export function SettingsView({ onRestartOnboarding, onShowWhatsNew }: { onRestar
     }
   }
 
+  const GROUPS: PageId[][] = [['darstellung', 'ki', 'schreiben', 'audio'], ['sync'], ['ueber', 'erweitert']]
+  // Kurzer aktueller Stand rechts in der Hauptliste
+  const summary: Partial<Record<PageId, string>> = {
+    darstellung: settings.theme === 'light' ? 'Hell' : settings.theme === 'dark' ? 'Dunkel' : 'System',
+    ki: settings.geminiApiKey.trim() ? 'Gemini aktiv' : 'Ohne API-Key',
+    audio: settings.speechMode === 'both' ? 'Koreanisch + Deutsch' : settings.speechMode === 'ko' ? 'Koreanisch' : 'Deutsch',
+    sync: sync.enabled ? (sync.state === 'needs-auth' ? 'Anmeldung nötig' : 'Verbunden') : 'Aus',
+  }
+
   return (
     <div className="mx-auto max-w-2xl">
-      <PageHeader title="Einstellungen" />
+      {page ? (
+        <>
+          <button className="-ml-2 mb-1 flex min-h-11 items-center gap-0.5 rounded-full px-2 text-base font-medium text-blue transition hover:bg-fill-4" onClick={() => navigate('/einstellungen')}>
+            <ChevronLeft size={22} /> Einstellungen
+          </button>
+          <PageHeader title={PAGES[page].title} />
+        </>
+      ) : (
+        <>
+          <PageHeader title="Einstellungen" />
+          {GROUPS.map((g, gi) => (
+            <List key={gi}>
+              {g.map((id) => {
+                const P = PAGES[id]
+                return <ListRow key={id} icon={<P.icon size={18} />} iconColor={P.color} title={P.title} value={summary[id]} onClick={() => navigate('/einstellungen/' + id)} />
+              })}
+            </List>
+          ))}
+        </>
+      )}
 
-      <Section title="Einrichtung">
+      {page === 'ueber' && <Section title="Einrichtung">
         <Row title="Einrichtung erneut starten" desc="Führt dich nochmal Schritt für Schritt durch die wichtigsten Einstellungen.">
           <button className="btn-soft" onClick={onRestartOnboarding}><Sparkles size={16} /> Einrichtung starten</button>
         </Row>
         <Row title="Neuigkeiten" desc="Zeigt noch einmal, was im letzten Update neu ist.">
           <button className="btn-soft" onClick={onShowWhatsNew}>Neuigkeiten anzeigen</button>
         </Row>
-      </Section>
+      </Section>}
 
-      <Section title="Darstellung">
+      {page === 'darstellung' && <Section title="Erscheinungsbild">
         <Row title="Theme">
           <Segmented<ThemeMode>
             value={settings.theme}
@@ -187,9 +229,9 @@ export function SettingsView({ onRestartOnboarding, onShowWhatsNew }: { onRestar
             ]}
           />
         </Row>
-      </Section>
+      </Section>}
 
-      <Section title="KI & Prüfung">
+      {page === 'ki' && <Section title="Gemini und Prüf-Reihenfolge">
         <Row title="Gemini API-Key" desc="Wird nur lokal gespeichert und direkt an Google gesendet ." stack>
           <div className="flex gap-2">
             <input
@@ -277,9 +319,9 @@ export function SettingsView({ onRestartOnboarding, onShowWhatsNew }: { onRestar
             ))}
           </ol>
         </Row>
-      </Section>
+      </Section>}
 
-      <Section title="Zeichenfeld">
+      {page === 'schreiben' && <Section title="Zeichenfeld">
         <Row title="Hintergrund">
           <select className="input !w-auto" value={settings.canvasBackground} onChange={(e) => updateSettings({ canvasBackground: e.target.value as CanvasBackground })}>
             <option value="blank">Weiß (Blanko)</option>
@@ -316,9 +358,9 @@ export function SettingsView({ onRestartOnboarding, onShowWhatsNew }: { onRestar
         <Row title="Standard-Strichdicke">
           <input type="range" min={2} max={16} value={settings.strokeWidth} onChange={(e) => updateSettings({ strokeWidth: +e.target.value })} className="w-40 accent-blue" />
         </Row>
-      </Section>
+      </Section>}
 
-      <Section title="Audio & Lernen">
+      {page === 'audio' && <Section title="Vorlesen, Klänge und Beugungsformen">
         <Row title="Wort automatisch vorlesen bei neuer Karte">
           <Toggle checked={settings.autoSpeak} onChange={(autoSpeak) => updateSettings({ autoSpeak })} label="Auto-Vorlesen" />
         </Row>
@@ -357,9 +399,9 @@ export function SettingsView({ onRestartOnboarding, onShowWhatsNew }: { onRestar
             ))}
           </div>
         </Row>
-      </Section>
+      </Section>}
 
-      <Section title="Synchronisation (Google Drive)">
+      {page === 'sync' && <Section title="Google Drive">
         <Row
           title="Geräte automatisch abgleichen"
           desc="Speichert deinen Lernstand in einem versteckten App-Ordner deines eigenen Google Drive und gleicht ihn zwischen PC, Tablet und Smartphone ab. Nur diese App kann die Datei lesen."
@@ -416,9 +458,9 @@ export function SettingsView({ onRestartOnboarding, onShowWhatsNew }: { onRestar
             </>
           )}
         </Row>
-      </Section>
+      </Section>}
 
-      <Section title="Backup & Sync">
+      {page === 'sync' && <Section title="Backup-Datei">
         <Row title="Backup exportieren (.json)" desc="Alle Vokabeln, Lernstände und Einstellungen – zum Übertragen auf andere Geräte.">
           <div className="flex flex-col items-end gap-2">
             <button className="btn-primary" onClick={() => exportBackup(withKey)}><Download size={16} /> Backup Exportieren</button>
@@ -435,9 +477,9 @@ export function SettingsView({ onRestartOnboarding, onShowWhatsNew }: { onRestar
           </div>
           {msg && <p className={`text-sm ${msg.ok ? 'text-green' : 'text-red'}`}>{msg.text}</p>}
         </Row>
-      </Section>
+      </Section>}
 
-      <Section title="Entwickler">
+      {page === 'erweitert' && <Section title="Entwickler">
         <Row title="Alles exportieren (eine Datei)" desc="Ein Klick: wartende Fälle werden zuerst von Gemini nachgeprüft, dann entsteht EINE .zip-Datei mit allen Daten (data.json) und allen Bildern (Ordner images/). Diese Datei kannst du mir geben, damit ich Input-Tools-Erkennung und Gemini-Prompt auswerten und verbessern kann." stack>
           <div className="flex flex-wrap items-center gap-3">
             <button className="btn-primary !px-5 !py-2.5" disabled={exporting || (!sum.total && !disputes.length && !pendingCount)} onClick={() => void runExport()}>
@@ -493,14 +535,14 @@ export function SettingsView({ onRestartOnboarding, onShowWhatsNew }: { onRestar
             </button>
           </div>
         </Row>
-      </Section>
-      <p className="mb-6 px-2 text-center text-xs text-label-3">
+      </Section>}
+      {page === 'ueber' && <p className="mb-6 px-2 text-center text-xs text-label-3">
         <a className="underline" href={`${import.meta.env.BASE_URL}datenschutz.html`} target="_blank" rel="noreferrer">Datenschutz</a>
         {' · '}
         <a className="underline" href="https://github.com/adomasmockaitis/hangul-studio" target="_blank" rel="noreferrer">Quellcode auf GitHub</a>
-      </p>
+      </p>}
 
-      <Section title="Daten">
+      {page === 'erweitert' && <Section title="Daten zurücksetzen">
         <Row title="Lernstände zurücksetzen" desc={`Setzt Statistiken aller ${words.length} Wörter zurück.`}>
           <button className="btn-soft" onClick={async () => { if (await confirm({ title: 'Lernstände zurücksetzen?', message: `Die Statistiken aller ${words.length} Wörter beginnen wieder bei null.`, confirmLabel: 'Zurücksetzen', destructive: true })) resetStats() }}><RotateCcw size={16} /> Zurücksetzen</button>
         </Row>
@@ -510,7 +552,7 @@ export function SettingsView({ onRestartOnboarding, onShowWhatsNew }: { onRestar
         <Row title="Alle Vokabeln löschen">
           <button className="btn-soft !text-red" onClick={async () => { if (await confirm({ title: 'Alle Vokabeln löschen?', message: 'Alle Vokabeln und Lernstände werden gelöscht. Das lässt sich nicht rückgängig machen.', confirmLabel: 'Alles löschen', destructive: true })) clearAll() }}><Trash2 size={16} /> Löschen</button>
         </Row>
-      </Section>
+      </Section>}
     </div>
   )
 }

@@ -82,7 +82,7 @@ function Shell() {
         {tab === 'start' && <Dashboard />}
         {tab === 'woerter' && <Dictionary key={navKey} />}
         {tab === 'ueben' && <Practice key={`${sub}-${navKey}`} sub={sub} />}
-        {tab === 'einstellungen' && <SettingsView onRestartOnboarding={() => setOnboarding(true)} onShowWhatsNew={() => setWhatsNew(true)} />}
+        {tab === 'einstellungen' && <SettingsView sub={sub} onRestartOnboarding={() => setOnboarding(true)} onShowWhatsNew={() => setWhatsNew(true)} />}
       </main>
 
       {!onboarding && whatsNew && <WhatsNew onClose={() => setWhatsNew(false)} />}
