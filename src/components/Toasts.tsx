@@ -83,17 +83,17 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             <div
               key={t.id}
               role="status"
-              className="toast-in pointer-events-auto flex w-full items-start gap-3 rounded-2xl border border-black/[0.08] bg-white/80 p-3.5 shadow-xl backdrop-blur-xl dark:border-white/10 dark:bg-[#2c2c2e]/85"
+              className="toast-in pointer-events-auto flex w-full items-start gap-3 rounded-2xl border border-separator bg-surface/80 p-3.5 shadow-xl backdrop-blur-xl dark:bg-surface-2/85"
             >
               <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full text-white" style={{ background: bg }}>
                 <Icon size={17} />
               </span>
               <div className="min-w-0 flex-1">
                 <p className="text-[15px] font-semibold leading-tight">{t.title}</p>
-                {t.text && <p className="mt-0.5 text-sm leading-snug text-black/60 dark:text-white/60">{t.text}</p>}
+                {t.text && <p className="mt-0.5 text-sm leading-snug text-label-2">{t.text}</p>}
                 {t.action && (
                   <button
-                    className="mt-2 rounded-lg bg-[#007aff] px-3 py-1.5 text-sm font-medium text-white transition active:scale-[0.97]"
+                    className="mt-2 rounded-lg bg-blue px-3 py-1.5 text-sm font-medium text-white transition active:scale-[0.97]"
                     onClick={() => {
                       t.action!.onClick()
                       dismiss(t.id)
@@ -103,7 +103,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                   </button>
                 )}
               </div>
-              <button className="rounded-full p-1 text-black/35 hover:bg-black/[0.06] dark:text-white/40 dark:hover:bg-white/10" onClick={() => dismiss(t.id)} aria-label="Schließen">
+              <button className="rounded-full p-1 text-label-3 hover:bg-fill-3" onClick={() => dismiss(t.id)} aria-label="Schließen">
                 <X size={15} />
               </button>
             </div>

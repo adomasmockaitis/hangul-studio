@@ -12,12 +12,12 @@ const GAP = 0.3 // Pause zwischen Strichen
 const JAMO_GAP = 0.25 // zusätzliche Pause zwischen Buchstaben
 const SYL_GAP = 0.5 // zusätzliche Pause zwischen Silben
 
-const blockSvg = 'h-[132px] w-[132px] rounded-xl border border-black/10 bg-white dark:border-white/10 dark:bg-white/5'
-const blockSvgSmall = 'h-[104px] w-[104px] rounded-xl border border-black/10 bg-white dark:border-white/10 dark:bg-white/5'
+const blockSvg = 'h-[132px] w-[132px] rounded-xl border border-separator bg-surface'
+const blockSvgSmall = 'h-[104px] w-[104px] rounded-xl border border-separator bg-surface'
 
 function Ghost({ layout }: { layout: SyllableLayout }) {
   return (
-    <g stroke="currentColor" className="text-black/10 dark:text-white/15" strokeWidth="4" fill="none" strokeLinecap="round" strokeLinejoin="round">
+    <g stroke="currentColor" className="text-label-4" strokeWidth="4" fill="none" strokeLinecap="round" strokeLinejoin="round">
       {layout.strokes.map((s, i) => <path key={i} d={strokePath(s.pts)} />)}
     </g>
   )
@@ -26,7 +26,7 @@ function Ghost({ layout }: { layout: SyllableLayout }) {
 /** Hilfslinien wie im Silbenraster, damit die Blockform erkennbar ist */
 function Guides() {
   return (
-    <g stroke="currentColor" className="text-black/10 dark:text-white/10" strokeWidth="0.6" strokeDasharray="3 3">
+    <g stroke="currentColor" className="text-label-4" strokeWidth="0.6" strokeDasharray="3 3">
       <line x1="50" y1="0" x2="50" y2="100" />
       <line x1="0" y1="50" x2="100" y2="50" />
     </g>
@@ -47,7 +47,7 @@ function Caption({ layout }: { layout: SyllableLayout }) {
             const first = layout.strokes.findIndex((s) => s.jamoIndex === start && s.strokeIndex === 0)
             return (
               <span key={i}>
-                {i > 0 && <span className="text-black/30 dark:text-white/30"> + </span>}
+                {i > 0 && <span className="text-label-3"> + </span>}
                 <span style={{ color: COLORS[Math.max(0, first) % COLORS.length] }}>{j}</span>
               </span>
             )
@@ -162,7 +162,7 @@ function Animated({ layouts, compact = false }: { layouts: SyllableLayout[]; com
       <div className={compact ? 'flex flex-wrap justify-center gap-3' : 'flex flex-wrap gap-3'}>
         {layouts.map((l, li) => (
           <div key={li} className={`flex ${compact ? 'w-[104px]' : 'w-[132px]'} shrink-0 flex-col items-center gap-1`}>
-            <svg viewBox="0 0 100 100" className={`${compact ? blockSvgSmall : blockSvg} transition ${!finished && li === active ? 'ring-2 ring-[#007aff]' : ''}`}>
+            <svg viewBox="0 0 100 100" className={`${compact ? blockSvgSmall : blockSvg} transition ${!finished && li === active ? 'ring-2 ring-blue' : ''}`}>
               <Guides />
               <Ghost layout={l} />
               {l.strokes.map((s, si) => {
@@ -225,7 +225,7 @@ export function StrokeOrder({ text, mode, compact = false }: { text: string; mod
   }
 
   return (
-    <div className="fade-up rounded-2xl border border-black/[0.06] bg-black/[0.03] p-3 dark:border-white/10 dark:bg-white/5">
+    <div className="fade-up rounded-2xl border border-separator bg-fill-4 p-3">
       <div className="flex items-center justify-between gap-2">
         <p className="label">Strichreihenfolge · {mode === 'animation' ? 'Animation' : 'Zahlen & Pfeile'}</p>
         <button className="btn-soft !px-2.5 !py-1 text-xs" onClick={toggle} aria-expanded={!collapsed} title={collapsed ? 'Strichreihenfolge einblenden' : 'Strichreihenfolge minimieren'}>
@@ -234,11 +234,11 @@ export function StrokeOrder({ text, mode, compact = false }: { text: string; mod
       </div>
       {collapsed ? null : (
         <>
-      <p className="mb-2 mt-1 text-xs text-black/50 dark:text-white/50">
+      <p className="mb-2 mt-1 text-xs text-label-2">
         Jede Silbe wird als <b>ein Block</b> geschrieben – genau so, wie unten im Silbenraster: Anlaut links/oben, Vokal rechts oder unten.
       </p>
       {layouts.length === 0 ? (
-        <p className="text-sm text-black/50 dark:text-white/50">Keine Hangul-Zeichen im Wort.</p>
+        <p className="text-sm text-label-2">Keine Hangul-Zeichen im Wort.</p>
       ) : mode === 'animation' ? (
         <Animated key={text} layouts={layouts} />
       ) : (

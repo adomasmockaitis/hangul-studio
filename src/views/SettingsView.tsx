@@ -1,6 +1,6 @@
 ﻿import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { ArrowDown, ArrowUp, Cloud, CloudOff, Download, Zap, Eye, EyeOff, Loader2, Monitor, Moon, RefreshCw, RotateCcw, Sparkles, Sun, Trash2, Upload } from 'lucide-react'
-import { PageHeader, Segmented, Toggle } from '../components/ui'
+import { PageHeader, Segmented, Toggle, useConfirm } from '../components/ui'
 import { speakWord } from '../lib/speech'
 import { playSound } from '../lib/sounds'
 import { formatAgo } from '../lib/time'
@@ -17,7 +17,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="mb-6">
       <h2 className="label mb-2 px-2">{title}</h2>
-      <div className="card divide-y divide-black/[0.06] dark:divide-white/10">{children}</div>
+      <div className="card divide-y divide-separator">{children}</div>
     </section>
   )
 }
@@ -27,7 +27,7 @@ function Row({ title, desc, children, stack }: { title: string; desc?: string; c
     <div className={`flex gap-3 p-4 ${stack ? 'flex-col' : 'flex-wrap items-center justify-between'}`}>
       <div className="min-w-0 max-w-md">
         <p className="font-medium">{title}</p>
-        {desc && <p className="text-sm text-black/50 dark:text-white/50">{desc}</p>}
+        {desc && <p className="text-sm text-label-2">{desc}</p>}
       </div>
       {children}
     </div>
@@ -36,6 +36,7 @@ function Row({ title, desc, children, stack }: { title: string; desc?: string; c
 
 export function SettingsView({ onRestartOnboarding, onShowWhatsNew }: { onRestartOnboarding?: () => void; onShowWhatsNew?: () => void }) {
   const sync = useSync()
+  const confirm = useConfirm()
   const { settings, updateSettings, exportBackup, importBackup, words, resetStats, restoreDemo, clearAll } = useApp()
   const [showKey, setShowKey] = useState(false)
   const [withKey, setWithKey] = useState(false)
@@ -152,7 +153,7 @@ export function SettingsView({ onRestartOnboarding, onShowWhatsNew }: { onRestar
   }
 
   const onImport = async (file: File) => {
-    if (mode === 'replace' && !confirm('Alle aktuellen Vokabeln und Lernstände werden ersetzt. Fortfahren?')) return
+    if (mode === 'replace' && !(await confirm({ title: 'Alles ersetzen?', message: 'Alle aktuellen Vokabeln und Lernstände werden durch das Backup ersetzt.', confirmLabel: 'Ersetzen', destructive: true }))) return
     try {
       const { words: n } = importBackup(await file.text(), mode)
       setMsg({ ok: true, text: `Backup importiert (${n} Wörter).` })
@@ -208,26 +209,26 @@ export function SettingsView({ onRestartOnboarding, onShowWhatsNew }: { onRestar
             <button className="btn-primary" onClick={() => void loadModels(true)} disabled={!settings.geminiApiKey.trim() || loading}>
               {loading ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />} Verfügbare Modelle laden
             </button>
-            {models && <span className="text-xs text-black/50 dark:text-white/50">{models.length} Modelle gefunden</span>}
+            {models && <span className="text-xs text-label-2">{models.length} Modelle gefunden</span>}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <button className="btn-soft" onClick={() => void runSpeedTest()} disabled={!settings.geminiApiKey.trim() || testing}>
               {testing ? <Loader2 size={16} className="animate-spin" /> : <Zap size={16} />} Geschwindigkeit der Modelle messen
             </button>
-            <span className="text-xs text-black/50 dark:text-white/50">10 winzige Anfragen (2 pro Modell)</span>
+            <span className="text-xs text-label-2">10 winzige Anfragen (2 pro Modell)</span>
           </div>
           {speed.length > 0 && (
             <ul className="space-y-1 text-sm">
               {speed.map((r) => (
                 <li key={r.model} className="flex items-center gap-2">
                   <span className="w-44 truncate font-medium">{r.model}</span>
-                  {r.ms === null ? <span className="text-[#ff3b30]">nicht verfügbar</span> : <span className={r.model === fastest ? 'font-semibold text-[#34c759]' : ''}>{r.ms} ms{r.model === fastest ? ' · am schnellsten' : ''}</span>}
+                  {r.ms === null ? <span className="text-red">nicht verfügbar</span> : <span className={r.model === fastest ? 'font-semibold text-green' : ''}>{r.ms} ms{r.model === fastest ? ' · am schnellsten' : ''}</span>}
                   {r.ms !== null && settings.geminiModel !== r.model && <button className="btn-soft !px-2 !py-0.5 text-xs" onClick={() => chooseModel(r.model, false)}>Wählen</button>}
                 </li>
               ))}
             </ul>
           )}
-          {modelErr && <p className="text-sm text-[#ff3b30]">{modelErr}</p>}
+          {modelErr && <p className="text-sm text-red">{modelErr}</p>}
           {models && models.length > 0 && (
             <select className="input" value={models.includes(settings.geminiModel) ? settings.geminiModel : ''} onChange={(e) => e.target.value && chooseModel(e.target.value)}>
               {!models.includes(settings.geminiModel) && <option value="">– Modell wählen –</option>}
@@ -239,10 +240,10 @@ export function SettingsView({ onRestartOnboarding, onShowWhatsNew }: { onRestar
               <button
                 key={m}
                 onClick={() => chooseModel(m)}
-                className={`rounded-xl border p-3 text-left transition ${settings.geminiModel === m ? 'border-[#007aff] bg-[#007aff]/10' : 'border-black/10 hover:bg-black/[0.03] dark:border-white/10 dark:hover:bg-white/5'}`}
+                className={`rounded-xl border p-3 text-left transition ${settings.geminiModel === m ? 'border-blue bg-blue/10' : 'border-separator hover:bg-fill-4'}`}
               >
-                <p className="text-sm font-semibold">{m}{i === 0 && <span className="ml-1.5 rounded-full bg-[#34c759]/20 px-1.5 py-0.5 text-[10px] text-[#34c759]">Standard</span>}</p>
-                <p className="text-xs text-black/50 dark:text-white/50">{MODEL_NOTES[i]}</p>
+                <p className="text-sm font-semibold">{m}{i === 0 && <span className="ml-1.5 rounded-full bg-green/20 px-1.5 py-0.5 text-[10px] text-green">Standard</span>}</p>
+                <p className="text-xs text-label-2">{MODEL_NOTES[i]}</p>
               </button>
             ))}
           </div>
@@ -256,18 +257,18 @@ export function SettingsView({ onRestartOnboarding, onShowWhatsNew }: { onRestar
         </Row>
         <Row title="Gemini-Zeitlimit" desc="Antwortet Gemini (inklusive Modellwechsel) in dieser Zeit nicht, springt die App zur nächsten Methode. Bei längeren Wörtern kommt automatisch Zeit dazu (ab 3 Zeichen +0,5 s je Zeichen, höchstens +2 s). Sind die Schreib-Tipps an, gilt die Basiszeit x1,5, weil Gemini dann länger braucht.">
           <div className="flex items-center gap-3">
-            <input type="range" min={2} max={15} value={settings.geminiTimeoutSec} onChange={(e) => updateSettings({ geminiTimeoutSec: +e.target.value })} className="w-36 accent-[#007aff]" />
-            <span className="min-w-10 text-right text-sm font-medium tabular-nums">{settings.geminiTimeoutSec} s{settings.writingTips && <span className="block text-xs font-normal text-black/50 dark:text-white/50">mit Tipps: {+(settings.geminiTimeoutSec * TIPS_TIME_FACTOR).toFixed(1)} s</span>}</span>
+            <input type="range" min={2} max={15} value={settings.geminiTimeoutSec} onChange={(e) => updateSettings({ geminiTimeoutSec: +e.target.value })} className="w-36 accent-blue" />
+            <span className="min-w-10 text-right text-sm font-medium tabular-nums">{settings.geminiTimeoutSec} s{settings.writingTips && <span className="block text-xs font-normal text-label-2">mit Tipps: {+(settings.geminiTimeoutSec * TIPS_TIME_FACTOR).toFixed(1)} s</span>}</span>
           </div>
         </Row>
         <Row title="Reihenfolge der Handschrift-Prüfung" desc="Die App probiert die aktiven Methoden von oben nach unten. Fällt eine aus (Netzwerk, Überlastung, kein Key), geht es automatisch mit der nächsten weiter. Der Selbst-Check zeigt die Musterlösung und fragt dich." stack>
           <ol className="space-y-2">
             {settings.checkOrder.map((s, i) => (
-              <li key={s.method} className={`flex items-center gap-3 rounded-xl border p-3 ${s.enabled ? 'border-black/10 dark:border-white/10' : 'border-dashed border-black/10 opacity-60 dark:border-white/10'}`}>
-                <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[#007aff] text-xs font-bold text-white">{s.enabled ? settings.checkOrder.slice(0, i + 1).filter((x) => x.enabled).length : '–'}</span>
+              <li key={s.method} className={`flex items-center gap-3 rounded-xl border p-3 ${s.enabled ? 'border-separator' : 'border-dashed border-separator opacity-60'}`}>
+                <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-blue text-xs font-bold text-white">{s.enabled ? settings.checkOrder.slice(0, i + 1).filter((x) => x.enabled).length : '–'}</span>
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold">{METHOD_INFO[s.method].title}</p>
-                  <p className="text-xs text-black/50 dark:text-white/50">{METHOD_INFO[s.method].desc}</p>
+                  <p className="text-xs text-label-2">{METHOD_INFO[s.method].desc}</p>
                 </div>
                 <button className="btn-soft !p-1.5" disabled={i === 0} onClick={() => moveStep(i, -1)} aria-label="Nach oben"><ArrowUp size={15} /></button>
                 <button className="btn-soft !p-1.5" disabled={i === settings.checkOrder.length - 1} onClick={() => moveStep(i, 1)} aria-label="Nach unten"><ArrowDown size={15} /></button>
@@ -313,7 +314,7 @@ export function SettingsView({ onRestartOnboarding, onShowWhatsNew }: { onRestar
           </Row>
         )}
         <Row title="Standard-Strichdicke">
-          <input type="range" min={2} max={16} value={settings.strokeWidth} onChange={(e) => updateSettings({ strokeWidth: +e.target.value })} className="w-40 accent-[#007aff]" />
+          <input type="range" min={2} max={16} value={settings.strokeWidth} onChange={(e) => updateSettings({ strokeWidth: +e.target.value })} className="w-40 accent-blue" />
         </Row>
       </Section>
 
@@ -337,7 +338,7 @@ export function SettingsView({ onRestartOnboarding, onShowWhatsNew }: { onRestar
         {settings.soundEffects && (
           <Row title="Lautstärke der Klänge">
             <div className="flex flex-wrap items-center gap-2">
-              <input type="range" min={0.1} max={1} step={0.05} value={settings.soundVolume} onChange={(e) => updateSettings({ soundVolume: +e.target.value })} className="w-36 accent-[#007aff]" />
+              <input type="range" min={0.1} max={1} step={0.05} value={settings.soundVolume} onChange={(e) => updateSettings({ soundVolume: +e.target.value })} className="w-36 accent-blue" />
               <button className="btn-soft !px-2.5 !py-1 text-xs" onClick={() => playSound('success')}>▶ Richtig</button>
               <button className="btn-soft !px-2.5 !py-1 text-xs" onClick={() => playSound('error')}>▶ Falsch</button>
             </div>
@@ -346,11 +347,11 @@ export function SettingsView({ onRestartOnboarding, onShowWhatsNew }: { onRestar
         <Row title="Aktive Beugungsformen" desc="Gelten für Lernkarten und den Beugungs-Trainer." stack>
           <div className="grid gap-2 sm:grid-cols-2">
             {CONJUGATION_KEYS.map((k) => (
-              <label key={k} className="flex cursor-pointer items-center gap-3 rounded-xl bg-black/[0.04] px-3 py-2.5 dark:bg-white/5">
-                <input type="checkbox" className="h-4.5 w-4.5 accent-[#007aff]" checked={settings.activeConjugations.includes(k)} onChange={() => toggleConj(k)} />
+              <label key={k} className="flex cursor-pointer items-center gap-3 rounded-xl bg-fill-4 px-3 py-2.5">
+                <input type="checkbox" className="h-4.5 w-4.5 accent-blue" checked={settings.activeConjugations.includes(k)} onChange={() => toggleConj(k)} />
                 <span className="text-sm">
                   <span className="font-medium">{CONJUGATION_LABELS[k].label}</span>
-                  <span className="block text-xs text-black/50 dark:text-white/50">{CONJUGATION_LABELS[k].hint}</span>
+                  <span className="block text-xs text-label-2">{CONJUGATION_LABELS[k].hint}</span>
                 </span>
               </label>
             ))}
@@ -366,9 +367,9 @@ export function SettingsView({ onRestartOnboarding, onShowWhatsNew }: { onRestar
         >
           {!sync.clientId ? (
             <>
-              <p className="text-sm text-black/60 dark:text-white/60">
+              <p className="text-sm text-label-2">
                 Für die Anmeldung braucht die App eine <b>Google-Client-ID</b>. Wie du sie in wenigen Minuten erstellst, steht in der{' '}
-                <a className="font-medium text-[#007aff]" href="https://github.com/adomasmockaitis/hangul-studio/blob/main/docs/GOOGLE-DRIVE-SYNC.md" target="_blank" rel="noreferrer">Anleitung</a>.
+                <a className="font-medium text-blue" href="https://github.com/adomasmockaitis/hangul-studio/blob/main/docs/GOOGLE-DRIVE-SYNC.md" target="_blank" rel="noreferrer">Anleitung</a>.
               </p>
               <input
                 className="input"
@@ -395,20 +396,20 @@ export function SettingsView({ onRestartOnboarding, onShowWhatsNew }: { onRestar
                   </>
                 )}
               </div>
-              <p className="text-sm text-black/60 dark:text-white/60">
-                {sync.state === 'error' ? <span className="text-[#ff3b30]">{sync.error}</span>
+              <p className="text-sm text-label-2">
+                {sync.state === 'error' ? <span className="text-red">{sync.error}</span>
                   : sync.state === 'needs-auth' ? 'Die Anmeldung wird beim nächsten Klick automatisch erneuert – oder jetzt erneut verbinden.'
                   : sync.enabled ? `✓ Verbunden${sync.lastSync ? ` · zuletzt synchronisiert ${formatAgo(sync.lastSync)}` : ''}`
                   : 'Noch nicht verbunden.'}
               </p>
-              <div className="flex items-center justify-between gap-3 rounded-xl bg-black/[0.04] p-3 dark:bg-white/5">
+              <div className="flex items-center justify-between gap-3 rounded-xl bg-fill-4 p-3">
                 <div>
                   <p className="text-sm font-medium">API-Key mitsynchronisieren</p>
-                  <p className="text-xs text-black/50 dark:text-white/50">Standardmäßig aus: Der Key bleibt nur auf diesem Gerät.</p>
+                  <p className="text-xs text-label-2">Standardmäßig aus: Der Key bleibt nur auf diesem Gerät.</p>
                 </div>
                 <Toggle checked={settings.syncApiKey} onChange={(syncApiKey) => updateSettings({ syncApiKey })} label="API-Key synchronisieren" />
               </div>
-              <details className="text-sm text-black/55 dark:text-white/55">
+              <details className="text-sm text-label-2">
                 <summary className="cursor-pointer">Eigene Client-ID verwenden</summary>
                 <input className="input mt-2" spellCheck={false} placeholder="…apps.googleusercontent.com" value={settings.googleClientId} onChange={(e) => updateSettings({ googleClientId: e.target.value })} />
               </details>
@@ -421,8 +422,8 @@ export function SettingsView({ onRestartOnboarding, onShowWhatsNew }: { onRestar
         <Row title="Backup exportieren (.json)" desc="Alle Vokabeln, Lernstände und Einstellungen – zum Übertragen auf andere Geräte.">
           <div className="flex flex-col items-end gap-2">
             <button className="btn-primary" onClick={() => exportBackup(withKey)}><Download size={16} /> Backup Exportieren</button>
-            <label className="flex items-center gap-2 text-xs text-black/55 dark:text-white/55">
-              <input type="checkbox" className="accent-[#007aff]" checked={withKey} onChange={(e) => setWithKey(e.target.checked)} /> API-Key einschließen
+            <label className="flex items-center gap-2 text-xs text-label-2">
+              <input type="checkbox" className="accent-blue" checked={withKey} onChange={(e) => setWithKey(e.target.checked)} /> API-Key einschließen
             </label>
           </div>
         </Row>
@@ -432,7 +433,7 @@ export function SettingsView({ onRestartOnboarding, onShowWhatsNew }: { onRestar
             <button className="btn-soft" onClick={() => fileRef.current?.click()}><Upload size={16} /> Backup Importieren</button>
             <input ref={fileRef} type="file" accept=".json,application/json" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void onImport(f); e.target.value = '' }} />
           </div>
-          {msg && <p className={`text-sm ${msg.ok ? 'text-[#34c759]' : 'text-[#ff3b30]'}`}>{msg.text}</p>}
+          {msg && <p className={`text-sm ${msg.ok ? 'text-green' : 'text-red'}`}>{msg.text}</p>}
         </Row>
       </Section>
 
@@ -442,21 +443,21 @@ export function SettingsView({ onRestartOnboarding, onShowWhatsNew }: { onRestar
             <button className="btn-primary !px-5 !py-2.5" disabled={exporting || (!sum.total && !disputes.length && !pendingCount)} onClick={() => void runExport()}>
               {exporting ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />} Alles exportieren (.zip)
             </button>
-            <span className="text-sm text-black/60 dark:text-white/60">
+            <span className="text-sm text-label-2">
               {sum.total} Rückmeldungen · {disputes.length} Widersprüche · {pendingCount} wartend
             </span>
           </div>
-          {exportMsg && <p className="text-sm text-black/60 dark:text-white/60">{exportMsg}</p>}
+          {exportMsg && <p className="text-sm text-label-2">{exportMsg}</p>}
         </Row>
         <Row title="Automatische Gemini-Nachprüfung" desc={`Springt Input Tools wegen eines Gemini-Ausfalls ein, wird der Fall vorgemerkt. Sobald ${BATCH_SIZE} Fälle vorliegen, bewertet Gemini sie alle in EINEM Request. Beim Export passiert das automatisch für alle wartenden Fälle.`} stack>
           <div className="flex flex-wrap items-center gap-3">
             <Toggle checked={settings.autoLabel} onChange={(autoLabel) => updateSettings({ autoLabel })} label="Automatische Nachprüfung" />
-            <span className="text-sm text-black/60 dark:text-white/60">{pendingCount} / {BATCH_SIZE} Fälle vorgemerkt</span>
+            <span className="text-sm text-label-2">{pendingCount} / {BATCH_SIZE} Fälle vorgemerkt</span>
             <button className="btn-soft" disabled={!pendingCount || !settings.geminiApiKey.trim() || batchBusy} onClick={() => void runBatchNow()}>
               {batchBusy ? <Loader2 size={16} className="animate-spin" /> : <Zap size={16} />} Jetzt nachprüfen
             </button>
           </div>
-          {batchMsg && <p className="text-sm text-black/55 dark:text-white/55">{batchMsg}</p>}
+          {batchMsg && <p className="text-sm text-label-2">{batchMsg}</p>}
         </Row>
         <Row title="Statistik" stack>
           <div className="flex flex-wrap items-center gap-4 text-sm">
@@ -470,17 +471,17 @@ export function SettingsView({ onRestartOnboarding, onShowWhatsNew }: { onRestar
             <span><b className="text-lg">{disputes.length}</b> Widersprüche gegen Gemini</span>
           </div>
           {sum.topConfusions.length > 0 && (
-            <ul className="text-sm text-black/60 dark:text-white/60">
-              {sum.topConfusions.slice(0, 5).map((c) => <li key={c.pair}>{c.pair} <span className="text-black/40 dark:text-white/40">· {c.count}×</span></li>)}
+            <ul className="text-sm text-label-2">
+              {sum.topConfusions.slice(0, 5).map((c) => <li key={c.pair}>{c.pair} <span className="text-label-3">· {c.count}×</span></li>)}
             </ul>
           )}
           <div className="flex flex-wrap gap-2">
             <button className="btn-soft" onClick={refreshDev}><RefreshCw size={16} /> Aktualisieren</button>
             <button
-              className="btn-soft !text-[#ff3b30]"
+              className="btn-soft !text-red"
               disabled={!sum.total && !disputes.length && !pendingCount}
-              onClick={() => {
-                if (confirm('Alle gesammelten Entwickler-Daten (Rückmeldungen, Widersprüche, wartende Fälle) löschen? Tipp: Vorher exportieren.')) {
+              onClick={async () => {
+                if (await confirm({ title: 'Entwickler-Daten löschen?', message: 'Rückmeldungen, Widersprüche und wartende Fälle werden gelöscht. Tipp: vorher exportieren.', confirmLabel: 'Löschen', destructive: true })) {
                   clearSamples()
                   clearDisputes()
                   clearPending()
@@ -493,7 +494,7 @@ export function SettingsView({ onRestartOnboarding, onShowWhatsNew }: { onRestar
           </div>
         </Row>
       </Section>
-      <p className="mb-6 px-2 text-center text-xs text-black/40 dark:text-white/40">
+      <p className="mb-6 px-2 text-center text-xs text-label-3">
         <a className="underline" href={`${import.meta.env.BASE_URL}datenschutz.html`} target="_blank" rel="noreferrer">Datenschutz</a>
         {' · '}
         <a className="underline" href="https://github.com/adomasmockaitis/hangul-studio" target="_blank" rel="noreferrer">Quellcode auf GitHub</a>
@@ -501,13 +502,13 @@ export function SettingsView({ onRestartOnboarding, onShowWhatsNew }: { onRestar
 
       <Section title="Daten">
         <Row title="Lernstände zurücksetzen" desc={`Setzt Statistiken aller ${words.length} Wörter zurück.`}>
-          <button className="btn-soft" onClick={() => confirm('Alle Lernstände zurücksetzen?') && resetStats()}><RotateCcw size={16} /> Zurücksetzen</button>
+          <button className="btn-soft" onClick={async () => { if (await confirm({ title: 'Lernstände zurücksetzen?', message: `Die Statistiken aller ${words.length} Wörter beginnen wieder bei null.`, confirmLabel: 'Zurücksetzen', destructive: true })) resetStats() }}><RotateCcw size={16} /> Zurücksetzen</button>
         </Row>
         <Row title="Demo-Set wiederherstellen" desc="Ersetzt alle Vokabeln durch die 12 Beispielwörter.">
-          <button className="btn-soft" onClick={() => confirm('Alle Vokabeln durch das Demo-Set ersetzen?') && restoreDemo()}>Demo laden</button>
+          <button className="btn-soft" onClick={async () => { if (await confirm({ title: 'Demo-Set laden?', message: 'Alle Vokabeln werden durch die 12 Beispielwörter ersetzt.', confirmLabel: 'Ersetzen', destructive: true })) restoreDemo() }}>Demo laden</button>
         </Row>
         <Row title="Alle Vokabeln löschen">
-          <button className="btn-soft !text-[#ff3b30]" onClick={() => confirm('Wirklich ALLE Vokabeln und Lernstände löschen? Das lässt sich nicht rückgängig machen.') && clearAll()}><Trash2 size={16} /> Löschen</button>
+          <button className="btn-soft !text-red" onClick={async () => { if (await confirm({ title: 'Alle Vokabeln löschen?', message: 'Alle Vokabeln und Lernstände werden gelöscht. Das lässt sich nicht rückgängig machen.', confirmLabel: 'Alles löschen', destructive: true })) clearAll() }}><Trash2 size={16} /> Löschen</button>
         </Row>
       </Section>
     </div>

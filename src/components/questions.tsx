@@ -42,11 +42,11 @@ export function WriteQuestion({
           </button>
         )}
         {done && (
-          <div className="fade-up mt-4 border-t border-black/[0.06] pt-4 dark:border-white/10">
+          <div className="fade-up mt-4 border-t border-separator pt-4">
             <button className="inline-flex items-center gap-2 text-4xl font-bold" onClick={() => speak(target)}>
-              {target} <Volume2 size={18} className="text-black/40 dark:text-white/40" />
+              {target} <Volume2 size={18} className="text-label-3" />
             </button>
-            {solutionNote && <p className="mt-1 text-black/55 dark:text-white/55">{solutionNote}</p>}
+            {solutionNote && <p className="mt-1 text-label-2">{solutionNote}</p>}
           </div>
         )}
       </div>
@@ -126,8 +126,8 @@ export function TypeQuestion({ word, onResult, onNext, nextLabel }: Common & { w
         onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) res === null ? check() : onNext() }}
       />
       {res !== null && (
-        <div className={`fade-up mt-4 flex items-center justify-center gap-2 rounded-2xl p-3 ${res ? 'bg-[#34c759]/15' : 'bg-[#ff3b30]/15'}`}>
-          {res ? <Check className="text-[#34c759]" /> : <X className="text-[#ff3b30]" />}
+        <div className={`fade-up mt-4 flex items-center justify-center gap-2 rounded-2xl p-3 ${res ? 'bg-green/15' : 'bg-red/15'}`}>
+          {res ? <Check className="text-green" /> : <X className="text-red" />}
           <span className="text-lg font-semibold">{word.german}</span>
         </div>
       )}
@@ -155,9 +155,9 @@ export function ChoiceQuestion({ word, options, onResult, onNext, nextLabel }: C
             picked === null
               ? 'btn-soft'
               : right
-                ? 'btn bg-[#34c759] text-white'
+                ? 'btn bg-green text-white'
                 : o === picked
-                  ? 'btn bg-[#ff3b30] text-white'
+                  ? 'btn bg-red text-white'
                   : 'btn-soft opacity-50'
           return (
             <button

@@ -7,7 +7,7 @@ export function AiStatusPill({ className = '' }: { className?: string }) {
   const { settings } = useApp()
 
   const dot =
-    s.state === 'connecting' ? 'bg-[#ffcc00] animate-pulse' : s.state === 'ready' ? 'bg-[#34c759]' : s.state === 'offline' && settings.geminiApiKey.trim() ? 'bg-[#ff3b30]' : 'bg-black/25 dark:bg-white/30'
+    s.state === 'connecting' ? 'bg-yellow animate-pulse' : s.state === 'ready' ? 'bg-green' : s.state === 'offline' && settings.geminiApiKey.trim() ? 'bg-red' : 'bg-fill-45'
   const label =
     s.state === 'connecting'
       ? 'KI wird verbunden…'
@@ -21,7 +21,7 @@ export function AiStatusPill({ className = '' }: { className?: string }) {
     <button
       onClick={() => void warmup(settings.geminiApiKey, true)}
       title="Klicken für neuen Speed-Check"
-      className={`flex items-center gap-2 rounded-full border border-black/[0.08] bg-white/70 px-3 py-1.5 text-left text-xs font-medium backdrop-blur-md transition active:scale-[0.97] dark:border-white/10 dark:bg-white/10 ${className}`}
+      className={`flex items-center gap-2 rounded-full border border-separator bg-surface px-3 py-1.5 text-left text-xs font-medium backdrop-blur-md transition active:scale-[0.97] ${className}`}
     >
       <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${dot}`} />
       <span className="min-w-0 break-words">{label}</span>

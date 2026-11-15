@@ -8,6 +8,7 @@ import { warmup } from './lib/gemini'
 import { AppProvider, useApp } from './store'
 import { SyncProvider } from './sync'
 import { ToastProvider } from './components/Toasts'
+import { ConfirmProvider } from './components/ui'
 import { Dashboard } from './views/Dashboard'
 import { Dictionary } from './views/Dictionary'
 import { Learn } from './views/Learn'
@@ -47,12 +48,12 @@ function Shell() {
   return (
     <div className="flex h-full">
       {/* Sidebar (Desktop) */}
-      <aside className="hidden w-64 shrink-0 flex-col border-r border-black/[0.06] bg-white/60 p-4 backdrop-blur-md md:flex dark:border-white/10 dark:bg-[#1c1c1e]/60">
+      <aside className="hidden w-64 shrink-0 flex-col border-r border-separator bg-surface/60 p-4 backdrop-blur-md md:flex">
         <div className="mb-6 flex items-center gap-3 px-2 pt-2">
-          <div className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-[#0a84ff] to-[#5e5ce6] text-xl font-bold text-white shadow-md">한</div>
+          <div className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-blue to-indigo text-xl font-bold text-white shadow-md">한</div>
           <div>
             <p className="font-bold leading-tight">Hangul Studio</p>
-            <p className="text-xs text-black/45 dark:text-white/45">Koreanisch lernen</p>
+            <p className="text-xs text-label-3">Koreanisch lernen</p>
           </div>
         </div>
         <nav className="space-y-1">
@@ -61,7 +62,7 @@ function Shell() {
               key={n.id}
               onClick={() => go(n.id)}
               className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[15px] font-medium transition ${
-                view === n.id ? 'bg-[#007aff] text-white shadow-sm' : 'text-black/70 hover:bg-black/[0.06] dark:text-white/75 dark:hover:bg-white/10'
+                view === n.id ? 'bg-blue text-white shadow-sm' : 'text-label-2 hover:bg-fill-3'
               }`}
             >
               <n.icon size={19} /> {n.label}
@@ -84,12 +85,12 @@ function Shell() {
       {onboarding && <Onboarding onClose={() => { setOnboarding(false); setView('dashboard') }} />}
 
       {/* Bottom-Tab-Bar (Mobile/Tablet) */}
-      <nav className="fixed inset-x-0 bottom-0 z-40 flex border-t border-black/[0.08] bg-white/75 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden dark:border-white/10 dark:bg-[#1c1c1e]/75">
+      <nav className="fixed inset-x-0 bottom-0 z-40 flex border-t border-separator bg-surface/75 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden">
         {NAV.map((n) => (
           <button
             key={n.id}
             onClick={() => go(n.id)}
-            className={`flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] font-medium transition ${view === n.id ? 'text-[#007aff]' : 'text-black/45 dark:text-white/50'}`}
+            className={`flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] font-medium transition ${view === n.id ? 'text-blue' : 'text-label-3'}`}
           >
             <n.icon size={22} strokeWidth={view === n.id ? 2.4 : 1.8} />
             {n.short}
@@ -105,7 +106,9 @@ export default function App() {
     <AppProvider>
       <ToastProvider>
         <SyncProvider>
-          <Shell />
+          <ConfirmProvider>
+            <Shell />
+          </ConfirmProvider>
         </SyncProvider>
       </ToastProvider>
     </AppProvider>

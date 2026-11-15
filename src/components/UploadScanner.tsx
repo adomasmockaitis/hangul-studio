@@ -193,7 +193,7 @@ export function UploadScanner() {
   return (
     <div className="card mb-5 p-4 sm:p-5">
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <Sparkles size={18} className="text-[#007aff]" />
+        <Sparkles size={18} className="text-blue" />
         <h2 className="font-semibold">Intelligenter Datei- & Übungsblatt-Scanner</h2>
         <button className="btn-soft ml-auto !py-1 text-xs" onClick={downloadTemplate}><Download size={14} /> CSV-Vorlage</button>
       </div>
@@ -203,11 +203,11 @@ export function UploadScanner() {
         onDragLeave={() => setDrag(false)}
         onDrop={(e) => { e.preventDefault(); setDrag(false); if (!busy) void handleFiles([...e.dataTransfer.files]) }}
         onClick={() => !busy && fileRef.current?.click()}
-        className={`flex cursor-pointer flex-col items-center gap-1 rounded-2xl border-2 border-dashed p-6 text-center transition ${drag ? 'border-[#007aff] bg-[#007aff]/10' : 'border-black/15 hover:bg-black/[0.03] dark:border-white/15 dark:hover:bg-white/5'}`}
+        className={`flex cursor-pointer flex-col items-center gap-1 rounded-2xl border-2 border-dashed p-6 text-center transition ${drag ? 'border-blue bg-blue/10' : 'border-separator hover:bg-fill-4'}`}
       >
-        {busy ? <Loader2 className="animate-spin text-[#007aff]" size={28} /> : <FileUp className="text-[#007aff]" size={28} />}
+        {busy ? <Loader2 className="animate-spin text-blue" size={28} /> : <FileUp className="text-blue" size={28} />}
         <p className="font-medium">{busy ? status || 'Analysiere …' : 'Dateien hierher ziehen oder klicken'}</p>
-        <p className="text-xs text-black/50 dark:text-white/50">PDF, PNG/JPG, TXT, CSV, JSON {hasKey ? '' : '· PDF/Bilder benötigen einen Gemini API-Key (Einstellungen)'}</p>
+        <p className="text-xs text-label-2">PDF, PNG/JPG, TXT, CSV, JSON {hasKey ? '' : '· PDF/Bilder benötigen einen Gemini API-Key (Einstellungen)'}</p>
         <input ref={fileRef} type="file" multiple accept=".pdf,.png,.jpg,.jpeg,.webp,.txt,.csv,.tsv,.json" className="hidden"
           onChange={(e) => { const f = [...(e.target.files ?? [])]; if (f.length) void handleFiles(f); e.target.value = '' }} />
       </div>
@@ -218,7 +218,7 @@ export function UploadScanner() {
           <Sparkles size={16} /> {hasKey ? 'Mit KI analysieren' : 'Einlesen'}
         </button>
       </div>
-      {msg && <p className={`mt-3 text-sm ${msg.ok ? 'text-[#34c759]' : 'text-[#ff3b30]'}`}>{msg.text}</p>}
+      {msg && <p className={`mt-3 text-sm ${msg.ok ? 'text-green' : 'text-red'}`}>{msg.text}</p>}
 
       {rows.length > 0 && (
         <div className="fade-up mt-5 space-y-3">
@@ -232,9 +232,9 @@ export function UploadScanner() {
             </button>
           </div>
 
-          <div className="overflow-x-auto rounded-2xl border border-black/10 dark:border-white/10">
+          <div className="overflow-x-auto rounded-2xl border border-separator">
             <table className="w-full min-w-[720px] text-sm">
-              <thead className="bg-black/[0.04] text-left text-xs uppercase tracking-wide text-black/50 dark:bg-white/5 dark:text-white/50">
+              <thead className="bg-fill-4 text-left text-xs uppercase tracking-wide text-label-2">
                 <tr>
                   <th className="w-10 p-2" /><th className="p-2">Koreanisch</th><th className="p-2">Deutsch</th>
                   <th className="p-2">Aussprache</th><th className="p-2">Art</th><th className="p-2">Tags</th><th className="w-20 p-2" />
@@ -243,14 +243,14 @@ export function UploadScanner() {
               <tbody>
                 {rows.map((r) => {
                   const isConj = r.wordType === 'verb' || r.wordType === 'adjective'
-                  const cell = 'w-full rounded-lg border border-transparent bg-transparent px-2 py-1.5 outline-none focus:border-[#007aff] focus:bg-white/60 dark:focus:bg-white/10'
+                  const cell = 'w-full rounded-lg border border-transparent bg-transparent px-2 py-1.5 outline-none focus:border-blue focus:bg-surface'
                   return (
                     <Fragment key={r.id}>
-                      <tr className={`border-t border-black/[0.06] dark:border-white/10 ${r.selected ? '' : 'opacity-50'}`}>
-                        <td className="p-2 text-center"><input type="checkbox" className="accent-[#007aff]" checked={r.selected} onChange={(e) => patch(r.id, { selected: e.target.checked })} /></td>
+                      <tr className={`border-t border-separator ${r.selected ? '' : 'opacity-50'}`}>
+                        <td className="p-2 text-center"><input type="checkbox" className="accent-blue" checked={r.selected} onChange={(e) => patch(r.id, { selected: e.target.checked })} /></td>
                         <td className="p-1">
                           <input className={`${cell} text-base font-semibold`} lang="ko" value={r.korean} onChange={(e) => patch(r.id, { korean: e.target.value })} />
-                          {r.duplicate && <span className="px-2 text-[10px] font-medium text-[#ff9500]">bereits vorhanden</span>}
+                          {r.duplicate && <span className="px-2 text-[10px] font-medium text-orange">bereits vorhanden</span>}
                         </td>
                         <td className="p-1"><input className={cell} value={r.german} onChange={(e) => patch(r.id, { german: e.target.value })} /></td>
                         <td className="p-1"><input className={cell} lang="ko" value={r.pronunciation} onChange={(e) => patch(r.id, { pronunciation: e.target.value })} /></td>
@@ -266,17 +266,17 @@ export function UploadScanner() {
                               <ChevronDown size={15} className={`transition ${r.open ? 'rotate-180' : ''}`} />
                             </button>
                           )}
-                          <button className="btn-soft ml-1 !p-1.5 !text-[#ff3b30]" title="Zeile entfernen" onClick={() => setRows((rs) => rs.filter((x) => x.id !== r.id))}><Trash2 size={15} /></button>
+                          <button className="btn-soft ml-1 !p-1.5 !text-red" title="Zeile entfernen" onClick={() => setRows((rs) => rs.filter((x) => x.id !== r.id))}><Trash2 size={15} /></button>
                         </td>
                       </tr>
                       {r.open && isConj && (
-                        <tr key={`${r.id}-c`} className="bg-black/[0.03] dark:bg-white/[0.04]">
+                        <tr key={`${r.id}-c`} className="bg-fill-4">
                           <td />
                           <td colSpan={6} className="p-2">
                             <div className="grid gap-2 sm:grid-cols-4">
                               {CONJUGATION_KEYS.map((k) => (
                                 <div key={k}>
-                                  <p className="mb-0.5 text-[10px] text-black/50 dark:text-white/50">{CONJUGATION_LABELS[k].label}</p>
+                                  <p className="mb-0.5 text-[10px] text-label-2">{CONJUGATION_LABELS[k].label}</p>
                                   <input className="input !py-1.5" lang="ko" value={r.conj[k] ?? ''} onChange={(e) => patch(r.id, { conj: { ...r.conj, [k]: e.target.value } })} />
                                 </div>
                               ))}

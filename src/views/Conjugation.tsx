@@ -31,8 +31,8 @@ function BaseWord({ word, show, size = 'text-4xl' }: { word: WordItem; show: Sho
   return (
     <p className={`${size} font-bold tracking-tight`}>
       {show !== 'de' && <span>{word.korean}</span>}
-      {show === 'both' && <span className="mx-2 text-black/30 dark:text-white/30">·</span>}
-      {show !== 'ko' && <span className={show === 'both' ? 'text-black/60 dark:text-white/60' : ''}>{word.german}</span>}
+      {show === 'both' && <span className="mx-2 text-label-3">·</span>}
+      {show !== 'ko' && <span className={show === 'both' ? 'text-label-2' : ''}>{word.german}</span>}
     </p>
   )
 }
@@ -80,11 +80,11 @@ export function ConjugationTrainer({ onDashboard }: { onDashboard: () => void })
             prompt={
               <>
                 <p className="label mb-2">Bilde die Form</p>
-                <div className="mx-auto mb-3 inline-block rounded-2xl bg-[#007aff]/10 px-4 py-2">
-                  <p className="font-semibold text-[#007aff]">{CONJUGATION_LABELS[p.form].label}</p>
-                  <p className="text-xs text-[#007aff]/80">{CONJUGATION_LABELS[p.form].hint}</p>
+                <div className="mx-auto mb-3 inline-block rounded-2xl bg-blue/10 px-4 py-2">
+                  <p className="font-semibold text-blue">{CONJUGATION_LABELS[p.form].label}</p>
+                  <p className="text-xs text-blue/80">{CONJUGATION_LABELS[p.form].hint}</p>
                 </div>
-                <p className="text-sm text-black/50 dark:text-white/50">von</p>
+                <p className="text-sm text-label-2">von</p>
                 <BaseWord word={p.word} show={show} />
               </>
             }
@@ -115,7 +115,7 @@ export function ConjugationTrainer({ onDashboard }: { onDashboard: () => void })
         />
         <div className="mb-4 flex items-center justify-between">
           <button className="btn-soft" disabled={idx === 0} onClick={() => setIdx(idx - 1)}><ArrowLeft size={16} /></button>
-          <span className="text-sm tabular-nums text-black/55 dark:text-white/55">{idx + 1} / {learn.length}</span>
+          <span className="text-sm tabular-nums text-label-2">{idx + 1} / {learn.length}</span>
           <button className="btn-soft" disabled={idx >= learn.length - 1} onClick={() => setIdx(idx + 1)}><ArrowRight size={16} /></button>
         </div>
         {learnDone ? (
@@ -128,14 +128,14 @@ export function ConjugationTrainer({ onDashboard }: { onDashboard: () => void })
         <div className="space-y-5" key={`${p.word.id}-${p.form}`}>
           <div className="card fade-up p-6 text-center">
             <BaseWord word={p.word} show={show} />
-            <div className="mx-auto my-3 inline-block rounded-2xl bg-[#007aff]/10 px-4 py-2">
-              <p className="font-semibold text-[#007aff]">{CONJUGATION_LABELS[p.form].label}</p>
-              <p className="text-xs text-[#007aff]/80">{CONJUGATION_LABELS[p.form].hint}</p>
+            <div className="mx-auto my-3 inline-block rounded-2xl bg-blue/10 px-4 py-2">
+              <p className="font-semibold text-blue">{CONJUGATION_LABELS[p.form].label}</p>
+              <p className="text-xs text-blue/80">{CONJUGATION_LABELS[p.form].hint}</p>
             </div>
             <button className="mx-auto flex items-center gap-2 text-5xl font-bold" onClick={() => speak(p.answer)}>
-              {p.answer} <Volume2 size={20} className="text-black/40 dark:text-white/40" />
+              {p.answer} <Volume2 size={20} className="text-label-3" />
             </button>
-            <p className="mt-2 text-xs text-black/45 dark:text-white/45">Schreibe die Form unten zum Üben nach.</p>
+            <p className="mt-2 text-xs text-label-3">Schreibe die Form unten zum Üben nach.</p>
           </div>
           <div className="card p-4 sm:p-5">
             <HangulCanvas
@@ -168,11 +168,11 @@ export function ConjugationTrainer({ onDashboard }: { onDashboard: () => void })
           <p className="label mb-2">Beugungsformen</p>
           <div className="grid gap-2 sm:grid-cols-2">
             {CONJUGATION_KEYS.map((k) => (
-              <label key={k} className="flex cursor-pointer items-center gap-3 rounded-xl bg-black/[0.04] px-3 py-2.5 dark:bg-white/5">
-                <input type="checkbox" className="accent-[#007aff]" checked={forms.includes(k)} onChange={() => toggle(k)} />
+              <label key={k} className="flex cursor-pointer items-center gap-3 rounded-xl bg-fill-4 px-3 py-2.5">
+                <input type="checkbox" className="accent-blue" checked={forms.includes(k)} onChange={() => toggle(k)} />
                 <span className="text-sm">
                   <span className="font-medium">{CONJUGATION_LABELS[k].label}</span>
-                  <span className="block text-xs text-black/50 dark:text-white/50">{CONJUGATION_LABELS[k].hint}</span>
+                  <span className="block text-xs text-label-2">{CONJUGATION_LABELS[k].hint}</span>
                 </span>
               </label>
             ))}
@@ -198,7 +198,7 @@ export function ConjugationTrainer({ onDashboard }: { onDashboard: () => void })
         </div>
 
         {pool.length === 0 ? (
-          <div className="card p-5 text-center text-sm text-black/55 dark:text-white/55">
+          <div className="card p-5 text-center text-sm text-label-2">
             Keine passenden Verben/Adjektive mit den gewählten Beugungen. Ergänze sie im Wörterbuch.
           </div>
         ) : (

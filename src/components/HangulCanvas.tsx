@@ -509,7 +509,7 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
 
       {/* Musterlösung beim Selbst-Check */}
       {phase === 'reveal' && (
-        <div className="fade-up rounded-2xl border border-[#007aff]/30 bg-[#007aff]/10 p-4 text-center">
+        <div className="fade-up rounded-2xl border border-blue/30 bg-blue/10 p-4 text-center">
           <p className="label mb-1">Musterlösung</p>
           <p className="text-4xl font-semibold">{target}</p>
         </div>
@@ -524,9 +524,9 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
           <button className="btn-soft" onClick={undo} disabled={!strokeCount || phase === 'result'} title="Rückgängig">
             <Undo2 size={16} /> <span className="hidden sm:inline">Rückgängig</span>
           </button>
-          <label className="flex items-center gap-2 rounded-xl bg-black/[0.05] px-3 py-2 text-sm dark:bg-white/10" title="Strichdicke">
-            <span className="text-black/50 dark:text-white/50">Strich</span>
-            <input type="range" min={2} max={16} value={width} onChange={(e) => setWidth(+e.target.value)} className="w-20 accent-[#007aff]" />
+          <label className="flex items-center gap-2 rounded-xl bg-fill-3 px-3 py-2 text-sm" title="Strichdicke">
+            <span className="text-label-2">Strich</span>
+            <input type="range" min={2} max={16} value={width} onChange={(e) => setWidth(+e.target.value)} className="w-20 accent-blue" />
           </label>
           {!testMode && (
             <button className={template ? 'btn-primary' : 'btn-soft'} onClick={() => setTemplate((t) => !t)} title="Blasse Vorlage">
@@ -552,7 +552,7 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
       ) : (
         <div
           ref={wrapRef}
-          className="relative h-[260px] overflow-hidden rounded-2xl border border-black/10 shadow-inner sm:h-[320px] dark:border-white/10"
+          className="relative h-[260px] overflow-hidden rounded-2xl border border-separator shadow-inner sm:h-[320px]"
           style={bgStyle}
         >
           {hangulRow && (
@@ -600,29 +600,29 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
         <div
           className={`space-y-2.5 rounded-2xl border p-3 shadow-lg backdrop-blur-xl transition-colors duration-300 ${
             result && statusColor === 'green'
-              ? 'border-[#34c759]/50 bg-[#e3f8e8]/95 dark:bg-[#10301b]/95'
+              ? 'border-green/50 bg-[#e3f8e8]/95 dark:bg-[#10301b]/95'
               : result && statusColor === 'red'
-                ? 'border-[#ff3b30]/50 bg-[#ffe5e3]/95 dark:bg-[#3a1512]/95'
+                ? 'border-red/50 bg-[#ffe5e3]/95 dark:bg-[#3a1512]/95'
                 : result && statusColor === 'amber'
-                  ? 'border-[#ff9500]/50 bg-[#fff0d9]/95 dark:bg-[#38250a]/95'
-                  : 'border-black/[0.08] bg-white/85 dark:border-white/10 dark:bg-[#2c2c2e]/90'
+                  ? 'border-orange/50 bg-[#fff0d9]/95 dark:bg-[#38250a]/95'
+                  : 'border-separator bg-surface/85 dark:bg-surface-2/90'
           }`}
         >
           {/* Vorläufiges Ergebnis (Input Tools), solange Gemini noch prüft */}
           {phase === 'checking' && preview && (
-            <div className="fade-up rounded-xl border border-[#007aff]/30 bg-[#007aff]/10 px-3 py-2 text-sm">
+            <div className="fade-up rounded-xl border border-blue/30 bg-blue/10 px-3 py-2 text-sm">
               <p>
                 <span className="font-semibold">Vorläufig (Input Tools):</span> „<span className="text-lg font-semibold">{preview.read || '?'}</span>“ –{' '}
                 {preview.hit ? '✓ passt zum Zielwort' : '✗ passt nicht zum Zielwort'}
               </p>
-              <p className="text-xs text-black/50 dark:text-white/50">Gemini prüft noch – das endgültige Ergebnis ersetzt diese Schätzung.</p>
+              <p className="text-xs text-label-2">Gemini prüft noch – das endgültige Ergebnis ersetzt diese Schätzung.</p>
             </div>
           )}
 
           {/* Ergebnis (ohne eigenen Rahmen – der ganze Kasten trägt die Farbe) */}
           {result && (
             <div className="fade-up flex items-start gap-3">
-              {statusColor === 'green' ? <Check className="mt-0.5 shrink-0 text-[#34c759]" /> : statusColor === 'amber' ? <AlertTriangle className="mt-0.5 shrink-0 text-[#ff9500]" /> : <X className="mt-0.5 shrink-0 text-[#ff3b30]" />}
+              {statusColor === 'green' ? <Check className="mt-0.5 shrink-0 text-green" /> : statusColor === 'amber' ? <AlertTriangle className="mt-0.5 shrink-0 text-orange" /> : <X className="mt-0.5 shrink-0 text-red" />}
               <div className="max-h-32 min-w-0 flex-1 overflow-y-auto text-sm">
                 {result.error ? (
                   <>
@@ -640,12 +640,12 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
                         <span className="font-semibold">Leider falsch.</span>{' '}
                         {result.via && !keyboard ? result.via + ' las' : 'Du hast eingegeben'}:{' '}
                         <span className="text-lg font-semibold">{result.read || '(nichts erkannt)'}</span>
-                        <span className="mx-1.5 text-black/30 dark:text-white/30">·</span>
+                        <span className="mx-1.5 text-label-3">·</span>
                         Gesucht: <span className="text-lg font-semibold">{target}</span>
                       </p>
                     )}
-                    {result.feedback && <p className="text-black/60 dark:text-white/60">{result.feedback}</p>}
-                    <p className="text-xs text-black/45 dark:text-white/45">
+                    {result.feedback && <p className="text-label-2">{result.feedback}</p>}
+                    <p className="text-xs text-label-3">
                       {[
                         result.meta,
                         phase === 'result' && result.via === 'Gemini' ? '⚠ Gemini kann sich irren.' : '',
@@ -660,7 +660,7 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
             </div>
           )}
 
-          {bgNote && <p className="text-xs text-black/50 dark:text-white/50">{bgNote}</p>}
+          {bgNote && <p className="text-xs text-label-2">{bgNote}</p>}
 
           {/* Aktionen: alle Knöpfe gleich hoch; Hauptaktion immer rechts */}
           <div className="flex flex-wrap items-center gap-2">
@@ -686,7 +686,7 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
             ) : (
               <>
                 {!keyboard && phase === 'idle' && (
-                  <span className="px-1 text-xs text-black/45 dark:text-white/45">
+                  <span className="px-1 text-xs text-label-3">
                     {firstMethod === 'inputtools' ? 'Prüfung: Input Tools' : firstMethod === 'gemini' ? 'Prüfung: Gemini' : 'Selbst-Check'}
                   </span>
                 )}

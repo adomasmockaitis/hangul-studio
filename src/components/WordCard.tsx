@@ -35,8 +35,8 @@ export function WordCard({ word, mode, onResult, onRevise, onNext, nextLabel }: 
   return (
     <div className="space-y-5">
       <div className="card fade-up p-6 text-center">
-        <div className="mb-3 flex items-center justify-center gap-2 text-xs text-black/45 dark:text-white/45">
-          <span className="rounded-full bg-black/[0.06] px-2.5 py-0.5 font-medium dark:bg-white/10">{WORD_TYPE_LABELS[word.wordType]}</span>
+        <div className="mb-3 flex items-center justify-center gap-2 text-xs text-label-3">
+          <span className="rounded-full bg-fill-3 px-2.5 py-0.5 font-medium">{WORD_TYPE_LABELS[word.wordType]}</span>
           {word.tags.slice(0, 3).map((t) => <span key={t}>{t}</span>)}
         </div>
 
@@ -48,7 +48,7 @@ export function WordCard({ word, mode, onResult, onRevise, onNext, nextLabel }: 
         ) : (
           <>
             <h2 className="text-6xl font-bold tracking-tight">{word.korean}</h2>
-            <p className="mt-3 text-3xl font-semibold text-black/80 dark:text-white/85">{word.german}</p>
+            <p className="mt-3 text-3xl font-semibold text-label-2">{word.german}</p>
           </>
         )}
 
@@ -61,11 +61,11 @@ export function WordCard({ word, mode, onResult, onRevise, onNext, nextLabel }: 
           )}
         </div>
         {showPron && word.pronunciation && (
-          <p className="fade-up mt-3 text-2xl font-medium text-[#007aff]">{word.pronunciation}</p>
+          <p className="fade-up mt-3 text-2xl font-medium text-blue">{word.pronunciation}</p>
         )}
 
         {forms.length > 0 && !hideKorean && (
-          <div className="mt-5 border-t border-black/[0.06] pt-4 dark:border-white/10">
+          <div className="mt-5 border-t border-separator pt-4">
             <div className="flex flex-wrap justify-center gap-2">
               {forms.map((k) => (
                 <button key={k} className={open === k ? 'btn-primary' : 'btn-soft'} onClick={() => setOpen(open === k ? null : k)}>
@@ -76,9 +76,9 @@ export function WordCard({ word, mode, onResult, onRevise, onNext, nextLabel }: 
             </div>
             {open && word.conjugations?.[open] && (
               <div className="fade-up mt-3">
-                <p className="text-xs text-black/45 dark:text-white/45">{CONJUGATION_LABELS[open].hint}</p>
+                <p className="text-xs text-label-3">{CONJUGATION_LABELS[open].hint}</p>
                 <button className="mt-1 inline-flex items-center gap-2 text-3xl font-semibold" onClick={() => speak(word.conjugations![open]!)}>
-                  {word.conjugations[open]} <Volume2 size={18} className="text-black/40 dark:text-white/40" />
+                  {word.conjugations[open]} <Volume2 size={18} className="text-label-3" />
                 </button>
               </div>
             )}
@@ -88,7 +88,7 @@ export function WordCard({ word, mode, onResult, onRevise, onNext, nextLabel }: 
 
       <div className="card p-4 sm:p-5">
         {/* Wort direkt am Zeichenfeld: Deutsch groß, damit die Bedeutung beim Schreiben im Blick bleibt */}
-        <div className="sticky top-2 z-10 mb-4 flex items-center justify-between gap-3 rounded-2xl border border-black/[0.06] bg-white/85 px-4 py-3 backdrop-blur-md dark:border-white/10 dark:bg-[#2c2c2e]/85">
+        <div className="sticky top-2 z-10 mb-4 flex items-center justify-between gap-3 rounded-2xl border border-separator bg-surface/85 px-4 py-3 backdrop-blur-md dark:bg-surface-2/85">
           <div className="min-w-0">
             <p className="label">Bedeutung</p>
             <p className="truncate text-2xl font-bold leading-tight sm:text-3xl">{word.german}</p>

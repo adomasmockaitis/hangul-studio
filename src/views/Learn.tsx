@@ -29,7 +29,7 @@ export function Learn({ initialQuiz, onDashboard }: { initialQuiz?: boolean; onD
         }
       />
       {words.length === 0 ? (
-        <div className="card p-8 text-center text-black/55 dark:text-white/55">Noch keine Vokabeln – füge im Wörterbuch welche hinzu.</div>
+        <div className="card p-8 text-center text-label-2">Noch keine Vokabeln – füge im Wörterbuch welche hinzu.</div>
       ) : mode === 'browse' ? (
         <Browse recordReview={recordReview} onDashboard={onDashboard} />
       ) : (
@@ -68,7 +68,7 @@ function Browse({ recordReview, onDashboard }: { recordReview: (id: string, c: b
         </select>
         <div className="ml-auto flex items-center gap-2">
           <button className="btn-soft" disabled={i === 0} onClick={() => setIdx(i - 1)}><ArrowLeft size={16} /></button>
-          <span className="min-w-14 text-center text-sm tabular-nums text-black/55 dark:text-white/55">{list.length ? i + 1 : 0} / {list.length}</span>
+          <span className="min-w-14 text-center text-sm tabular-nums text-label-2">{list.length ? i + 1 : 0} / {list.length}</span>
           <button className="btn-soft" disabled={i >= list.length - 1} onClick={() => setIdx(i + 1)}><ArrowRight size={16} /></button>
         </div>
       </div>
@@ -89,7 +89,7 @@ function Browse({ recordReview, onDashboard }: { recordReview: (id: string, c: b
           nextLabel={i < list.length - 1 ? 'Nächstes Wort' : 'Abschließen'}
         />
       ) : (
-        <div className="card p-8 text-center text-black/55 dark:text-white/55">Keine Wörter mit diesem Tag.</div>
+        <div className="card p-8 text-center text-label-2">Keine Wörter mit diesem Tag.</div>
       )}
     </div>
   )

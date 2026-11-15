@@ -1,6 +1,6 @@
 ﻿import { useMemo, useState } from 'react'
 import { Loader2, Pencil, Plus, Search, Sparkles, Trash2, Volume2 } from 'lucide-react'
-import { Modal, PageHeader } from '../components/ui'
+import { Modal, PageHeader, useConfirm } from '../components/ui'
 import { parseTags, UploadScanner } from '../components/UploadScanner'
 import { completeWord } from '../lib/gemini'
 import { speakWord } from '../lib/speech'
@@ -31,6 +31,7 @@ const errorRate = (w: WordItem) => {
 
 export function Dictionary() {
   const { words, settings, addWord, updateWord, deleteWord } = useApp()
+  const confirm = useConfirm()
   const [q, setQ] = useState('')
   const [tag, setTag] = useState('')
   const [sort, setSort] = useState<Sort>('new')
@@ -99,7 +100,7 @@ export function Dictionary() {
 
       <div className="mb-4 flex flex-wrap gap-2">
         <div className="relative flex-1 basis-48">
-          <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-black/40 dark:text-white/40" />
+          <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-label-3" />
           <input className="input !pl-9" placeholder="Suchen…" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
         <select className="input !w-auto" value={tag} onChange={(e) => setTag(e.target.value)}>
@@ -113,8 +114,8 @@ export function Dictionary() {
         </select>
       </div>
 
-      <div className="card divide-y divide-black/[0.06] overflow-hidden dark:divide-white/10">
-        {list.length === 0 && <p className="p-6 text-center text-sm text-black/50 dark:text-white/50">Keine Wörter gefunden.</p>}
+      <div className="card divide-y divide-separator overflow-hidden">
+        {list.length === 0 && <p className="p-6 text-center text-sm text-label-2">Keine Wörter gefunden.</p>}
         {list.map((w) => {
           const rate = errorRate(w)
           return (
@@ -122,18 +123,18 @@ export function Dictionary() {
               <div className="min-w-0 flex-1">
                 <p className="flex flex-wrap items-baseline gap-x-2">
                   <span className="text-xl font-semibold">{w.korean}</span>
-                  {w.pronunciation && <span className="text-sm text-[#007aff]">{w.pronunciation}</span>}
-                  <span className="text-black/60 dark:text-white/60">{w.german}</span>
+                  {w.pronunciation && <span className="text-sm text-blue">{w.pronunciation}</span>}
+                  <span className="text-label-2">{w.german}</span>
                 </p>
-                <p className="mt-0.5 flex flex-wrap gap-x-2 text-xs text-black/40 dark:text-white/40">
+                <p className="mt-0.5 flex flex-wrap gap-x-2 text-xs text-label-3">
                   <span className="font-medium">{WORD_TYPE_LABELS[w.wordType]}</span>
                   {w.tags.map((t) => <span key={t}>{t}</span>)}
-                  {rate >= 0 && <span className={rate > 0.4 ? 'font-medium text-[#ff3b30]' : ''}>· {Math.round(rate * 100)}% Fehler</span>}
+                  {rate >= 0 && <span className={rate > 0.4 ? 'font-medium text-red' : ''}>· {Math.round(rate * 100)}% Fehler</span>}
                 </p>
               </div>
               <button className="btn-soft !p-2" onClick={() => speakWord(w, settings.speechMode)} aria-label="Vorlesen"><Volume2 size={16} /></button>
               <button className="btn-soft !p-2" onClick={() => setEditing({ id: w.id, draft: toDraft(w) })} aria-label="Bearbeiten"><Pencil size={16} /></button>
-              <button className="btn-soft !p-2 !text-[#ff3b30]" onClick={() => confirm(`„${w.korean}“ löschen?`) && deleteWord(w.id)} aria-label="Löschen"><Trash2 size={16} /></button>
+              <button className="btn-soft !p-2 !text-red" onClick={async () => { if (await confirm({ title: `„${w.korean}“ löschen?`, message: 'Das Wort und sein Lernstand werden entfernt.', confirmLabel: 'Löschen', destructive: true })) deleteWord(w.id) }} aria-label="Löschen"><Trash2 size={16} /></button>
             </div>
           )
         })}
@@ -152,7 +153,7 @@ export function Dictionary() {
                   </button>
                 )}
               </div>
-              {aiMsg && <p className="mt-1 text-xs text-black/55 dark:text-white/55">{aiMsg}</p>}
+              {aiMsg && <p className="mt-1 text-xs text-label-2">{aiMsg}</p>}
             </div>
             <div><p className="label mb-1">Deutsch</p><input className="input" value={draft.german} onChange={(e) => setDraft({ german: e.target.value })} /></div>
             <div className="grid grid-cols-2 gap-3">
@@ -166,11 +167,11 @@ export function Dictionary() {
             </div>
             <div><p className="label mb-1">Tags (mit Leerzeichen getrennt)</p><input className="input" placeholder="#Verb #Alltag #Kapitel1" value={draft.tags} onChange={(e) => setDraft({ tags: e.target.value })} /></div>
             {isConj && (
-              <div className="space-y-2 rounded-2xl bg-black/[0.04] p-3 dark:bg-white/5">
+              <div className="space-y-2 rounded-2xl bg-fill-4 p-3">
                 <p className="label">Beugungen</p>
                 {CONJUGATION_KEYS.map((k) => (
                   <div key={k}>
-                    <p className="mb-0.5 text-xs text-black/50 dark:text-white/50">{CONJUGATION_LABELS[k].label} ({CONJUGATION_LABELS[k].hint})</p>
+                    <p className="mb-0.5 text-xs text-label-2">{CONJUGATION_LABELS[k].label} ({CONJUGATION_LABELS[k].hint})</p>
                     <input className="input" lang="ko" value={draft.conj[k] ?? ''} onChange={(e) => setDraft({ conj: { ...draft.conj, [k]: e.target.value } })} />
                   </div>
                 ))}

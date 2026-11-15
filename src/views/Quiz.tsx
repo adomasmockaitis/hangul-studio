@@ -110,7 +110,7 @@ export function QuizSetup({ onDashboard }: { onDashboard: () => void }) {
           options={[{ value: 'smart', label: 'Daily Smart Test' }, { value: 'custom', label: 'Eigene Auswahl' }]}
         />
         {selection === 'smart' ? (
-          <p className="mt-2 text-sm text-black/55 dark:text-white/55">
+          <p className="mt-2 text-sm text-label-2">
             15 Wörter: hohe Fehlerquote, noch nie geübt oder lange nicht wiederholt.
           </p>
         ) : (
@@ -120,7 +120,7 @@ export function QuizSetup({ onDashboard }: { onDashboard: () => void }) {
                 <button key={t} className={`${tags.includes(t) ? 'btn-primary' : 'btn-soft'} !px-2.5 !py-1 text-xs`}
                   onClick={() => setTags((s) => (s.includes(t) ? s.filter((x) => x !== t) : [...s, t]))}>{t}</button>
               ))}
-              {!allTags.length && <p className="text-sm text-black/50">Keine Tags vorhanden.</p>}
+              {!allTags.length && <p className="text-sm text-label-2">Keine Tags vorhanden.</p>}
             </div>
             <div className="flex flex-wrap items-center gap-3 text-sm">
               <Segmented<'all' | '7' | '30'>
@@ -134,7 +134,7 @@ export function QuizSetup({ onDashboard }: { onDashboard: () => void }) {
                 options={[{ value: '10', label: '10' }, { value: '20', label: '20' }, { value: '0', label: 'Alle' }]}
               />
             </div>
-            <p className="text-sm text-black/55 dark:text-white/55">{pool.length} Wörter passen zum Filter.</p>
+            <p className="text-sm text-label-2">{pool.length} Wörter passen zum Filter.</p>
           </div>
         )}
       </Section>
@@ -148,15 +148,15 @@ export function QuizSetup({ onDashboard }: { onDashboard: () => void }) {
             ['dictation', 'Hör-Diktat', 'Nur Audio → Koreanisch schreiben'],
           ] as [Direction, string, string][]).map(([v, t, d]) => (
             <button key={v} onClick={() => setDirection(v)}
-              className={`rounded-xl border p-3 text-left transition ${direction === v ? 'border-[#007aff] bg-[#007aff]/10' : 'border-black/10 hover:bg-black/[0.03] dark:border-white/10 dark:hover:bg-white/5'}`}>
+              className={`rounded-xl border p-3 text-left transition ${direction === v ? 'border-blue bg-blue/10' : 'border-separator hover:bg-fill-4'}`}>
               <p className="font-medium">{t}</p>
-              <p className="text-xs text-black/50 dark:text-white/50">{d}</p>
+              <p className="text-xs text-label-2">{d}</p>
             </button>
           ))}
         </div>
         {usesChoice && (
           <div className="mt-3 flex items-center gap-3">
-            <span className="text-sm text-black/60 dark:text-white/60">Antwort bei Koreanisch → Deutsch:</span>
+            <span className="text-sm text-label-2">Antwort bei Koreanisch → Deutsch:</span>
             <Segmented<AnswerType>
               value={answerType}
               onChange={setAnswerType}

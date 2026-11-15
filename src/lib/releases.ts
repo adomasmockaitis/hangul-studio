@@ -24,6 +24,14 @@ export interface Release {
 }
 export const RELEASES: Release[] = [
   {
+    id: '2026-11-design-foundation',
+    size: 'minor',
+    title: 'Neu in Hangul Studio',
+    subtitle: 'Design-Fundament',
+    summary: 'Größere Schrift und Tippflächen, eigene Dialoge statt Browser-Fenstern, sichtbarer Tastatur-Fokus und Rücksicht auf „Bewegung reduzieren“.',
+    features: [],
+  },
+  {
     id: '2026-11-german-audio',
     size: 'minor',
     title: 'Neu in Hangul Studio',

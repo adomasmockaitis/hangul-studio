@@ -34,10 +34,10 @@ export function Dashboard({ go }: { go: (v: ViewId, opts?: { quiz?: boolean }) =
       <PageHeader title={`${greet} 👋`} subtitle="Dein Lernstand auf einen Blick" />
 
       <div className="card fade-up relative mb-5 overflow-hidden p-6 sm:p-8">
-        <div className="pointer-events-none absolute -right-6 -top-10 select-none text-[11rem] font-black leading-none text-[#007aff]/10">한</div>
+        <div className="pointer-events-none absolute -right-6 -top-10 select-none text-[11rem] font-black leading-none text-blue/10">한</div>
         <p className="label">Daily Smart Test</p>
         <h2 className="mt-1 text-2xl font-bold">Heute gezielt wiederholen</h2>
-        <p className="mt-1 max-w-md text-sm text-black/55 dark:text-white/55">
+        <p className="mt-1 max-w-md text-sm text-label-2">
           Bis zu 10 Wörter – priorisiert nach deinen Fehlern und der Zeit seit der letzten Wiederholung.
         </p>
         <button className="btn-primary mt-5 !rounded-2xl !px-6 !py-3 !text-base" disabled={!words.length} onClick={() => go('learn', { quiz: true })}>
@@ -52,28 +52,28 @@ export function Dashboard({ go }: { go: (v: ViewId, opts?: { quiz?: boolean }) =
               <s.icon size={19} />
             </div>
             <p className="text-3xl font-bold tracking-tight">
-              {s.value} <span className="text-base font-medium text-black/45 dark:text-white/45">{s.unit}</span>
+              {s.value} <span className="text-base font-medium text-label-3">{s.unit}</span>
             </p>
             <p className="text-sm font-medium">{s.label}</p>
-            <p className="text-xs text-black/45 dark:text-white/45">{s.note}</p>
+            <p className="text-xs text-label-3">{s.note}</p>
           </div>
         ))}
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="card fade-up p-5">
-          <h3 className="mb-3 flex items-center gap-2 font-semibold"><TriangleAlert size={17} className="text-[#ff3b30]" /> Top-Fehlerwörter</h3>
+          <h3 className="mb-3 flex items-center gap-2 font-semibold"><TriangleAlert size={17} className="text-red" /> Top-Fehlerwörter</h3>
           {topErrors.length === 0 ? (
-            <p className="text-sm text-black/50 dark:text-white/50">Noch keine Fehler – weiter so!</p>
+            <p className="text-sm text-label-2">Noch keine Fehler – weiter so!</p>
           ) : (
-            <ul className="divide-y divide-black/[0.06] dark:divide-white/10">
+            <ul className="divide-y divide-separator">
               {topErrors.map((w) => (
                 <li key={w.id} className="flex items-center justify-between py-2">
                   <div>
                     <span className="text-lg font-semibold">{w.korean}</span>
-                    <span className="ml-2 text-sm text-black/50 dark:text-white/50">{w.german}</span>
+                    <span className="ml-2 text-sm text-label-2">{w.german}</span>
                   </div>
-                  <span className="rounded-full bg-[#ff3b30]/15 px-2.5 py-0.5 text-xs font-semibold text-[#ff3b30]">{w.stats.wrongCount}× falsch</span>
+                  <span className="rounded-full bg-red/15 px-2.5 py-0.5 text-xs font-semibold text-red">{w.stats.wrongCount}× falsch</span>
                 </li>
               ))}
             </ul>
@@ -85,9 +85,9 @@ export function Dashboard({ go }: { go: (v: ViewId, opts?: { quiz?: boolean }) =
           <div className="flex h-32 items-end gap-2">
             {week.map((d, i) => (
               <div key={i} className="flex flex-1 flex-col items-center gap-1">
-                <span className="text-xs text-black/45 dark:text-white/45">{d.n || ''}</span>
-                <div className="w-full rounded-lg bg-[#007aff] transition-all" style={{ height: `${Math.max(4, (d.n / maxN) * 80)}px`, opacity: d.n ? 1 : 0.15 }} />
-                <span className="text-xs text-black/50 dark:text-white/50">{d.label}</span>
+                <span className="text-xs text-label-3">{d.n || ''}</span>
+                <div className="w-full rounded-lg bg-blue transition-all" style={{ height: `${Math.max(4, (d.n / maxN) * 80)}px`, opacity: d.n ? 1 : 0.15 }} />
+                <span className="text-xs text-label-2">{d.label}</span>
               </div>
             ))}
           </div>

@@ -1,4 +1,5 @@
-import type { ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { ChevronRight, X } from 'lucide-react'
 
 export function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label?: string }) {
   return (
@@ -8,7 +9,7 @@ export function Toggle({ checked, onChange, label }: { checked: boolean; onChang
       aria-checked={checked}
       aria-label={label}
       onClick={() => onChange(!checked)}
-      className={`relative h-[31px] w-[51px] shrink-0 rounded-full transition-colors ${checked ? 'bg-[#34c759]' : 'bg-black/15 dark:bg-white/20'}`}
+      className={`relative h-[31px] w-[51px] shrink-0 rounded-full transition-colors ${checked ? 'bg-green' : 'bg-fill-1'}`}
     >
       <span
         className={`absolute top-[2px] h-[27px] w-[27px] rounded-full bg-white shadow-md transition-all ${checked ? 'left-[22px]' : 'left-[2px]'}`}
@@ -18,17 +19,19 @@ export function Toggle({ checked, onChange, label }: { checked: boolean; onChang
 }
 
 export function Segmented<T extends string>({
-  value, onChange, options,
-}: { value: T; onChange: (v: T) => void; options: { value: T; label: ReactNode }[] }) {
+  value, onChange, options, label,
+}: { value: T; onChange: (v: T) => void; options: { value: T; label: ReactNode }[]; label?: string }) {
   return (
-    <div className="inline-flex rounded-xl bg-black/[0.06] p-0.5 dark:bg-white/10">
+    <div role="radiogroup" aria-label={label} className="inline-flex rounded-full bg-fill-3 p-0.5">
       {options.map((o) => (
         <button
           key={o.value}
           type="button"
+          role="radio"
+          aria-checked={value === o.value}
           onClick={() => onChange(o.value)}
-          className={`flex items-center gap-1.5 rounded-[10px] px-3 py-1.5 text-sm font-medium transition ${
-            value === o.value ? 'bg-white shadow-sm dark:bg-[#636366]' : 'text-black/60 dark:text-white/60'
+          className={`flex min-h-9 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium transition ${
+            value === o.value ? 'bg-surface shadow-sm dark:bg-[#636366]' : 'text-label-2'
           }`}
         >
           {o.label}
@@ -43,24 +46,184 @@ export function PageHeader({ title, subtitle, right }: { title: string; subtitle
     <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">{title}</h1>
-        {subtitle && <p className="mt-1 text-sm text-black/55 dark:text-white/55">{subtitle}</p>}
+        {subtitle && <p className="mt-1 text-sm text-label-2">{subtitle}</p>}
       </div>
       {right}
     </div>
   )
 }
 
-export function Modal({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: ReactNode }) {
+/** Hält den Tastatur-Fokus im Dialog, schließt mit Escape und gibt den Fokus danach zurück. */
+function useDialog(open: boolean, onClose: () => void) {
+  const ref = useRef<HTMLDivElement>(null)
+  const closeRef = useRef(onClose)
+  closeRef.current = onClose
+  useEffect(() => {
+    if (!open) return
+    const before = document.activeElement as HTMLElement | null
+    const box = ref.current
+    const items = () =>
+      box ? [...box.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')].filter((e) => !e.hasAttribute('disabled')) : []
+    if (box && !box.contains(document.activeElement)) box.focus()
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation()
+        closeRef.current()
+      } else if (e.key === 'Tab') {
+        const list = items()
+        if (!list.length) return
+        const first = list[0]
+        const last = list[list.length - 1]
+        if (e.shiftKey && (document.activeElement === first || document.activeElement === box)) {
+          e.preventDefault()
+          last.focus()
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault()
+          first.focus()
+        }
+      }
+    }
+    document.addEventListener('keydown', onKey, true)
+    return () => {
+      document.removeEventListener('keydown', onKey, true)
+      before?.focus?.()
+    }
+  }, [open])
+  return ref
+}
+
+/** Sheet: auf dem Handy von unten, auf größeren Bildschirmen mittig. */
+export function Sheet({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: ReactNode }) {
+  const ref = useDialog(open, onClose)
+  const titleId = useId()
   if (!open) return null
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 backdrop-blur-sm sm:items-center sm:p-6" onMouseDown={onClose}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center sm:p-6" onMouseDown={onClose}>
       <div
-        className="fade-up max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-t-3xl border border-black/10 bg-[#f2f2f7] p-5 shadow-2xl sm:rounded-3xl dark:border-white/10 dark:bg-[#1c1c1e]"
+        ref={ref}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        className="sheet-up max-h-[92dvh] w-full max-w-xl overflow-y-auto rounded-t-[28px] bg-page p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl outline-none sm:rounded-[28px] dark:bg-surface"
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <h2 className="mb-4 text-xl font-bold">{title}</h2>
+        <div className="mx-auto mb-3 h-1.5 w-9 rounded-full bg-fill-1 sm:hidden" aria-hidden />
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h2 id={titleId} className="text-xl font-bold">{title}</h2>
+          <button type="button" onClick={onClose} aria-label="Schließen" className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-fill-3 text-label-2 transition hover:bg-fill-1">
+            <X size={18} strokeWidth={2.4} />
+          </button>
+        </div>
         {children}
       </div>
     </div>
+  )
+}
+/** Alter Name – bitte `Sheet` verwenden. */
+export const Modal = Sheet
+
+/** Gruppierte Liste im iOS-Stil: Überschrift, Zeilen mit Trennlinien, Fußnote. */
+export function List({ title, footer, children }: { title?: string; footer?: ReactNode; children: ReactNode }) {
+  return (
+    <section className="mb-6">
+      {title && <h2 className="mb-1.5 px-4 text-xs font-medium text-label-2">{title}</h2>}
+      <div className="card divide-y divide-separator overflow-hidden">{children}</div>
+      {footer && <p className="mt-1.5 px-4 text-xs text-label-2">{footer}</p>}
+    </section>
+  )
+}
+
+export function ListRow({
+  icon, iconColor, title, subtitle, value, right, onClick, destructive,
+}: {
+  icon?: ReactNode
+  iconColor?: string
+  title: ReactNode
+  subtitle?: ReactNode
+  /** Kurzer Wert rechts (grau) */
+  value?: ReactNode
+  /** Eigenes Bedienelement rechts (Schalter, Auswahl …) */
+  right?: ReactNode
+  /** Mit onClick wird die Zeile zum Knopf und bekommt einen Pfeil */
+  onClick?: () => void
+  destructive?: boolean
+}) {
+  const body = (
+    <>
+      {icon && (
+        <span className="grid h-[30px] w-[30px] shrink-0 place-items-center rounded-lg text-white" style={{ background: iconColor ?? 'var(--color-blue)' }}>
+          {icon}
+        </span>
+      )}
+      <span className="min-w-0 flex-1">
+        <span className={`block text-base ${destructive ? 'text-red' : ''}`}>{title}</span>
+        {subtitle && <span className="block text-xs text-label-2">{subtitle}</span>}
+      </span>
+      {value !== undefined && <span className="shrink-0 text-base text-label-2">{value}</span>}
+      {right}
+      {onClick && !right && <ChevronRight size={18} className="shrink-0 text-label-3" />}
+    </>
+  )
+  const cls = 'flex min-h-11 w-full items-center gap-3 px-4 py-2.5 text-left'
+  return onClick ? (
+    <button type="button" onClick={onClick} className={`${cls} transition hover:bg-fill-4 active:bg-fill-3`}>{body}</button>
+  ) : (
+    <div className={cls}>{body}</div>
+  )
+}
+
+/* ---------- Bestätigungs-Dialog (ersetzt window.confirm) ---------- */
+
+export interface ConfirmOptions {
+  title: string
+  message?: string
+  confirmLabel?: string
+  cancelLabel?: string
+  /** Rote Bestätigung für Löschen & Co. */
+  destructive?: boolean
+}
+
+const ConfirmContext = createContext<(o: ConfirmOptions) => Promise<boolean>>(() => Promise.resolve(false))
+
+/** `const confirm = useConfirm(); if (await confirm({ title: '…' })) …` */
+export const useConfirm = () => useContext(ConfirmContext)
+
+export function ConfirmProvider({ children }: { children: ReactNode }) {
+  const [state, setState] = useState<{ opts: ConfirmOptions; resolve: (v: boolean) => void } | null>(null)
+  const ask = useCallback((opts: ConfirmOptions) => new Promise<boolean>((resolve) => setState({ opts, resolve })), [])
+  const done = (v: boolean) => {
+    state?.resolve(v)
+    setState(null)
+  }
+  const ref = useDialog(!!state, () => done(false))
+  const titleId = useId()
+  const o = state?.opts
+  return (
+    <ConfirmContext.Provider value={ask}>
+      {children}
+      {o && (
+        <div className="fixed inset-0 z-[80] grid place-items-center bg-black/40 p-6" onMouseDown={() => done(false)}>
+          <div
+            ref={ref}
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby={titleId}
+            tabIndex={-1}
+            className="glass alert-in w-full max-w-[20rem] rounded-[28px] p-5 text-center outline-none"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <h2 id={titleId} className="text-base font-semibold">{o.title}</h2>
+            {o.message && <p className="mt-1.5 text-xs text-label-2">{o.message}</p>}
+            <div className="mt-5 flex gap-2.5">
+              <button type="button" className="btn-soft flex-1" onClick={() => done(false)}>{o.cancelLabel ?? 'Abbrechen'}</button>
+              <button type="button" className={`${o.destructive ? 'btn-red' : 'btn-primary'} flex-1`} onClick={() => done(true)}>
+                {o.confirmLabel ?? 'OK'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </ConfirmContext.Provider>
   )
 }

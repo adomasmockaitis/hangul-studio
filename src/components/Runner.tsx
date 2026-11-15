@@ -58,36 +58,36 @@ export function Runner({ questions, onDashboard, onBack, backLabel }: Props) {
         <div className="card p-6 text-center">
           <div className="relative mx-auto grid h-36 w-36 place-items-center">
             <svg viewBox="0 0 120 120" className="absolute inset-0 -rotate-90">
-              <circle cx="60" cy="60" r="52" fill="none" strokeWidth="10" className="stroke-black/10 dark:stroke-white/10" />
+              <circle cx="60" cy="60" r="52" fill="none" strokeWidth="10" className="stroke-label-4" />
               <circle cx="60" cy="60" r="52" fill="none" strokeWidth="10" strokeLinecap="round" stroke={tone}
                 strokeDasharray={`${(pct / 100) * 326.7} 326.7`} style={{ transition: 'stroke-dasharray .8s ease' }} />
             </svg>
             <div>
               <p className="text-4xl font-bold">{pct}%</p>
-              <p className="text-xs text-black/50 dark:text-white/50">Erfolgsquote</p>
+              <p className="text-xs text-label-2">Erfolgsquote</p>
             </div>
           </div>
           <p className="mt-3 text-lg font-semibold">{ok} von {done.length} richtig</p>
-          <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-[#ff9500]/15 px-3 py-1 text-sm font-semibold text-[#ff9500]">
+          <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-orange/15 px-3 py-1 text-sm font-semibold text-orange">
             <Flame size={15} /> Tages-Streak: {days} {days === 1 ? 'Tag' : 'Tage'}
           </p>
         </div>
 
-        <div className="card divide-y divide-black/[0.06] overflow-hidden dark:divide-white/10">
+        <div className="card divide-y divide-separator overflow-hidden">
           {done.map((d, n) => (
             <div key={n} className="flex items-center gap-3 px-4 py-3">
-              <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-white ${d.correct ? 'bg-[#34c759]' : 'bg-[#ff3b30]'}`}>
+              <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-white ${d.correct ? 'bg-green' : 'bg-red'}`}>
                 {d.correct ? <Check size={15} /> : <X size={15} />}
               </span>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm text-black/55 dark:text-white/55">{d.q.prompt}</p>
+                <p className="truncate text-sm text-label-2">{d.q.prompt}</p>
                 <p className="text-xl font-semibold">{d.q.solution}</p>
-                {!d.correct && d.read && !d.image && <p className="text-xs text-[#ff3b30]">Deine Antwort: {d.read}</p>}
+                {!d.correct && d.read && !d.image && <p className="text-xs text-red">Deine Antwort: {d.read}</p>}
               </div>
               {!d.correct && d.image && (
                 <div className="shrink-0 text-center">
-                  <img src={d.image} alt="Dein Bild" className="h-14 w-24 rounded-lg border border-black/10 bg-white object-contain" />
-                  <p className="mt-0.5 text-[10px] text-black/45 dark:text-white/45">
+                  <img src={d.image} alt="Dein Bild" className="h-14 w-24 rounded-lg border border-separator bg-white object-contain" />
+                  <p className="mt-0.5 text-[10px] text-label-3">
                     {d.read ? `KI: ${d.read}` : 'dein Bild'}
                   </p>
                 </div>
@@ -119,10 +119,10 @@ export function Runner({ questions, onDashboard, onBack, backLabel }: Props) {
   const q = qs[i]
   return (
     <div className="space-y-4">
-      <div className="h-1.5 overflow-hidden rounded-full bg-black/10 dark:bg-white/10">
-        <div className="h-full rounded-full bg-[#007aff] transition-all" style={{ width: `${(i / qs.length) * 100}%` }} />
+      <div className="h-1.5 overflow-hidden rounded-full bg-fill-2">
+        <div className="h-full rounded-full bg-blue transition-all" style={{ width: `${(i / qs.length) * 100}%` }} />
       </div>
-      <p className="text-center text-xs text-black/45 dark:text-white/45">
+      <p className="text-center text-xs text-label-3">
         Frage {i + 1} von {qs.length}{round > 0 ? ' · Wiederholung' : ''}
       </p>
       <div key={`${round}-${q.key}`}>
