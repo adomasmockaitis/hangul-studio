@@ -1,5 +1,5 @@
 ﻿import { useMemo, useState } from 'react'
-import { Loader2, Pencil, Plus, ScanText, Search, Sparkles, Trash2, Volume2 } from 'lucide-react'
+import { ChevronRight, Loader2, Plus, ScanText, Search, Sparkles, Trash2, Volume2 } from 'lucide-react'
 import { PageHeader, Sheet, useConfirm } from '../components/ui'
 import { parseTags, UploadScanner } from '../components/UploadScanner'
 import { completeWord } from '../lib/gemini'
@@ -107,15 +107,22 @@ export function Dictionary() {
       </Sheet>
 
       <div className="mb-4 flex flex-wrap gap-2">
-        <div className="relative flex-1 basis-48">
-          <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-label-3" />
-          <input className="input !pl-9" placeholder="Suchen…" value={q} onChange={(e) => setQ(e.target.value)} />
+        <div className="relative w-full sm:w-auto sm:flex-1 sm:basis-48">
+          <Search size={17} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-label-2" />
+          <input
+            type="search"
+            aria-label="Wörter durchsuchen"
+            className="min-h-11 w-full rounded-xl bg-fill-3 pl-9 pr-3 text-base outline-none transition placeholder:text-label-2 focus:ring-2 focus:ring-blue/40"
+            placeholder="Suchen"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+          />
         </div>
-        <select className="input !w-auto" value={tag} onChange={(e) => setTag(e.target.value)}>
+        <select aria-label="Nach Tag filtern" className="input !w-auto flex-1 sm:flex-none" value={tag} onChange={(e) => setTag(e.target.value)}>
           <option value="">Alle Tags</option>
           {tags.map((t) => <option key={t}>{t}</option>)}
         </select>
-        <select className="input !w-auto" value={sort} onChange={(e) => setSort(e.target.value as Sort)}>
+        <select aria-label="Sortierung" className="input !w-auto flex-1 sm:flex-none" value={sort} onChange={(e) => setSort(e.target.value as Sort)}>
           <option value="new">Neueste zuerst</option>
           <option value="old">Älteste zuerst</option>
           <option value="errors">Höchste Fehlerquote</option>
@@ -127,22 +134,28 @@ export function Dictionary() {
         {list.map((w) => {
           const rate = errorRate(w)
           return (
-            <div key={w.id} className="flex items-center gap-3 px-4 py-3">
-              <div className="min-w-0 flex-1">
-                <p className="flex flex-wrap items-baseline gap-x-2">
-                  <span className="text-xl font-semibold">{w.korean}</span>
-                  {w.pronunciation && <span className="text-sm text-blue">{w.pronunciation}</span>}
-                  <span className="text-label-2">{w.german}</span>
-                </p>
-                <p className="mt-0.5 flex flex-wrap gap-x-2 text-xs text-label-3">
-                  <span className="font-medium">{WORD_TYPE_LABELS[w.wordType]}</span>
-                  {w.tags.map((t) => <span key={t}>{t}</span>)}
-                  {rate >= 0 && <span className={rate > 0.4 ? 'font-medium text-red' : ''}>· {Math.round(rate * 100)}% Fehler</span>}
-                </p>
-              </div>
-              <button className="btn-soft !p-2" onClick={() => speakWord(w, settings.speechMode)} aria-label="Vorlesen"><Volume2 size={16} /></button>
-              <button className="btn-soft !p-2" onClick={() => setEditing({ id: w.id, draft: toDraft(w) })} aria-label="Bearbeiten"><Pencil size={16} /></button>
-              <button className="btn-soft !p-2 !text-red" onClick={async () => { if (await confirm({ title: `„${w.korean}“ löschen?`, message: 'Das Wort und sein Lernstand werden entfernt.', confirmLabel: 'Löschen', destructive: true })) deleteWord(w.id) }} aria-label="Löschen"><Trash2 size={16} /></button>
+            <div key={w.id} className="flex items-center">
+              {/* Tipp auf die Zeile öffnet das Wort zum Bearbeiten (Löschen liegt dort) */}
+              <button
+                className="flex min-h-14 min-w-0 flex-1 items-center gap-2 py-2.5 pl-4 text-left transition hover:bg-fill-4 active:bg-fill-3"
+                onClick={() => setEditing({ id: w.id, draft: toDraft(w) })}
+                aria-label={`${w.korean}, ${w.german} – bearbeiten`}
+              >
+                <span className="min-w-0 flex-1">
+                  <span className="flex flex-wrap items-baseline gap-x-2">
+                    <span lang="ko" className="text-xl font-semibold">{w.korean}</span>
+                    {w.pronunciation && <span lang="ko" className="text-sm text-blue">{w.pronunciation}</span>}
+                    <span className="text-label-2">{w.german}</span>
+                  </span>
+                  <span className="mt-0.5 flex flex-wrap gap-x-2 text-xs text-label-2">
+                    <span className="font-medium">{WORD_TYPE_LABELS[w.wordType]}</span>
+                    {w.tags.map((t) => <span key={t}>{t}</span>)}
+                    {rate >= 0 && <span className={rate > 0.4 ? 'font-medium text-red' : ''}>· {Math.round(rate * 100)} % Fehler</span>}
+                  </span>
+                </span>
+                <ChevronRight size={18} className="shrink-0 text-label-3" />
+              </button>
+              <button className="mx-2 grid h-11 w-11 shrink-0 place-items-center rounded-full text-blue transition hover:bg-fill-3" onClick={() => speakWord(w, settings.speechMode)} aria-label={`${w.korean} vorlesen`}><Volume2 size={20} /></button>
             </div>
           )
         })}
@@ -185,7 +198,21 @@ export function Dictionary() {
                 ))}
               </div>
             )}
-            <div className="flex justify-end gap-2 pt-2">
+            <div className="flex flex-wrap justify-end gap-2 pt-2">
+              {editing?.id && (
+                <button
+                  className="btn-soft mr-auto !text-red"
+                  onClick={async () => {
+                    const id = editing.id
+                    if (id && (await confirm({ title: `„${draft.korean}“ löschen?`, message: 'Das Wort und sein Lernstand werden entfernt.', confirmLabel: 'Löschen', destructive: true }))) {
+                      deleteWord(id)
+                      setEditing(null)
+                    }
+                  }}
+                >
+                  <Trash2 size={16} /> Löschen
+                </button>
+              )}
               <button className="btn-soft" onClick={() => setEditing(null)}>Abbrechen</button>
               <button className="btn-primary" onClick={save} disabled={!draft.korean.trim()}>Speichern</button>
             </div>

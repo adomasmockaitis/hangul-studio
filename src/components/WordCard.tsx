@@ -35,7 +35,7 @@ export function WordCard({ word, mode, onResult, onRevise, onNext, nextLabel }: 
   return (
     <div className="space-y-5">
       <div className="card fade-up p-6 text-center">
-        <div className="mb-3 flex items-center justify-center gap-2 text-xs text-label-3">
+        <div className="mb-3 flex items-center justify-center gap-2 text-xs text-label-2">
           <span className="rounded-full bg-fill-3 px-2.5 py-0.5 font-medium">{WORD_TYPE_LABELS[word.wordType]}</span>
           {word.tags.slice(0, 3).map((t) => <span key={t}>{t}</span>)}
         </div>
@@ -47,7 +47,7 @@ export function WordCard({ word, mode, onResult, onRevise, onNext, nextLabel }: 
           </>
         ) : (
           <>
-            <h2 className="text-6xl font-bold tracking-tight">{word.korean}</h2>
+            <h2 lang="ko" className="text-6xl font-bold tracking-tight">{word.korean}</h2>
             <p className="mt-3 text-3xl font-semibold text-label-2">{word.german}</p>
           </>
         )}
@@ -88,13 +88,13 @@ export function WordCard({ word, mode, onResult, onRevise, onNext, nextLabel }: 
 
       <div className="card p-4 sm:p-5">
         {/* Wort direkt am Zeichenfeld: Deutsch groß, damit die Bedeutung beim Schreiben im Blick bleibt */}
-        <div className="sticky top-2 z-10 mb-4 flex items-center justify-between gap-3 rounded-2xl border border-separator bg-surface/85 px-4 py-3 backdrop-blur-md dark:bg-surface-2/85">
+        <div className="glass sticky top-2 z-10 mb-4 flex items-center justify-between gap-3 rounded-[22px] px-4 py-3">
           <div className="min-w-0">
             <p className="label">Bedeutung</p>
             <p className="truncate text-2xl font-bold leading-tight sm:text-3xl">{word.german}</p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            {!hideKorean && <span className="text-3xl font-bold sm:text-4xl">{word.korean}</span>}
+            {!hideKorean && <span lang="ko" className="text-3xl font-bold sm:text-4xl">{word.korean}</span>}
             <button className="btn-soft !p-2" onClick={() => speakWord(word, settings.speechMode)} aria-label="Anhören"><Volume2 size={18} /></button>
           </div>
         </div>

@@ -83,7 +83,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             <div
               key={t.id}
               role="status"
-              className="toast-in pointer-events-auto flex w-full items-start gap-3 rounded-2xl border border-separator bg-surface/80 p-3.5 shadow-xl backdrop-blur-xl dark:bg-surface-2/85"
+              className="glass toast-in pointer-events-auto flex w-full items-start gap-3 rounded-[22px] p-3.5"
             >
               <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full text-white" style={{ background: bg }}>
                 <Icon size={17} />
@@ -93,7 +93,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 {t.text && <p className="mt-0.5 text-sm leading-snug text-label-2">{t.text}</p>}
                 {t.action && (
                   <button
-                    className="mt-2 rounded-lg bg-blue px-3 py-1.5 text-sm font-medium text-white transition active:scale-[0.97]"
+                    className="mt-2 min-h-9 rounded-full bg-blue px-4 py-1.5 text-sm font-semibold text-white transition active:scale-[0.97]"
                     onClick={() => {
                       t.action!.onClick()
                       dismiss(t.id)
@@ -103,7 +103,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                   </button>
                 )}
               </div>
-              <button className="rounded-full p-1 text-label-3 hover:bg-fill-3" onClick={() => dismiss(t.id)} aria-label="Schließen">
+              <button className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-label-2 hover:bg-fill-3" onClick={() => dismiss(t.id)} aria-label="Schließen">
                 <X size={15} />
               </button>
             </div>

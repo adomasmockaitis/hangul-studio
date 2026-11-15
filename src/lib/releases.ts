@@ -24,6 +24,14 @@ export interface Release {
 }
 export const RELEASES: Release[] = [
   {
+    id: '2026-11-pages-polish',
+    size: 'minor',
+    title: 'Neu in Hangul Studio',
+    subtitle: 'Seiten überarbeitet',
+    summary: 'Die Startseite zeigt, wie viele Wörter heute fällig sind. Unter „Wörter“ öffnet ein Tipp auf die Zeile das Wort; Löschen liegt jetzt im Bearbeiten-Fenster.',
+    features: [],
+  },
+  {
     id: '2026-11-settings-pages',
     size: 'minor',
     title: 'Neu in Hangul Studio',

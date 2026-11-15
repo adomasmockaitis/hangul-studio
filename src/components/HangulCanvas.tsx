@@ -532,18 +532,18 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
       {/* Zeichen-Werkzeuge direkt am Zeichenfeld */}
       {!keyboard && (
         <div className="flex flex-wrap items-center gap-2">
-          <button className="btn-soft" onClick={clear} disabled={!strokeCount || phase === 'result'} title="Löschen">
+          <button className="btn-soft" onClick={clear} disabled={!strokeCount || phase === 'result'} title="Löschen" aria-label="Zeichnung löschen">
             <Eraser size={16} /> <span className="hidden sm:inline">Löschen</span>
           </button>
-          <button className="btn-soft" onClick={undo} disabled={!strokeCount || phase === 'result'} title="Rückgängig">
+          <button className="btn-soft" onClick={undo} disabled={!strokeCount || phase === 'result'} title="Rückgängig" aria-label="Letzten Strich rückgängig">
             <Undo2 size={16} /> <span className="hidden sm:inline">Rückgängig</span>
           </button>
-          <label className="flex items-center gap-2 rounded-xl bg-fill-3 px-3 py-2 text-sm" title="Strichdicke">
+          <label className="flex min-h-11 items-center gap-2 rounded-full bg-fill-3 px-4 text-sm" title="Strichdicke">
             <span className="text-label-2">Strich</span>
             <input type="range" min={2} max={16} value={width} onChange={(e) => setWidth(+e.target.value)} className="w-20 accent-blue" />
           </label>
           {!testMode && (
-            <button className={template ? 'btn-primary' : 'btn-soft'} onClick={() => setTemplate((t) => !t)} title="Blasse Vorlage">
+            <button className={template ? 'btn-primary' : 'btn-soft'} onClick={() => setTemplate((t) => !t)} title="Blasse Vorlage" aria-label="Blasse Vorlage" aria-pressed={template}>
               {template ? <Eye size={16} /> : <EyeOff size={16} />} <span className="hidden sm:inline">Vorlage</span>
             </button>
           )}
@@ -612,14 +612,14 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
       {/* Schwebende Leiste: Ergebnis + Aktionen. Der ganze Kasten färbt sich passend zum Ergebnis (grün = richtig, rot = falsch). */}
       <div ref={barRef} className="sticky bottom-[var(--tabbar-space)] z-20 md:bottom-3">
         <div
-          className={`space-y-2.5 rounded-2xl border p-3 shadow-lg backdrop-blur-xl transition-colors duration-300 ${
+          className={`space-y-2.5 rounded-[22px] border p-3 shadow-lg backdrop-blur-xl transition-colors duration-300 ${
             result && statusColor === 'green'
               ? 'border-green/50 bg-[#e3f8e8]/95 dark:bg-[#10301b]/95'
               : result && statusColor === 'red'
                 ? 'border-red/50 bg-[#ffe5e3]/95 dark:bg-[#3a1512]/95'
                 : result && statusColor === 'amber'
                   ? 'border-orange/50 bg-[#fff0d9]/95 dark:bg-[#38250a]/95'
-                  : 'border-separator bg-surface/85 dark:bg-surface-2/90'
+                  : 'glass'
           }`}
         >
           {/* Vorläufiges Ergebnis (Input Tools), solange Gemini noch prüft */}

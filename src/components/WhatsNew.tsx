@@ -26,11 +26,11 @@ export function WhatsNew({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="fixed inset-0 z-[70] grid place-items-end bg-black/40 backdrop-blur-md sm:place-items-center sm:p-6">
-      <div className="fade-up max-h-[94vh] w-full max-w-md overflow-y-auto rounded-t-[32px] border border-separator bg-page/95 p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-2xl backdrop-blur-xl sm:rounded-[32px] dark:bg-surface/95">
+    <div className="fixed inset-0 z-[70] grid place-items-end bg-black/40 sm:place-items-center sm:p-6">
+      <div role="dialog" aria-modal="true" aria-labelledby="whatsnew-title" className="sheet-up max-h-[94dvh] w-full max-w-md overflow-y-auto rounded-t-[32px] bg-page p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-2xl sm:rounded-[32px] dark:bg-surface">
         <div className="mb-6 text-center">
           <div className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-[18px] bg-gradient-to-br from-blue to-indigo text-3xl font-bold text-white shadow-lg">한</div>
-          <h2 className="text-3xl font-bold tracking-tight">Neu in Hangul Studio</h2>
+          <h2 id="whatsnew-title" className="text-3xl font-bold tracking-tight">Neu in Hangul Studio</h2>
         </div>
 
         <div className="space-y-7">
@@ -80,7 +80,7 @@ export function WhatsNew({ onClose }: { onClose: () => void }) {
         <div className="mt-5 space-y-2">
           {canConnect && (
             <button
-              className="btn-primary w-full !rounded-2xl !py-3.5 !text-base"
+              className="btn-primary w-full !py-3.5 !text-base"
               onClick={() => {
                 close()
                 void sync.connect()
@@ -89,7 +89,7 @@ export function WhatsNew({ onClose }: { onClose: () => void }) {
               <Cloud size={18} /> Jetzt mit Google verbinden
             </button>
           )}
-          <button className={`${canConnect ? 'btn-soft' : 'btn-primary'} w-full !rounded-2xl !py-3.5 !text-base`} onClick={close}>
+          <button className={`${canConnect ? 'btn-soft' : 'btn-primary'} w-full !py-3.5 !text-base`} onClick={close}>
             {canConnect ? 'Später' : 'Weiter'}
           </button>
         </div>

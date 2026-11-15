@@ -39,6 +39,14 @@ function priority(w: WordItem): number {
   return errRate * 2 + Math.min(overdue, 4) + Math.random() * 0.6
 }
 
+/** Fällig = noch nie geübt oder das gewünschte Wiederhol-Intervall ist abgelaufen */
+export function isDue(w: WordItem, now = Date.now()): boolean {
+  const s = w.stats
+  if (!s.lastReviewed || s.correctCount + s.wrongCount === 0) return true
+  const interval = Math.max(0.5, s.streak * s.easeFactor)
+  return (now - s.lastReviewed) / DAY >= interval
+}
+
 export function buildSmartTest(words: WordItem[], size = 10): WordItem[] {
   return [...words].sort((a, b) => priority(b) - priority(a)).slice(0, size)
 }

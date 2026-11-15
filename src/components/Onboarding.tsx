@@ -509,26 +509,26 @@ export function Onboarding({ onClose }: { onClose: () => void }) {
         <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-fill-2">
           <div className="h-full rounded-full bg-blue transition-all duration-500" style={{ width: `${(idx / Math.max(1, list.length - 1)) * 100}%` }} />
         </div>
-        {!last && <button className="text-sm font-medium text-label-2 hover:text-label" onClick={finish}>Überspringen</button>}
+        {!last && <button className="min-h-11 text-sm font-medium text-label-2 hover:text-label" onClick={finish}>Überspringen</button>}
       </div>
 
       <div className="flex-1 overflow-y-auto">
         <div key={stepId} className="fade-up mx-auto w-full max-w-xl px-5 py-8">{content}</div>
       </div>
 
-      <div className="border-t border-separator bg-surface/70 px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur-xl">
+      <div className="glass mx-3 mb-[max(0.75rem,env(safe-area-inset-bottom))] rounded-[28px] px-4 py-3 sm:mx-auto sm:w-full sm:max-w-xl">
         <div className="mx-auto flex w-full max-w-xl items-center gap-3">
           {!first && (
             <button className="btn-soft !px-4 !py-3" onClick={() => go(-1)}><ChevronLeft size={18} /> Zurück</button>
           )}
           <button
-            className="btn-primary flex-1 !rounded-2xl !py-3.5 !text-base"
+            className="btn-primary flex-1 !py-3.5 !text-base"
             onClick={() => (last ? finish() : go(1))}
           >
             {first ? 'Los geht’s' : last ? 'Loslegen' : stepId === 'key' && !hasKey ? 'Ohne KI weiter' : stepId === 'sync' && !sync.enabled ? 'Ohne Synchronisation weiter' : 'Weiter'}
           </button>
         </div>
-        <p className="mx-auto mt-2 max-w-xl text-center text-xs text-label-3">Schritt {idx + 1} von {list.length}</p>
+        <p className="mx-auto mt-2 max-w-xl text-center text-xs text-label-2">Schritt {idx + 1} von {list.length}</p>
       </div>
     </div>
   )
