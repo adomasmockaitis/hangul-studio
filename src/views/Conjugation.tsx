@@ -4,7 +4,7 @@ import { HangulCanvas } from '../components/HangulCanvas'
 import { DoneCard } from '../components/DoneCard'
 import { WriteQuestion } from '../components/questions'
 import { Runner, type Q } from '../components/Runner'
-import { PageHeader, Segmented } from '../components/ui'
+import { Segmented } from '../components/ui'
 import { speak } from '../lib/speech'
 import { useApp } from '../store'
 import { CONJUGATION_KEYS, CONJUGATION_LABELS, type ConjugationKey, type WordItem } from '../types'
@@ -97,8 +97,7 @@ export function ConjugationTrainer({ onDashboard }: { onDashboard: () => void })
   // ---------- Test läuft ----------
   if (questions) {
     return (
-      <div className="mx-auto max-w-2xl">
-        <PageHeader title="Beugungs-Test" />
+      <div>
         <Runner questions={questions} onDashboard={onDashboard} onBack={() => setQuestions(null)} backLabel="Neue Konfiguration" />
       </div>
     )
@@ -108,11 +107,8 @@ export function ConjugationTrainer({ onDashboard }: { onDashboard: () => void })
   if (learn) {
     const p = learn[Math.min(idx, learn.length - 1)]
     return (
-      <div className="mx-auto max-w-2xl">
-        <PageHeader
-          title="Beugungen lernen"
-          right={<button className="btn-soft" onClick={() => setLearn(null)}><ArrowLeft size={16} /> Konfiguration</button>}
-        />
+      <div>
+        <div className="mb-4"><button className="btn-soft" onClick={() => setLearn(null)}><ArrowLeft size={16} /> Konfiguration</button></div>
         <div className="mb-4 flex items-center justify-between">
           <button className="btn-soft" disabled={idx === 0} onClick={() => setIdx(idx - 1)}><ArrowLeft size={16} /></button>
           <span className="text-sm tabular-nums text-label-2">{idx + 1} / {learn.length}</span>
@@ -153,8 +149,7 @@ export function ConjugationTrainer({ onDashboard }: { onDashboard: () => void })
 
   // ---------- Konfiguration ----------
   return (
-    <div className="mx-auto max-w-2xl">
-      <PageHeader title="Beugungs-Trainer" subtitle="Verben & Adjektive per Hand in die gefragte Form bringen" />
+    <div>
       <div className="space-y-4">
         <div className="card p-4">
           <p className="label mb-2">Modus</p>

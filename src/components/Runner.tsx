@@ -110,7 +110,7 @@ export function Runner({ questions, onDashboard, onBack, backLabel }: Props) {
             <Repeat size={16} /> Nur falsche Wörter sofort wiederholen
           </button>
           <button className="btn-soft" onClick={onBack}>{backLabel}</button>
-          <button className="btn-soft" onClick={onDashboard}><Home size={16} /> Zurück zum Dashboard</button>
+          <button className="btn-soft" onClick={onDashboard}><Home size={16} /> Zur Startseite</button>
         </div>
       </div>
     )

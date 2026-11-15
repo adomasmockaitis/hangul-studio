@@ -87,6 +87,20 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
   const { settings } = useApp()
   const dark = useIsDark()
   const wrapRef = useRef<HTMLDivElement>(null)
+  const barRef = useRef<HTMLDivElement>(null)
+  // Enter = Hauptaktion (Prüfen / Weiter), solange kein Feld, Knopf oder Dialog den Fokus hat
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Enter' || e.isComposing || e.repeat) return
+      const t = e.target as HTMLElement | null
+      if (t?.closest('input, textarea, select, button, a, [role="dialog"], [role="alertdialog"]')) return
+      if (document.querySelector('[role="dialog"], [role="alertdialog"]')) return
+      const b = barRef.current?.querySelector<HTMLButtonElement>('[data-primary]:not(:disabled)')
+      if (b) { e.preventDefault(); b.click() }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [])
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const strokesRef = useRef<DrawStroke[]>([])
   const currentRef = useRef<DrawStroke | null>(null)
@@ -596,7 +610,7 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
       )}
 
       {/* Schwebende Leiste: Ergebnis + Aktionen. Der ganze Kasten färbt sich passend zum Ergebnis (grün = richtig, rot = falsch). */}
-      <div className="sticky bottom-[5.25rem] z-20 md:bottom-3">
+      <div ref={barRef} className="sticky bottom-[var(--tabbar-space)] z-20 md:bottom-3">
         <div
           className={`space-y-2.5 rounded-2xl border p-3 shadow-lg backdrop-blur-xl transition-colors duration-300 ${
             result && statusColor === 'green'
@@ -681,7 +695,7 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
                   </>
                 )}
                 {!result?.correct && <button className="btn-soft !py-3" onClick={retry}>Nochmal versuchen</button>}
-                {onNext && <button className="btn-primary ml-auto !py-3" onClick={onNext}>{nextLabel} <ArrowRight size={16} /></button>}
+                {onNext && <button data-primary className="btn-primary ml-auto !py-3" onClick={onNext}>{nextLabel} <ArrowRight size={16} /></button>}
               </>
             ) : (
               <>
@@ -690,7 +704,7 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
                     {firstMethod === 'inputtools' ? 'Prüfung: Input Tools' : firstMethod === 'gemini' ? 'Prüfung: Gemini' : 'Selbst-Check'}
                   </span>
                 )}
-                <button className="btn-primary ml-auto !py-3" onClick={() => void check()} disabled={phase === 'checking' || (keyboard && !typed.trim())}>
+                <button data-primary className="btn-primary ml-auto !py-3" onClick={() => void check()} disabled={phase === 'checking' || (keyboard && !typed.trim())}>
                   {phase === 'checking' ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
                   {phase === 'checking' ? 'Prüfe…' : 'Prüfen'}
                 </button>

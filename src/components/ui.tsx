@@ -41,15 +41,40 @@ export function Segmented<T extends string>({
   )
 }
 
-export function PageHeader({ title, subtitle, right }: { title: string; subtitle?: string; right?: ReactNode }) {
+/**
+ * Großer Seitentitel. Scrollt er aus dem Bild, erscheint oben eine kleine Glas-Kapsel mit dem Titel
+ * (abschaltbar mit collapsible={false}, z. B. wenn die Seite selbst etwas oben anheftet).
+ */
+export function PageHeader({ title, subtitle, right, collapsible = true }: { title: string; subtitle?: string; right?: ReactNode; collapsible?: boolean }) {
+  const h1 = useRef<HTMLHeadingElement>(null)
+  const [away, setAway] = useState(false)
+  useEffect(() => {
+    if (!collapsible || !h1.current) return
+    const io = new IntersectionObserver(([e]) => setAway(!e.isIntersecting), { rootMargin: '-12px 0px 0px 0px' })
+    io.observe(h1.current)
+    return () => io.disconnect()
+  }, [collapsible])
   return (
-    <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">{title}</h1>
-        {subtitle && <p className="mt-1 text-sm text-label-2">{subtitle}</p>}
+    <>
+      {collapsible && (
+        <div className="pointer-events-none sticky top-0 z-30 h-0" aria-hidden>
+          <div
+            className={`glass absolute left-1/2 top-[-3.25rem] max-w-[60%] -translate-x-1/2 truncate rounded-full px-5 py-2 text-sm font-semibold transition duration-200 md:top-[-1.75rem] ${
+              away ? 'opacity-100' : '-translate-y-2 opacity-0'
+            }`}
+          >
+            {title}
+          </div>
+        </div>
+      )}
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 ref={h1} className="text-3xl font-bold tracking-tight">{title}</h1>
+          {subtitle && <p className="mt-1 text-sm text-label-2">{subtitle}</p>}
+        </div>
+        {right}
       </div>
-      {right}
-    </div>
+    </>
   )
 }
 
@@ -93,19 +118,30 @@ function useDialog(open: boolean, onClose: () => void) {
 }
 
 /** Sheet: auf dem Handy von unten, auf größeren Bildschirmen mittig. */
-export function Sheet({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: ReactNode }) {
+export function Sheet({
+  open, onClose, title, children, wide, keepMounted,
+}: {
+  open: boolean
+  onClose: () => void
+  title: string
+  children: ReactNode
+  /** Breiteres Sheet für Tabellen */
+  wide?: boolean
+  /** Inhalt bleibt beim Schließen erhalten (z. B. laufender Scan) */
+  keepMounted?: boolean
+}) {
   const ref = useDialog(open, onClose)
   const titleId = useId()
-  if (!open) return null
+  if (!open && !keepMounted) return null
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center sm:p-6" onMouseDown={onClose}>
+    <div className={`fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center sm:p-6 ${open ? '' : 'hidden'}`} onMouseDown={onClose}>
       <div
         ref={ref}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className="sheet-up max-h-[92dvh] w-full max-w-xl overflow-y-auto rounded-t-[28px] bg-page p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl outline-none sm:rounded-[28px] dark:bg-surface"
+        className={`sheet-up max-h-[92dvh] w-full ${wide ? 'max-w-4xl' : 'max-w-xl'} overflow-y-auto rounded-t-[28px] bg-page p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl outline-none sm:rounded-[28px] dark:bg-surface`}
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="mx-auto mb-3 h-1.5 w-9 rounded-full bg-fill-1 sm:hidden" aria-hidden />

@@ -1,99 +1,109 @@
 ﻿import { useEffect, useState } from 'react'
-import { BookOpen, GraduationCap, LayoutDashboard, Repeat2, Settings as SettingsIcon, type LucideIcon } from 'lucide-react'
+import { BookOpen, GraduationCap, House, Settings as SettingsIcon, type LucideIcon } from 'lucide-react'
 import { AiStatusPill } from './components/AiStatusPill'
 import { isOnboarded, Onboarding } from './components/Onboarding'
 import { WhatsNew } from './components/WhatsNew'
 import { releasePopup } from './lib/releases'
 import { warmup } from './lib/gemini'
+import { navigate, useRoute, type Tab } from './lib/route'
 import { AppProvider, useApp } from './store'
 import { SyncProvider } from './sync'
 import { ToastProvider } from './components/Toasts'
 import { ConfirmProvider } from './components/ui'
 import { Dashboard } from './views/Dashboard'
 import { Dictionary } from './views/Dictionary'
-import { Learn } from './views/Learn'
-import { ConjugationTrainer } from './views/Conjugation'
+import { Practice } from './views/Practice'
 import { SettingsView } from './views/SettingsView'
-import type { ViewId } from './types'
 
-const NAV: { id: ViewId; label: string; short: string; icon: LucideIcon }[] = [
-  { id: 'dashboard', label: 'Dashboard', short: 'Home', icon: LayoutDashboard },
-  { id: 'dictionary', label: 'Wörterbuch & Upload', short: 'Wörter', icon: BookOpen },
-  { id: 'learn', label: 'Lernen & Quiz', short: 'Lernen', icon: GraduationCap },
-  { id: 'conjugation', label: 'Beugungs-Trainer', short: 'Beugung', icon: Repeat2 },
-  { id: 'settings', label: 'Einstellungen', short: 'Mehr', icon: SettingsIcon },
+const NAV: { id: Tab; label: string; icon: LucideIcon }[] = [
+  { id: 'start', label: 'Start', icon: House },
+  { id: 'ueben', label: 'Üben', icon: GraduationCap },
+  { id: 'woerter', label: 'Wörter', icon: BookOpen },
+  { id: 'einstellungen', label: 'Einstellungen', icon: SettingsIcon },
 ]
 
 function Shell() {
   const { settings } = useApp()
-  const [view, setView] = useState<ViewId>('dashboard')
+  const { tab, sub } = useRoute()
   const [onboarding, setOnboarding] = useState(() => !isOnboarded())
   // Update-Fenster: nur für bestehende Nutzer, einmal pro neuem Release
   const [whatsNew, setWhatsNew] = useState(() => isOnboarded() && releasePopup() !== null)
+  // Erneuter Tipp auf den aktiven Tab setzt die Seite zurück (z. B. laufendes Quiz → Auswahl)
+  const [navKey, setNavKey] = useState(0)
 
   // Start-Check im Hintergrund (höchstens alle 30 Min. ein Request)
   useEffect(() => {
     const id = setTimeout(() => void warmup(settings.geminiApiKey), 600)
     return () => clearTimeout(id)
   }, [settings.geminiApiKey])
-  const [quizKey, setQuizKey] = useState(0)
-  const [quiz, setQuiz] = useState(false)
 
-  const go = (v: ViewId, opts?: { quiz?: boolean }) => {
-    setQuiz(!!opts?.quiz)
-    setQuizKey((k) => k + 1)
-    setView(v)
+  // Beim Seitenwechsel nach oben scrollen
+  useEffect(() => {
+    document.getElementById('main')?.scrollTo({ top: 0 })
+  }, [tab, sub, navKey])
+
+  const go = (id: Tab) => {
+    if (id === tab) setNavKey((k) => k + 1)
+    navigate('/' + id)
   }
 
   return (
     <div className="flex h-full">
-      {/* Sidebar (Desktop) */}
-      <aside className="hidden w-64 shrink-0 flex-col border-r border-separator bg-surface/60 p-4 backdrop-blur-md md:flex">
-        <div className="mb-6 flex items-center gap-3 px-2 pt-2">
-          <div className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-blue to-indigo text-xl font-bold text-white shadow-md">한</div>
-          <div>
-            <p className="font-bold leading-tight">Hangul Studio</p>
-            <p className="text-xs text-label-3">Koreanisch lernen</p>
+      {/* Seitenleiste (ab Tablet quer): schwebendes Glas */}
+      <aside className="hidden shrink-0 p-3 pr-0 md:block">
+        <div className="glass flex h-full w-60 flex-col rounded-[26px] p-3">
+          <div className="mb-5 flex items-center gap-3 px-2 pt-2">
+            <div className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-blue to-indigo text-xl font-bold text-white shadow-md" aria-hidden>한</div>
+            <div>
+              <p className="font-bold leading-tight">Hangul Studio</p>
+              <p className="text-xs text-label-2">Koreanisch lernen</p>
+            </div>
           </div>
+          <nav aria-label="Hauptnavigation" className="space-y-1">
+            {NAV.map((n) => (
+              <button
+                key={n.id}
+                onClick={() => go(n.id)}
+                aria-current={tab === n.id ? 'page' : undefined}
+                className={`flex min-h-11 w-full items-center gap-3 rounded-full px-3.5 text-left text-base transition ${
+                  tab === n.id ? 'bg-fill-2 font-semibold text-label' : 'font-medium text-label-2 hover:bg-fill-4'
+                }`}
+              >
+                <n.icon size={20} className={tab === n.id ? 'text-blue' : ''} /> {n.label}
+              </button>
+            ))}
+          </nav>
+          <div className="mt-auto pt-4"><AiStatusPill className="w-full" /></div>
         </div>
-        <nav className="space-y-1">
-          {NAV.map((n) => (
-            <button
-              key={n.id}
-              onClick={() => go(n.id)}
-              className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[15px] font-medium transition ${
-                view === n.id ? 'bg-blue text-white shadow-sm' : 'text-label-2 hover:bg-fill-3'
-              }`}
-            >
-              <n.icon size={19} /> {n.label}
-            </button>
-          ))}
-        </nav>
-        <div className="mt-auto pt-4"><AiStatusPill className="w-full" /></div>
       </aside>
 
-      <AiStatusPill className="fixed right-3 top-3 z-30 max-w-[70vw] shadow-sm md:hidden" />
-      <main className="min-w-0 flex-1 overflow-y-auto px-4 pb-28 pt-14 sm:px-8 md:pb-10 md:pt-10">
-        {view === 'dashboard' && <Dashboard go={go} />}
-        {view === 'dictionary' && <Dictionary />}
-        {view === 'learn' && <Learn key={quizKey} initialQuiz={quiz} onDashboard={() => go('dashboard')} />}
-        {view === 'conjugation' && <ConjugationTrainer key={quizKey} onDashboard={() => go('dashboard')} />}
-        {view === 'settings' && <SettingsView onRestartOnboarding={() => setOnboarding(true)} onShowWhatsNew={() => setWhatsNew(true)} />}
+      <AiStatusPill compact className="glass fixed right-3 top-[max(0.75rem,env(safe-area-inset-top))] z-30 md:hidden" />
+      <main id="main" className="min-w-0 flex-1 overflow-y-auto px-4 pb-32 pt-16 sm:px-8 md:pb-10 md:pt-10">
+        {tab === 'start' && <Dashboard />}
+        {tab === 'woerter' && <Dictionary key={navKey} />}
+        {tab === 'ueben' && <Practice key={`${sub}-${navKey}`} sub={sub} />}
+        {tab === 'einstellungen' && <SettingsView onRestartOnboarding={() => setOnboarding(true)} onShowWhatsNew={() => setWhatsNew(true)} />}
       </main>
 
       {!onboarding && whatsNew && <WhatsNew onClose={() => setWhatsNew(false)} />}
-      {onboarding && <Onboarding onClose={() => { setOnboarding(false); setView('dashboard') }} />}
+      {onboarding && <Onboarding onClose={() => { setOnboarding(false); navigate('/start') }} />}
 
-      {/* Bottom-Tab-Bar (Mobile/Tablet) */}
-      <nav className="fixed inset-x-0 bottom-0 z-40 flex border-t border-separator bg-surface/75 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden">
+      {/* Tableiste (Handy / Tablet hoch): schwebende Glas-Kapsel */}
+      <nav
+        aria-label="Hauptnavigation"
+        className="glass fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-40 mx-auto flex max-w-md rounded-full p-1 md:hidden"
+      >
         {NAV.map((n) => (
           <button
             key={n.id}
             onClick={() => go(n.id)}
-            className={`flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] font-medium transition ${view === n.id ? 'text-blue' : 'text-label-3'}`}
+            aria-current={tab === n.id ? 'page' : undefined}
+            className={`flex min-h-[3.25rem] min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-full px-1 text-[0.6875rem] font-medium transition ${
+              tab === n.id ? 'bg-fill-2 text-blue' : 'text-label-2'
+            }`}
           >
-            <n.icon size={22} strokeWidth={view === n.id ? 2.4 : 1.8} />
-            {n.short}
+            <n.icon size={22} strokeWidth={tab === n.id ? 2.4 : 1.9} />
+            <span className="max-w-full truncate">{n.label}</span>
           </button>
         ))}
       </nav>

@@ -7,7 +7,7 @@
  *                    aber als Zeile unter „Außerdem“, sobald ein großes Update angezeigt wird.
  * Das Fenster erscheint höchstens einmal pro Besuch: ein Fenster, bis zu 3 große Updates untereinander.
  */
-export type ReleaseIcon = 'cloud' | 'shield' | 'bell' | 'clock' | 'pin' | 'check' | 'pointer'
+export type ReleaseIcon = 'cloud' | 'shield' | 'bell' | 'clock' | 'pin' | 'check' | 'pointer' | 'sparkles' | 'layers' | 'back'
 
 export interface Release {
   /** Eindeutige Kennung */
@@ -23,6 +23,38 @@ export interface Release {
   cta?: 'sync'
 }
 export const RELEASES: Release[] = [
+  {
+    id: '2026-11-new-design',
+    size: 'major',
+    title: 'Neu in Hangul Studio',
+    subtitle: 'Neues Design und neue Navigation',
+    features: [
+      {
+        icon: 'sparkles',
+        color: '#007aff',
+        title: 'Neuer Look',
+        text: 'Leisten und Dialoge schweben als Glas über dem Inhalt, Schrift und Knöpfe sind größer und einheitlich.',
+      },
+      {
+        icon: 'layers',
+        color: '#34c759',
+        title: 'Alles Üben an einem Ort',
+        text: 'Lernen, Quiz und Beugungs-Trainer liegen jetzt zusammen im Tab „Üben“ – oben wechselst du zwischen ihnen.',
+      },
+      {
+        icon: 'back',
+        color: '#ff9500',
+        title: 'Zurück-Taste und Neuladen',
+        text: 'Jede Seite hat eine eigene Adresse: Zurück im Browser funktioniert, und nach dem Neuladen bleibst du, wo du warst.',
+      },
+      {
+        icon: 'pin',
+        color: '#af52de',
+        title: 'Scanner unter „Wörter“',
+        text: 'Der Datei-Scanner öffnet sich über „Datei scannen“ als eigenes Fenster; die Wortliste steht direkt oben.',
+      },
+    ],
+  },
   {
     id: '2026-11-design-foundation',
     size: 'minor',

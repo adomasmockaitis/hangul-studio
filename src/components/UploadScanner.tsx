@@ -194,7 +194,7 @@ export function UploadScanner() {
     <div className="card mb-5 p-4 sm:p-5">
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <Sparkles size={18} className="text-blue" />
-        <h2 className="font-semibold">Intelligenter Datei- & Übungsblatt-Scanner</h2>
+        <h3 className="font-semibold">Intelligenter Datei- & Übungsblatt-Scanner</h3>
         <button className="btn-soft ml-auto !py-1 text-xs" onClick={downloadTemplate}><Download size={14} /> CSV-Vorlage</button>
       </div>
 

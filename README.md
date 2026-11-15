@@ -113,10 +113,9 @@ Dann `http://localhost:5173` öffnen.
 
 | Bereich | Wofür |
 |---|---|
-| **Dashboard** | Stand auf einen Blick, Start des Daily Smart Tests. |
-| **Wörterbuch & Upload** | Wörter verwalten, Dateien/Übungsblätter einlesen. |
-| **Lernen & Quiz** | *Lernen:* Karten mit Zeichenfeld. *Quiz:* Abfragemodi inkl. Hör-Diktat. |
-| **Beugungs-Trainer** | Verb- und Adjektivformen schreiben (Lern- und Testmodus). |
+| **Start** | Stand auf einen Blick, Start des Daily Smart Tests. |
+| **Üben** | *Lernen:* Karten mit Zeichenfeld. *Quiz:* Abfragemodi inkl. Hör-Diktat. *Beugung:* Verb- und Adjektivformen schreiben (Lern- und Testmodus). |
+| **Wörter** | Wörter verwalten; über „Datei scannen“ Dateien/Übungsblätter einlesen. |
 | **Einstellungen** | Theme, KI, Prüf-Reihenfolge, Zeichenfeld, Strichreihenfolge, Audio, Beugungen, Backup, Entwickler. |
 
 ---

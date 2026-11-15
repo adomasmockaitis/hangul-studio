@@ -28,7 +28,7 @@ export function DoneCard({
       <h2 className="text-2xl font-bold">{title}</h2>
       <p className="mx-auto mt-1 max-w-sm text-label-2">{text}</p>
       <div className="mt-6 flex flex-col justify-center gap-2 sm:flex-row">
-        <button className="btn-soft !py-3" onClick={onDashboard}><Home size={16} /> Zurück zum Dashboard</button>
+        <button className="btn-soft !py-3" onClick={onDashboard}><Home size={16} /> Zur Startseite</button>
         <button className="btn-primary !py-3" onClick={onRepeat}><Repeat size={16} /> {repeatLabel}</button>
       </div>
     </div>

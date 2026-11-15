@@ -2,9 +2,9 @@ import { BookCheck, Flame, Play, Target, TriangleAlert } from 'lucide-react'
 import { PageHeader } from '../components/ui'
 import { currentStreak, dateKey, successRate } from '../lib/srs'
 import { useApp } from '../store'
-import type { ViewId } from '../types'
+import { navigate } from '../lib/route'
 
-export function Dashboard({ go }: { go: (v: ViewId, opts?: { quiz?: boolean }) => void }) {
+export function Dashboard() {
   const { words, activity } = useApp()
   const { days, doneToday } = currentStreak(activity)
   const learned = words.filter((w) => w.stats.correctCount > 0).length
@@ -40,7 +40,7 @@ export function Dashboard({ go }: { go: (v: ViewId, opts?: { quiz?: boolean }) =
         <p className="mt-1 max-w-md text-sm text-label-2">
           Bis zu 10 Wörter – priorisiert nach deinen Fehlern und der Zeit seit der letzten Wiederholung.
         </p>
-        <button className="btn-primary mt-5 !rounded-2xl !px-6 !py-3 !text-base" disabled={!words.length} onClick={() => go('learn', { quiz: true })}>
+        <button className="btn-primary mt-5 !rounded-2xl !px-6 !py-3 !text-base" disabled={!words.length} onClick={() => navigate('/ueben/quiz')}>
           <Play size={18} fill="currentColor" /> Test starten
         </button>
       </div>

@@ -1,6 +1,6 @@
 ﻿import { useMemo, useState } from 'react'
-import { Loader2, Pencil, Plus, Search, Sparkles, Trash2, Volume2 } from 'lucide-react'
-import { Modal, PageHeader, useConfirm } from '../components/ui'
+import { Loader2, Pencil, Plus, ScanText, Search, Sparkles, Trash2, Volume2 } from 'lucide-react'
+import { PageHeader, Sheet, useConfirm } from '../components/ui'
 import { parseTags, UploadScanner } from '../components/UploadScanner'
 import { completeWord } from '../lib/gemini'
 import { speakWord } from '../lib/speech'
@@ -36,6 +36,7 @@ export function Dictionary() {
   const [tag, setTag] = useState('')
   const [sort, setSort] = useState<Sort>('new')
   const [editing, setEditing] = useState<{ id: string | null; draft: Draft } | null>(null)
+  const [scanner, setScanner] = useState(false)
   const [aiBusy, setAiBusy] = useState(false)
   const [aiMsg, setAiMsg] = useState('')
 
@@ -91,12 +92,19 @@ export function Dictionary() {
   return (
     <div className="mx-auto max-w-4xl">
       <PageHeader
-        title="Wörterbuch & Upload"
+        title="Wörter"
         subtitle={`${words.length} Wörter`}
-        right={<button className="btn-primary" onClick={() => setEditing({ id: null, draft: emptyDraft })}><Plus size={16} /> Neues Wort</button>}
+        right={
+          <div className="flex flex-wrap gap-2">
+            <button className="btn-soft" onClick={() => setScanner(true)}><ScanText size={16} /> Datei scannen</button>
+            <button className="btn-primary" onClick={() => setEditing({ id: null, draft: emptyDraft })}><Plus size={16} /> Neues Wort</button>
+          </div>
+        }
       />
 
-      <UploadScanner />
+      <Sheet open={scanner} onClose={() => setScanner(false)} title="Datei scannen" wide keepMounted>
+        <UploadScanner />
+      </Sheet>
 
       <div className="mb-4 flex flex-wrap gap-2">
         <div className="relative flex-1 basis-48">
@@ -140,7 +148,7 @@ export function Dictionary() {
         })}
       </div>
 
-      <Modal open={!!editing} onClose={() => setEditing(null)} title={editing?.id ? 'Wort bearbeiten' : 'Neues Wort'}>
+      <Sheet open={!!editing} onClose={() => setEditing(null)} title={editing?.id ? 'Wort bearbeiten' : 'Neues Wort'}>
         {draft && (
           <div className="space-y-3">
             <div>
@@ -183,7 +191,7 @@ export function Dictionary() {
             </div>
           </div>
         )}
-      </Modal>
+      </Sheet>
     </div>
   )
 }

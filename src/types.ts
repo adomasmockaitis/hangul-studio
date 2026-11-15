@@ -88,7 +88,6 @@ export interface BackupFile {
   activity: Activity
 }
 
-export type ViewId = 'dashboard' | 'dictionary' | 'learn' | 'conjugation' | 'settings'
 
 export const CONJUGATION_LABELS: Record<ConjugationKey, { label: string; hint: string }> = {
   presentPolite: { label: 'Präsens – Höflich', hint: '-아요/-어요/-해요' },
