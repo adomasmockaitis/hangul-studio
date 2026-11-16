@@ -1,4 +1,5 @@
 import type { Activity, Folder, Settings, WordItem } from '../types'
+import { newerCard } from './fsrs'
 
 /** Einstellungen, die nur auf dem jeweiligen Gerät bleiben und nie synchronisiert werden */
 export const LOCAL_ONLY_SETTINGS = ['googleClientId', 'syncApiKey'] as const
@@ -48,6 +49,8 @@ export function mergeWord(a: WordItem, b: WordItem): WordItem {
       streak: fresher.stats.streak,
       easeFactor: fresher.stats.easeFactor,
     },
+    // Wiederholungsplanung: je Richtung die zuletzt geübte Karte
+    srs: a.srs || b.srs ? { deko: newerCard(a.srs?.deko, b.srs?.deko), kode: newerCard(a.srs?.kode, b.srs?.kode) } : undefined,
     // fehlende Felder aus dem anderen Stand ergänzen
     pronunciation: newer.pronunciation ?? older.pronunciation,
     conjugations: newer.conjugations ?? older.conjugations,

@@ -35,6 +35,12 @@ export interface CanvasInfo {
   image?: string
   /** was die KI gelesen bzw. was getippt wurde */
   read?: string
+  /** Wie geprüft wurde */
+  via?: 'gemini' | 'inputtools' | 'self' | 'keyboard'
+  /** Prüfung gilt als unsicher (Input Tools ist bei ㅏ/ㅓ, ㅗ/ㅜ ungenau) */
+  uncertain?: boolean
+  /** Vorlage oder Strichreihenfolge war beim Prüfen sichtbar */
+  help?: boolean
 }
 
 function useIsDark() {
@@ -236,17 +242,23 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
     for (const s of strokesRef.current) paintStroke(ctx, s, '#000000', scale, 0, 3)
     return c.toDataURL('image/png').split(',')[1]
   }
-  const record = (correct: boolean, read?: string) => {
+  const record = (correct: boolean, read?: string, via?: CanvasInfo['via']) => {
     if (recordedRef.current) return
     recordedRef.current = true
     playSound(correct ? 'success' : 'error')
-    onResult(correct, { image: imageRef.current ? 'data:image/png;base64,' + imageRef.current : undefined, read })
+    onResult(correct, {
+      image: imageRef.current ? 'data:image/png;base64,' + imageRef.current : undefined,
+      read,
+      via,
+      uncertain: via === 'inputtools',
+      help: template || showHelp,
+    })
   }
 
-  const conclude = (r: Result) => {
+  const conclude = (r: Result, via?: CanvasInfo['via']) => {
     setResult(r)
     setPhase('result')
-    record(r.correct, r.read)
+    record(r.correct, r.read, via ?? (r.via === 'Gemini' ? 'gemini' : r.via === 'Input Tools' ? 'inputtools' : undefined))
   }
 
   /** Rückmeldung zur Input-Tools-Erkennung speichern */
@@ -274,7 +286,7 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
       addSample({ ...s, recognitionCorrect: correct === s.appVerdict, actuallyCorrect: correct, labelSource: 'self-check' })
       itRef.current = null
     }
-    conclude({ correct })
+    conclude({ correct }, 'self')
   }
 
   /** Widerspruch gegen ein Gemini-Urteil: wird samt Bild gespeichert, damit der Prompt verbessert werden kann */
@@ -318,7 +330,7 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
   const check = async () => {
     if (keyboard) {
       if (!typed.trim()) return
-      conclude({ correct: normalizeKorean(typed) === normalizeKorean(target), read: typed.trim() })
+      conclude({ correct: normalizeKorean(typed) === normalizeKorean(target), read: typed.trim() }, 'keyboard')
       return
     }
     if (strokesRef.current.length === 0) {

@@ -27,30 +27,6 @@ export function applyReview(stats: WordStats, correct: boolean): WordStats {
       }
 }
 
-/** Höher = dringender zu wiederholen */
-function priority(w: WordItem): number {
-  const s = w.stats
-  const total = s.correctCount + s.wrongCount
-  if (total === 0) return 3 + Math.random()
-  const errRate = (s.wrongCount + 1) / (total + 2)
-  const days = s.lastReviewed ? (Date.now() - s.lastReviewed) / DAY : 30
-  const interval = Math.max(0.5, s.streak * s.easeFactor) // gewünschtes Intervall in Tagen
-  const overdue = days / interval
-  return errRate * 2 + Math.min(overdue, 4) + Math.random() * 0.6
-}
-
-/** Fällig = noch nie geübt oder das gewünschte Wiederhol-Intervall ist abgelaufen */
-export function isDue(w: WordItem, now = Date.now()): boolean {
-  const s = w.stats
-  if (!s.lastReviewed || s.correctCount + s.wrongCount === 0) return true
-  const interval = Math.max(0.5, s.streak * s.easeFactor)
-  return (now - s.lastReviewed) / DAY >= interval
-}
-
-export function buildSmartTest(words: WordItem[], size = 10): WordItem[] {
-  return [...words].sort((a, b) => priority(b) - priority(a)).slice(0, size)
-}
-
 export function successRate(words: WordItem[]): number | null {
   let c = 0
   let t = 0

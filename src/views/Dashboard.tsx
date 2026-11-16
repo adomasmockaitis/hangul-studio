@@ -1,11 +1,17 @@
-import { BookCheck, Flame, Play, Plus, Target } from 'lucide-react'
+import { BookCheck, Flame, Gauge, Play, Plus, Target } from 'lucide-react'
 import { List, ListRow, PageHeader } from '../components/ui'
 import { navigate } from '../lib/route'
-import { currentStreak, dateKey, isDue, successRate } from '../lib/srs'
+import { currentStreak, dateKey, successRate } from '../lib/srs'
+import { isDue } from '../lib/fsrs'
+import { computeLevel, LEVEL_STEPS } from '../lib/level'
 import { useApp } from '../store'
 
 export function Dashboard() {
-  const { words, activity } = useApp()
+  const { words, activity, reviewLog, retention } = useApp()
+  const lv = computeLevel(words, reviewLog)
+  const stepFrom = LEVEL_STEPS[Math.min(lv.level, LEVEL_STEPS.length) - 1]
+  const stepTo = lv.toNext === null ? null : lv.secure + lv.toNext
+  const progress = stepTo === null ? 1 : Math.min(1, Math.max(0, (lv.secure - stepFrom) / Math.max(1, stepTo - stepFrom)))
   const { days, doneToday } = currentStreak(activity)
   const learned = words.filter((w) => w.stats.correctCount > 0).length
   const rate = successRate(words)
@@ -58,7 +64,7 @@ export function Dashboard() {
               {due === 0 ? 'Alles wiederholt' : due === 1 ? '1 Wort ist fällig' : `${due} Wörter sind fällig`}
             </h2>
             <p className="mt-1 max-w-md text-sm text-label-2">
-              Der Test fragt bis zu 10 Wörter ab – zuerst die mit den meisten Fehlern und der längsten Pause.
+              Der Smart-Test fragt bis zu 10 Wörter ab – zuerst die, die du am ehesten vergisst, dazu ein paar neue.
             </p>
             <button className="btn-primary mt-5 !px-6 !text-base" onClick={() => navigate('/ueben/quiz')}>
               <Play size={18} fill="currentColor" /> Test starten
@@ -66,6 +72,29 @@ export function Dashboard() {
           </>
         )}
       </section>
+
+      {/* Lernstand: steuert Smart-Auswahl und später Schwierigkeit und neue Wörter */}
+      {words.length > 0 && (
+        <section aria-labelledby="level-title" className="card fade-up mb-5 p-5">
+          <div className="flex items-center gap-3">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-indigo text-white" aria-hidden><Gauge size={20} /></span>
+            <div className="min-w-0 flex-1">
+              <p className="label">Lernstand</p>
+              <h2 id="level-title" className="text-xl font-bold">Stufe {lv.level} <span className="text-sm font-medium text-label-2">von 10</span></h2>
+            </div>
+            <p className="text-right text-sm text-label-2"><span className="text-xl font-bold tabular-nums text-label">{lv.secure}</span><br />sicher</p>
+          </div>
+          <div className="mt-3 h-2 overflow-hidden rounded-full bg-fill-2" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress * 100)} aria-label="Fortschritt zur nächsten Stufe">
+            <div className="ease-spring h-full rounded-full bg-indigo transition-all duration-700" style={{ width: `${progress * 100}%` }} />
+          </div>
+          <p className="mt-2 text-xs text-label-2">
+            {lv.toNext === null ? 'Höchste Stufe erreicht.' : `Noch ${lv.toNext} sicher gelernte ${lv.toNext === 1 ? 'Abfrage' : 'Abfragen'} bis Stufe ${lv.level + (lv.penalty ? 2 : 1)}.`}
+            {' '}„Sicher“ heißt: ein Wort in einer Richtung sitzt mindestens 7 Tage.
+            {lv.penalty && ' Zuletzt viele Fehler – vorübergehend eine Stufe tiefer.'}
+            {retention.personal && ` Wiederholungen sind an dich angepasst (Ziel ${Math.round(retention.retention * 100)} % behalten).`}
+          </p>
+        </section>
+      )}
 
       <div className="mb-5 grid grid-cols-3 gap-3 sm:gap-4">
         {stats.map((s, i) => (

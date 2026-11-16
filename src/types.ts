@@ -31,6 +31,8 @@ export interface WordItem {
   updatedAt?: number
   /** Ordner, in dem das Wort liegt (fehlt = „Ohne Ordner“) */
   folderId?: string
+  /** FSRS-Wiederholungsplanung je Richtung (deko = Deutsch→Koreanisch, kode = Koreanisch→Deutsch) */
+  srs?: { deko?: import('./lib/fsrs').SrsCard; kode?: import('./lib/fsrs').SrsCard }
 }
 
 /** Ordner für Wörter, bis zu 3 Ebenen tief (parentId = null: oberste Ebene) */

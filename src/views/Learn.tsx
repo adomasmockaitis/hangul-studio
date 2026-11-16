@@ -1,21 +1,49 @@
 ﻿import { useMemo, useState } from 'react'
-import { ArrowLeft, ArrowRight } from 'lucide-react'
+import { ArrowLeft, ArrowRight, SlidersHorizontal } from 'lucide-react'
 import { DoneCard } from '../components/DoneCard'
+import { SelectionPicker } from '../components/SelectionPicker'
+import { Sheet } from '../components/ui'
 import { WordCard } from '../components/WordCard'
+import { describeSelection, resolveSelection, smartPick, SMART, type Selection } from '../lib/selection'
 import { useApp } from '../store'
+import type { Folder, WordItem } from '../types'
 
+type Sort = 'old' | 'new'
+
+/** Reihenfolge einmal festlegen (sonst würde Smart beim Lernen ständig umsortieren) */
+function computeIds(sel: Selection, sort: Sort, words: WordItem[], folders: Folder[]): string[] {
+  if (sel.mode === 'smart') return smartPick(words, 'both', 20, Date.now(), 10).map((p) => p.word.id)
+  return resolveSelection(sel, words, folders)
+    .sort((a, b) => (sort === 'new' ? b.createdAt - a.createdAt : a.createdAt - b.createdAt))
+    .map((w) => w.id)
+}
+
+/**
+ * Lernmodus: Karten durchgehen und Schreiben üben. Die Lösung ist sichtbar – deshalb zählt das hier
+ * nicht für die Wiederholungsplanung (nur Abfragen tun das), wohl aber für Statistik und Tages-Streak.
+ */
 export function Browse({ onDashboard }: { onDashboard: () => void }) {
-  const { words, reviseReview, recordReview } = useApp()
-  const [tag, setTag] = useState<string>('')
-  const [sort, setSort] = useState<'new' | 'old'>('old')
+  const { words, folders, reviseReview, recordReview } = useApp()
+  const [selection, setSelection] = useState<Selection>(SMART)
+  const [draftSel, setDraftSel] = useState<Selection>(SMART)
+  const [picker, setPicker] = useState(false)
+  const [sort, setSort] = useState<Sort>('old')
+  const [ids, setIds] = useState<string[]>(() => computeIds(SMART, 'old', words, folders))
   const [idx, setIdx] = useState(0)
   const [done, setDone] = useState(false)
 
-  const tags = useMemo(() => [...new Set(words.flatMap((w) => w.tags))].sort(), [words])
   const list = useMemo(() => {
-    const f = tag ? words.filter((w) => w.tags.includes(tag)) : words
-    return [...f].sort((a, b) => (sort === 'new' ? b.createdAt - a.createdAt : a.createdAt - b.createdAt))
-  }, [words, tag, sort])
+    const byId = new Map(words.map((w) => [w.id, w]))
+    return ids.map((id) => byId.get(id)).filter((w): w is WordItem => !!w)
+  }, [ids, words])
+
+  const apply = (sel: Selection, s: Sort) => {
+    setSelection(sel)
+    setSort(s)
+    setIds(computeIds(sel, s, words, folders))
+    setIdx(0)
+    setDone(false)
+  }
 
   const i = Math.min(idx, Math.max(0, list.length - 1))
   const word = list[i]
@@ -23,20 +51,36 @@ export function Browse({ onDashboard }: { onDashboard: () => void }) {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center gap-2">
-        <select className="input !w-auto" value={tag} onChange={(e) => { setTag(e.target.value); setIdx(0); setDone(false) }}>
-          <option value="">Alle Tags</option>
-          {tags.map((t) => <option key={t} value={t}>{t}</option>)}
-        </select>
-        <select className="input !w-auto" value={sort} onChange={(e) => { setSort(e.target.value as 'new' | 'old'); setIdx(0); setDone(false) }}>
-          <option value="old">Älteste zuerst</option>
-          <option value="new">Neueste zuerst</option>
-        </select>
+        <button className="btn-soft max-w-full" onClick={() => { setDraftSel(selection); setPicker(true) }}>
+          <SlidersHorizontal size={16} /> <span className="truncate">Auswahl: {describeSelection(selection, folders)}</span>
+        </button>
+        {selection.mode !== 'smart' && (
+          <select className="input !w-auto" aria-label="Reihenfolge" value={sort} onChange={(e) => apply(selection, e.target.value as Sort)}>
+            <option value="old">Älteste zuerst</option>
+            <option value="new">Neueste zuerst</option>
+          </select>
+        )}
         <div className="ml-auto flex items-center gap-2">
           <button className="btn-soft" aria-label="Vorheriges Wort" disabled={i === 0} onClick={() => setIdx(i - 1)}><ArrowLeft size={16} /></button>
           <span className="min-w-14 text-center text-sm tabular-nums text-label-2">{list.length ? i + 1 : 0} / {list.length}</span>
           <button className="btn-soft" aria-label="Nächstes Wort" disabled={i >= list.length - 1} onClick={() => setIdx(i + 1)}><ArrowRight size={16} /></button>
         </div>
       </div>
+
+      <Sheet open={picker} onClose={() => setPicker(false)} title="Was möchtest du lernen?">
+        <SelectionPicker
+          value={draftSel}
+          onChange={setDraftSel}
+          words={words}
+          folders={folders}
+          smartNote="Bis zu 20 Karten: zuerst fällige Wörter, die du am ehesten vergisst, dann neue."
+        />
+        <div className="mt-5 flex justify-end gap-2">
+          <button className="btn-soft" onClick={() => setPicker(false)}>Abbrechen</button>
+          <button className="btn-primary" onClick={() => { apply(draftSel, sort); setPicker(false) }}>Übernehmen</button>
+        </div>
+      </Sheet>
+
       {done ? (
         <DoneCard
           text={`Du bist alle ${list.length} Karten durchgegangen.`}
@@ -54,7 +98,9 @@ export function Browse({ onDashboard }: { onDashboard: () => void }) {
           nextLabel={i < list.length - 1 ? 'Nächstes Wort' : 'Abschließen'}
         />
       ) : (
-        <div className="card p-8 text-center text-label-2">Keine Wörter mit diesem Tag.</div>
+        <div className="card p-8 text-center text-label-2">
+          {selection.mode === 'smart' ? 'Gerade ist nichts fällig – wähle Ordner, Tags oder einzelne Wörter.' : 'Keine Wörter in dieser Auswahl.'}
+        </div>
       )}
     </div>
   )

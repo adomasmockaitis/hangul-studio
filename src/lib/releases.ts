@@ -7,7 +7,7 @@
  *                    aber als Zeile unter „Außerdem“, sobald ein großes Update angezeigt wird.
  * Das Fenster erscheint höchstens einmal pro Besuch: ein Fenster, bis zu 3 große Updates untereinander.
  */
-export type ReleaseIcon = 'cloud' | 'shield' | 'bell' | 'clock' | 'pin' | 'check' | 'pointer' | 'sparkles' | 'layers' | 'back' | 'folder'
+export type ReleaseIcon = 'cloud' | 'shield' | 'bell' | 'clock' | 'pin' | 'check' | 'pointer' | 'sparkles' | 'layers' | 'back' | 'folder' | 'gauge'
 
 export interface Release {
   /** Eindeutige Kennung */
@@ -23,6 +23,38 @@ export interface Release {
   cta?: 'sync'
 }
 export const RELEASES: Release[] = [
+  {
+    id: '2026-11-smart-fsrs',
+    size: 'major',
+    title: 'Neu in Hangul Studio',
+    subtitle: 'Smart-Modus und Lernstand',
+    features: [
+      {
+        icon: 'sparkles',
+        color: '#5856d6',
+        title: 'Wiederholen wie Anki',
+        text: 'Jedes Wort bekommt pro Richtung einen eigenen Wiederholungstermin (FSRS). Smart fragt zuerst ab, was du am ehesten vergisst.',
+      },
+      {
+        icon: 'check',
+        color: '#34c759',
+        title: 'Genauer bewertet',
+        text: 'Statt nur richtig/falsch zählt auch, wie schnell du warst und ob die Prüfung sicher war. Bisherige Lernstände wurden übernommen.',
+      },
+      {
+        icon: 'layers',
+        color: '#007aff',
+        title: 'Eine Auswahl für alles',
+        text: 'Lernen und Quiz wählen Wörter gleich aus: Smart, Ordner, Tags oder einzeln.',
+      },
+      {
+        icon: 'gauge',
+        color: '#ff9500',
+        title: 'Dein Lernstand',
+        text: 'Die Startseite zeigt deine Stufe von 1 bis 10 und was bis zur nächsten fehlt.',
+      },
+    ],
+  },
   {
     id: '2026-11-folders',
     size: 'major',

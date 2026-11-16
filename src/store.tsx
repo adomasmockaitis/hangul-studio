@@ -1,4 +1,4 @@
-﻿import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+﻿import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createDemoWords, newStats } from './data/demo'
 import { DEFAULT_MODEL, OBSOLETE_MODELS } from './lib/gemini'
 import { observe, stamp } from './lib/clock'
@@ -7,6 +7,7 @@ import { applyReview, dateKey } from './lib/srs'
 import { LOCAL_ONLY_SETTINGS, maxStamp, type SyncPayload } from './lib/merge'
 import { canAddSubfolder, descendantIds, planChapterConversion } from './lib/folders'
 import { getItem, setItem } from './lib/storage'
+import { cardOf, personalRetention, retrievability, schedule, type Dir, type Grade4, type ReviewLogEntry, type SrsCard } from './lib/fsrs'
 import type { Activity, BackupFile, CheckMethod, CheckStep, Folder, Settings, WordItem, WordType } from './types'
 
 const K_DELETED = 'hangul-studio:deleted'
@@ -15,6 +16,9 @@ const K_SETTINGS = 'hangul-studio:settings'
 const K_ACTIVITY = 'hangul-studio:activity'
 const K_FOLDERS = 'hangul-studio:folders'
 const K_DELETED_FOLDERS = 'hangul-studio:deleted-folders'
+/** Protokoll der Antworten (nur auf diesem Gerät) für Lernstand und persönliche Anpassung */
+const K_REVIEW_LOG = 'hangul-studio:review-log'
+const MAX_LOG = 5000
 
 const ALL_METHODS: CheckMethod[] = ['gemini', 'inputtools', 'manual']
 const DEFAULT_ORDER: CheckStep[] = ALL_METHODS.map((method) => ({ method, enabled: true }))
@@ -86,6 +90,7 @@ export function sanitizeWord(raw: unknown): WordItem | null {
     conjugations: Object.values(conj).some(Boolean) ? conj : undefined,
     updatedAt: typeof r.updatedAt === 'number' ? r.updatedAt : undefined,
     folderId: str(r.folderId),
+    srs: r.srs && typeof r.srs === 'object' ? (r.srs as WordItem['srs']) : undefined,
     stats: {
       correctCount: num(s.correctCount, 0),
       wrongCount: num(s.wrongCount, 0),
@@ -120,8 +125,16 @@ interface Ctx {
   addWords: (ws: WordItem[]) => number
   updateWord: (id: string, patch: Partial<WordItem>) => void
   deleteWord: (id: string) => void
-  recordReview: (id: string, correct: boolean) => void
+  /**
+   * Antwort festhalten. Mit `fsrs` (nur Abfragen, nicht beim Durchblättern) wird zusätzlich die
+   * Wiederholung dieser Richtung geplant.
+   */
+  recordReview: (id: string, correct: boolean, fsrs?: { dir: Dir; grade: Grade4 }) => void
+  /** Nachträgliche Korrektur (Widerspruch): richtig zählt dann abgeschwächt als „Schwer“ */
   reviseReview: (id: string, nowCorrect: boolean) => void
+  reviewLog: ReviewLogEntry[]
+  /** Ziel-Behaltensquote (0,9 oder an die Person angepasst) */
+  retention: { retention: number; personal: boolean; n: number }
   resetStats: () => void
   restoreDemo: () => void
   clearAll: () => void
@@ -158,6 +171,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [activity, setActivity] = useState<Activity>(() => load<Activity>(K_ACTIVITY, {}))
   const [deleted, setDeleted] = useState<Record<string, number>>(() => load<Record<string, number>>(K_DELETED, {}))
   const [folders, setFolders] = useState<Folder[]>(() => load<Folder[]>(K_FOLDERS, []))
+  const [reviewLog, setReviewLog] = useState<ReviewLogEntry[]>(() => load<ReviewLogEntry[]>(K_REVIEW_LOG, []))
+  const retention = useMemo(() => personalRetention(reviewLog), [reviewLog])
+  const wordsRef = useRef<WordItem[]>([])
+  const retentionRef = useRef(retention.retention)
+  retentionRef.current = retention.retention
+  /** Letzter Zustand vor einer Bewertung, damit ein Widerspruch sie korrigieren kann */
+  const lastReview = useRef(new Map<string, { dir: Dir; prev: SrsCard | undefined; t: number }>())
   const [deletedFolders, setDeletedFolders] = useState<Record<string, number>>(() => load<Record<string, number>>(K_DELETED_FOLDERS, {}))
 
   // Beim Start: bereits gespeicherte Zeitstempel in die logische Uhr übernehmen
@@ -171,6 +191,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => save(K_SETTINGS, settings), [settings])
   useEffect(() => save(K_ACTIVITY, activity), [activity])
   useEffect(() => save(K_FOLDERS, folders), [folders])
+  useEffect(() => save(K_REVIEW_LOG, reviewLog), [reviewLog])
+  wordsRef.current = words
   useEffect(() => save(K_DELETED_FOLDERS, deletedFolders), [deletedFolders])
 
   // Theme anwenden
@@ -237,20 +259,53 @@ export function AppProvider({ children }: { children: ReactNode }) {
     })
   }, [])
 
-  const recordReview = useCallback((id: string, correct: boolean) => {
-    setWords((ws) => ws.map((w) => (w.id === id ? { ...w, stats: applyReview(w.stats, correct), updatedAt: stamp() } : w)))
+  const recordReview: Ctx['recordReview'] = useCallback((id, correct, f) => {
+    const now = Date.now()
+    // FSRS außerhalb des State-Updaters berechnen (Updater dürfen keine Nebenwirkungen haben)
+    let card: { dir: Dir; card: SrsCard } | null = null
+    if (f) {
+      const w = wordsRef.current.find((x) => x.id === id)
+      if (w) {
+        const prev = cardOf(w, f.dir)
+        lastReview.current.set(id, { dir: f.dir, prev, t: now })
+        card = { dir: f.dir, card: schedule(prev, f.grade, now, retentionRef.current) }
+        const r = retrievability(prev, now)
+        setReviewLog((l) => [...l, { w: id, d: f.dir, t: now, g: f.grade, r }].slice(-MAX_LOG))
+      }
+    }
+    const stampNow = stamp()
+    setWords((ws) =>
+      ws.map((w) =>
+        w.id !== id
+          ? w
+          : { ...w, stats: applyReview(w.stats, correct), updatedAt: stampNow, ...(card ? { srs: { ...w.srs, [card.dir]: card.card } } : {}) },
+      ),
+    )
     const k = dateKey()
     setActivity((a) => ({ ...a, [k]: (a[k] ?? 0) + 1 }))
   }, [])
 
   /** Korrigiert die zuletzt gewertete Antwort (z. B. nach einem Widerspruch), ohne eine neue Aktivität zu zählen */
   const reviseReview = useCallback((id: string, nowCorrect: boolean) => {
+    const last = lastReview.current.get(id)
+    const grade: Grade4 = nowCorrect ? 2 : 1
+    if (last) {
+      setReviewLog((l) => {
+        const i = l.findLastIndex((e) => e.w === id && e.t === last.t)
+        if (i < 0) return l
+        const n = [...l]
+        n[i] = { ...n[i], g: grade }
+        return n
+      })
+    }
     setWords((ws) =>
       ws.map((w) => {
         if (w.id !== id) return w
         const s = w.stats
         return {
           ...w,
+          // FSRS: Bewertung vom Zustand davor neu berechnen
+          ...(last ? { srs: { ...w.srs, [last.dir]: schedule(last.prev, grade, last.t, retentionRef.current) } } : {}),
           updatedAt: stamp(),
           stats: nowCorrect
             ? { ...s, wrongCount: Math.max(0, s.wrongCount - 1), correctCount: s.correctCount + 1, streak: Math.max(1, s.streak), easeFactor: Math.min(3, +(s.easeFactor + 0.3).toFixed(2)) }
@@ -336,8 +391,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const resetStats = useCallback(() => {
     const now = stamp()
     // Zurücksetzen gilt als neue Änderung, damit es beim Abgleich nicht von alten Ständen überschrieben wird
-    setWords((ws) => ws.map((w) => ({ ...w, stats: { ...newStats(), lastReviewed: null }, updatedAt: now })))
+    setWords((ws) => ws.map((w) => ({ ...w, stats: { ...newStats(), lastReviewed: null }, srs: undefined, updatedAt: now })))
     setActivity({})
+    setReviewLog([])
   }, [])
 
   const restoreDemo = useCallback(() => {
@@ -505,9 +561,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     () => ({
       words, settings, activity, deleted, applySyncPayload, updateSettings, addWord, addWords, updateWord, deleteWord,
       recordReview, reviseReview, resetStats, restoreDemo, clearAll, exportBackup, importBackup,
-      folders, deletedFolders, addFolder, renameFolder, deleteFolder, moveWords, addTagToWords, convertChapterTags,
+      folders, deletedFolders, addFolder, renameFolder, deleteFolder, moveWords, addTagToWords, convertChapterTags, reviewLog, retention,
     }),
-    [folders, deletedFolders, addFolder, renameFolder, deleteFolder, moveWords, addTagToWords, convertChapterTags, words, settings, activity, deleted, applySyncPayload, updateSettings, addWord, addWords, updateWord, deleteWord, recordReview, reviseReview, resetStats, restoreDemo, clearAll, exportBackup, importBackup],
+    [reviewLog, retention, folders, deletedFolders, addFolder, renameFolder, deleteFolder, moveWords, addTagToWords, convertChapterTags, words, settings, activity, deleted, applySyncPayload, updateSettings, addWord, addWords, updateWord, deleteWord, recordReview, reviseReview, resetStats, restoreDemo, clearAll, exportBackup, importBackup],
   )
 
   return <AppCtx.Provider value={value}>{children}</AppCtx.Provider>

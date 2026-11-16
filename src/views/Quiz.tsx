@@ -2,12 +2,13 @@ import { useMemo, useState, type ReactNode } from 'react'
 import { Play } from 'lucide-react'
 import { ChoiceQuestion, TypeQuestion, WriteQuestion } from '../components/questions'
 import { Runner, type Q } from '../components/Runner'
+import { SelectionPicker } from '../components/SelectionPicker'
 import { Segmented } from '../components/ui'
-import { buildSmartTest, DAY } from '../lib/srs'
+import { askable, fastLimit, isDueDir, type Dir } from '../lib/fsrs'
+import { resolveSelection, smartPick, SMART, type Pick, type Selection } from '../lib/selection'
 import { useApp } from '../store'
 import type { WordItem } from '../types'
 
-type Selection = 'smart' | 'custom'
 type Direction = 'de-ko' | 'ko-de' | 'mixed' | 'dictation'
 type AnswerType = 'type' | 'choice'
 type Kind = 'de-ko' | 'ko-de' | 'dictation'
@@ -21,20 +22,25 @@ const shuffle = <T,>(a: T[]): T[] => {
   return r
 }
 
+/** Hör-Diktat schreibt Koreanisch → zählt für die Richtung Deutsch→Koreanisch (aktives Schreiben) */
+const dirOfKind = (k: Kind): Dir => (k === 'ko-de' ? 'kode' : 'deko')
+const kindOfDir = (d: Dir, direction: Direction): Kind => (direction === 'dictation' ? 'dictation' : d === 'kode' ? 'ko-de' : 'de-ko')
+
 function makeQuestion(word: WordItem, kind: Kind, answerType: AnswerType, all: WordItem[], n: number): Q {
   const key = `${word.id}-${n}`
+  const dir = dirOfKind(kind)
   if (kind === 'ko-de') {
-    const others = shuffle(all.filter((w) => w.id !== word.id && w.german !== word.german)).slice(0, 3).map((w) => w.german)
+    const others = shuffle(all.filter((w) => w.id !== word.id && w.german && w.german !== word.german)).slice(0, 3).map((w) => w.german)
     const options = shuffle([word.german, ...others])
     const choice = answerType === 'choice' && options.length >= 2
     return {
-      key, wordId: word.id, prompt: word.korean, solution: word.german,
+      key, wordId: word.id, prompt: word.korean, solution: word.german, dir, fastMs: fastLimit('type', word.german),
       render: (a) => choice ? <ChoiceQuestion word={word} options={options} {...a} /> : <TypeQuestion word={word} {...a} />,
     }
   }
   if (kind === 'dictation') {
     return {
-      key, wordId: word.id, prompt: `Hör-Diktat (${word.german})`, solution: word.korean,
+      key, wordId: word.id, prompt: `Hör-Diktat (${word.german})`, solution: word.korean, dir, fastMs: fastLimit('write', word.korean) + 2000,
       render: (a) => (
         <WriteQuestion
           {...a}
@@ -48,7 +54,7 @@ function makeQuestion(word: WordItem, kind: Kind, answerType: AnswerType, all: W
     }
   }
   return {
-    key, wordId: word.id, prompt: word.german, solution: word.korean,
+    key, wordId: word.id, prompt: word.german, solution: word.korean, dir, fastMs: fastLimit('write', word.korean),
     render: (a) => (
       <WriteQuestion
         {...a}
@@ -69,74 +75,58 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 }
 
 export function QuizSetup({ onDashboard }: { onDashboard: () => void }) {
-  const { words } = useApp()
-  const [selection, setSelection] = useState<Selection>('smart')
-  const [tags, setTags] = useState<string[]>([])
-  const [since, setSince] = useState<'all' | '7' | '30'>('all')
+  const { words, folders } = useApp()
+  const [selection, setSelection] = useState<Selection>(SMART)
   const [count, setCount] = useState(10)
   const [direction, setDirection] = useState<Direction>('de-ko')
   const [answerType, setAnswerType] = useState<AnswerType>('type')
   const [questions, setQuestions] = useState<Q[] | null>(null)
 
-  const allTags = useMemo(() => [...new Set(words.flatMap((w) => w.tags))].sort(), [words])
+  const smartDir: Dir | 'both' = direction === 'mixed' ? 'both' : direction === 'ko-de' ? 'kode' : 'deko'
+  const now = Date.now()
+  // Für Smart: was die App jetzt abfragen würde; sonst die feste Auswahl
+  const picks: Pick[] = useMemo(() => {
+    if (selection.mode === 'smart') return smartPick(words, smartDir, count || 50, now)
+    const list = resolveSelection(selection, words, folders).filter(askable)
+    return list.map((w) => ({ word: w, dir: smartDir === 'both' ? (Math.random() < 0.5 ? 'deko' : 'kode') : smartDir }) as Pick)
+    // now bewusst nicht als Abhängigkeit: die Vorschau soll nicht ständig springen
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [words, folders, selection, smartDir, count])
+  const dueCount = useMemo(() => words.filter((w) => askable(w) && (smartDir === 'both' ? isDueDir(w, 'deko', now) || isDueDir(w, 'kode', now) : isDueDir(w, smartDir, now))).length,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [words, smartDir])
 
-  const pool = useMemo(() => {
-    if (selection === 'smart') return buildSmartTest(words, 15)
-    const cutoff = since === 'all' ? 0 : Date.now() - Number(since) * DAY
-    return words.filter((w) => (!tags.length || w.tags.some((t) => tags.includes(t))) && w.createdAt >= cutoff)
-  }, [words, selection, tags, since])
+  const total = selection.mode === 'smart' ? picks.length : Math.min(picks.length, count || picks.length)
 
   const start = () => {
-    const chosen = selection === 'smart' ? shuffle(pool) : shuffle(pool).slice(0, count || pool.length)
-    setQuestions(
-      chosen.map((w, n) => {
-        const kind: Kind = direction === 'mixed' ? (Math.random() < 0.5 ? 'de-ko' : 'ko-de') : direction
-        return makeQuestion(w, kind, answerType, words, n)
-      }),
-    )
+    const chosen = selection.mode === 'smart' ? shuffle(picks) : shuffle(picks).slice(0, count || picks.length)
+    setQuestions(chosen.map((p, n) => makeQuestion(p.word, kindOfDir(p.dir, direction), answerType, words, n)))
   }
 
   if (questions) {
-    return <Runner questions={questions} onDashboard={onDashboard} onBack={() => setQuestions(null)} backLabel="Neue Konfiguration" />
+    return <Runner questions={questions} onDashboard={onDashboard} onBack={() => setQuestions(null)} backLabel="Neue Auswahl" />
   }
 
   const usesChoice = direction === 'ko-de' || direction === 'mixed'
   return (
     <div className="space-y-4">
-      <Section title="Wort-Auswahl">
-        <Segmented<Selection>
+      <Section title="Welche Wörter?">
+        <SelectionPicker
           value={selection}
           onChange={setSelection}
-          options={[{ value: 'smart', label: 'Daily Smart Test' }, { value: 'custom', label: 'Eigene Auswahl' }]}
+          words={words}
+          folders={folders}
+          smartNote={`${dueCount} ${dueCount === 1 ? 'Wort ist' : 'Wörter sind'} in dieser Richtung fällig. Die App fragt zuerst die ab, die du am ehesten vergisst, dazu bis zu 5 neue.`}
         />
-        {selection === 'smart' ? (
-          <p className="mt-2 text-sm text-label-2">
-            15 Wörter: hohe Fehlerquote, noch nie geübt oder lange nicht wiederholt.
-          </p>
-        ) : (
-          <div className="mt-3 space-y-3">
-            <div className="flex flex-wrap gap-1.5">
-              {allTags.map((t) => (
-                <button key={t} className={`${tags.includes(t) ? 'btn-primary' : 'btn-soft'} !px-2.5 !py-1 text-xs`}
-                  onClick={() => setTags((s) => (s.includes(t) ? s.filter((x) => x !== t) : [...s, t]))}>{t}</button>
-              ))}
-              {!allTags.length && <p className="text-sm text-label-2">Keine Tags vorhanden.</p>}
-            </div>
-            <div className="flex flex-wrap items-center gap-3 text-sm">
-              <Segmented<'all' | '7' | '30'>
-                value={since}
-                onChange={setSince}
-                options={[{ value: 'all', label: 'Alle' }, { value: '7', label: 'Letzte 7 Tage' }, { value: '30', label: 'Letzte 30 Tage' }]}
-              />
-              <Segmented<string>
-                value={String(count)}
-                onChange={(v) => setCount(Number(v))}
-                options={[{ value: '10', label: '10' }, { value: '20', label: '20' }, { value: '0', label: 'Alle' }]}
-              />
-            </div>
-            <p className="text-sm text-label-2">{pool.length} Wörter passen zum Filter.</p>
-          </div>
-        )}
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <span className="text-sm text-label-2">Anzahl</span>
+          <Segmented<string>
+            label="Anzahl"
+            value={String(count)}
+            onChange={(v) => setCount(Number(v))}
+            options={[{ value: '10', label: '10' }, { value: '20', label: '20' }, { value: '0', label: 'Alle' }]}
+          />
+        </div>
       </Section>
 
       <Section title="Abfragerichtung">
@@ -144,7 +134,7 @@ export function QuizSetup({ onDashboard }: { onDashboard: () => void }) {
           {([
             ['de-ko', 'Deutsch → Koreanisch', 'Schreiben im Zeichenfeld'],
             ['ko-de', 'Koreanisch → Deutsch', 'Tippen oder Multiple Choice'],
-            ['mixed', 'Gemischt', 'Beide Richtungen zufällig'],
+            ['mixed', 'Gemischt', 'Smart: je Wort die dringendere Richtung'],
             ['dictation', 'Hör-Diktat', 'Nur Audio → Koreanisch schreiben'],
           ] as [Direction, string, string][]).map(([v, t, d]) => (
             <button key={v} onClick={() => setDirection(v)}
@@ -155,9 +145,10 @@ export function QuizSetup({ onDashboard }: { onDashboard: () => void }) {
           ))}
         </div>
         {usesChoice && (
-          <div className="mt-3 flex items-center gap-3">
+          <div className="mt-3 flex flex-wrap items-center gap-3">
             <span className="text-sm text-label-2">Antwort bei Koreanisch → Deutsch:</span>
             <Segmented<AnswerType>
+              label="Antwortart"
               value={answerType}
               onChange={setAnswerType}
               options={[{ value: 'type', label: 'Eintippen' }, { value: 'choice', label: 'Multiple Choice' }]}
@@ -166,8 +157,8 @@ export function QuizSetup({ onDashboard }: { onDashboard: () => void }) {
         )}
       </Section>
 
-      <button className="btn-primary w-full !py-3.5 !text-base" disabled={!pool.length} onClick={start}>
-        <Play size={18} fill="currentColor" /> Quiz starten ({selection === 'smart' ? pool.length : Math.min(pool.length, count || pool.length)} Fragen)
+      <button className="btn-primary w-full !py-3.5 !text-base" disabled={!total} onClick={start}>
+        <Play size={18} fill="currentColor" /> Quiz starten ({total} {total === 1 ? 'Frage' : 'Fragen'})
       </button>
     </div>
   )

@@ -1,13 +1,20 @@
-﻿import { useEffect, useState, type ReactNode } from 'react'
+﻿import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Check, Flame, Home, Repeat, X } from 'lucide-react'
 import { playSound } from '../lib/sounds'
 import { currentStreak } from '../lib/srs'
+import { gradeFrom, type Dir } from '../lib/fsrs'
 import { useApp } from '../store'
 
 export interface QResult {
   correct: boolean
   image?: string
   read?: string
+  /** Prüfung unsicher (z. B. Input Tools) */
+  uncertain?: boolean
+  /** Vorlage/Strichreihenfolge war sichtbar */
+  help?: boolean
+  /** Multiple Choice: leichter als frei antworten */
+  easyFormat?: boolean
 }
 
 export interface Q {
@@ -17,6 +24,10 @@ export interface Q {
   prompt: string
   /** Richtige Lösung für die Auswertung */
   solution: string
+  /** Abgefragte Richtung für die Wiederholungsplanung */
+  dir?: Dir
+  /** Unter dieser Antwortzeit (ms) gilt die Antwort als schnell */
+  fastMs?: number
   render: (a: { onResult: (r: QResult) => void; onRevise: (correct: boolean) => void; onNext: () => void; nextLabel: string }) => ReactNode
 }
 
@@ -45,6 +56,11 @@ export function Runner({ questions, onDashboard, onBack, backLabel }: Props) {
   const [round, setRound] = useState(0)
   const [i, setI] = useState(0)
   const [done, setDone] = useState<Done[]>([])
+  // Antwortzeit: ab Erscheinen der Frage
+  const shownAt = useRef(Date.now())
+  useEffect(() => {
+    shownAt.current = Date.now()
+  }, [i, round])
 
   if (i >= qs.length) {
     const ok = done.filter((d) => d.correct).length
@@ -128,7 +144,9 @@ export function Runner({ questions, onDashboard, onBack, backLabel }: Props) {
       <div key={`${round}-${q.key}`}>
         {q.render({
           onResult: (r) => {
-            recordReview(q.wordId, r.correct)
+            const grade = gradeFrom({ correct: r.correct, ms: Date.now() - shownAt.current, fastMs: q.fastMs, help: r.help, uncertain: r.uncertain, easyFormat: r.easyFormat })
+            // Sofort-Wiederholung falscher Wörter zählt nicht für die Planung (sonst gälten sie zu früh als gelernt)
+            recordReview(q.wordId, r.correct, q.dir && round === 0 ? { dir: q.dir, grade } : undefined)
             setDone((d) => [...d, { ...r, q }])
           },
           onRevise: (correct) => {

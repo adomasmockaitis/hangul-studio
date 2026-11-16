@@ -54,7 +54,7 @@ export function WriteQuestion({
         <HangulCanvas
           target={target}
           testMode
-          onResult={(correct, info) => { setDone(true); onResult({ correct, image: info?.image, read: info?.read }) }}
+          onResult={(correct, info) => { setDone(true); onResult({ correct, image: info?.image, read: info?.read, uncertain: info?.uncertain, help: info?.help }) }}
           onRevise={onRevise}
           onNext={onNext}
           nextLabel={nextLabel}
@@ -168,7 +168,7 @@ export function ChoiceQuestion({ word, options, onResult, onNext, nextLabel }: C
                 if (picked !== null) return
                 setPicked(o)
                 playSound(right ? 'success' : 'error')
-                onResult({ correct: right, read: o })
+                onResult({ correct: right, read: o, easyFormat: true })
               }}
             >
               {o}
