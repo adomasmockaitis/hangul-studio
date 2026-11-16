@@ -188,7 +188,11 @@ Alle bisherigen Funktionen (Zeichenfeld, Strichreihenfolge, Beugungs-Trainer, On
 
 ### Sprachausgabe
 - Gemeinsame Schnittstelle mit Quellen *Systemstimme* und *Gemini*.
-- **Vorab-Test**: Live API (`gemini-3.8-live` o. ä.) mit Text-Eingabe und Abgleich der eigenen Mitschrift; nur wenn sie zuverlässig wörtlich vorliest, wird sie genutzt. Sonst Gemini-Sprachausgabe-Modelle (je 10 Anfragen/Tag) über eine Warteschlange nach Dringlichkeit, gefüllt beim Import.
+- **Entschieden nach Testlabor (16./17.11.2026)**: Erzeugt wird über die **Live API** (`gemini-3.8-live`, kein Tageslimit, erster Ton nach ca. 0,4 s), Text mit Schlusspunkt. Die API schneidet gelegentlich das Wortende ab, ihre eigene Mitschrift merkt das nicht. Deshalb wird jede Aufnahme vor dem Speichern zweifach geprüft:
+  - **Gegenprüfung** mit `gemini-3.5-transcribe-live` (kein Tageslimit; Antwort als `interimInputTranscription`, jeweils der ganze bisherige Text): erkennt fehlende oder falsche Wörter.
+  - **Endprüfung**: Lautstärke der letzten 30 ms im Verhältnis zum lautesten 20-ms-Fenster. Saubere Aufnahmen enden in Stille (gemessen 0 %), abgeschnittene mitten im Ton (gemessen 46–60 %); Schwelle 15 %. Deckte sich in zwei Läufen mit dem Gehör.
+  - Bis zu 3 Versuche. Scheitern alle (im Test regelmäßig bei 감사합니다), Ausweichen auf ein Gemini-Sprachausgabe-Modell (10/Tag, liest laut Doku wörtlich; WAV nur den data-Block abspielen), sonst Systemstimme.
+  - Erzeugung im Hintergrund über eine Warteschlange nach Dringlichkeit, gefüllt beim Import.
 - Aufnahmen werden pro Quelle, Stimme und Text in IndexedDB gespeichert; bis dahin spricht die Systemstimme. Sätze in Übungen immer Systemstimme.
 - Systemstimme: automatische Wahl der besten installierten Stimme (Natural, Google, Premium), freie Auswahl mit Hörprobe.
 - Vier Gemini-Stimmen (2 weiblich, 2 männlich) nach Hörtest; Hörproben einmalig vorab erzeugt und als Dateien mitgeliefert.
