@@ -1,4 +1,5 @@
 import { kvStorage } from './storage'
+import { contributeCase } from './contribute'
 /**
  * Sammelt Rückmeldungen zur Input-Tools-Erkennung (lokal im Browser), damit sie später
  * als JSON-Datei exportiert und zur Verbesserung der Erkennung ausgewertet werden können.
@@ -46,7 +47,18 @@ export function loadSamples(): InputToolsSample[] {
   }
 }
 
+/** Input Tools lag laut deinem Urteil falsch: mit Einwilligung als Beispiel senden (Bild aus den Strichen) */
+function contributeWrongRecognition(s: Pick<InputToolsSample, 'target' | 'candidates' | 'appVerdict' | 'actuallyCorrect' | 'recognitionCorrect' | 'labelSource' | 'strokes' | 'imagePng'>) {
+  if (s.recognitionCorrect !== false || (s.labelSource !== 'manual' && s.labelSource !== 'self-check')) return
+  void (async () => {
+    let image = s.imagePng
+    if (!image && s.strokes?.length) image = (await import('./lab/bench')).renderStrokes(s.strokes)
+    contributeCase({ kind: 'inputtools-wrong', target: s.target, read: s.candidates[0] ?? '', verdict: s.appVerdict, actuallyCorrect: s.actuallyCorrect, image })
+  })()
+}
+
 export function addSample(s: Omit<InputToolsSample, 'id' | 'ts'>): string {
+  contributeWrongRecognition(s)
   const all = loadSamples()
   const id = crypto.randomUUID()
   all.push({ ...s, id, ts: Date.now() })
@@ -106,6 +118,7 @@ export function updateSample(id: string, patch: Partial<InputToolsSample>): void
   const i = all.findIndex((s) => s.id === id)
   if (i < 0) return
   all[i] = { ...all[i], ...patch }
+  if (patch.labelSource === 'manual') contributeWrongRecognition(all[i])
   try {
     kvStorage.setItem(KEY, JSON.stringify(all))
   } catch {

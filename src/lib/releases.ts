@@ -24,6 +24,14 @@ export interface Release {
 }
 export const RELEASES: Release[] = [
   {
+    id: '2026-11-storage-choice',
+    size: 'minor',
+    title: 'Neu in Hangul Studio',
+    subtitle: 'Speicherort wählen',
+    summary: 'Unter Sync & Backup wählst du jetzt, wo deine Daten liegen (nur dieses Gerät oder Google Drive) und kannst die Daten in Google Drive mit einem Klick löschen – auf Wunsch mit Sicherung vorher.',
+    features: [],
+  },
+  {
     id: '2026-11-notes-dictation',
     size: 'major',
     title: 'Neu in Hangul Studio',

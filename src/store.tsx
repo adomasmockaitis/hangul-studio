@@ -51,6 +51,7 @@ export const DEFAULT_SETTINGS: Settings = {
   autoSpeak: false,
   speechMode: 'both',
   autoExamples: true,
+  contribute: false,
   soundEffects: true,
   soundVolume: 0.5,
   activeConjugations: ['presentPolite'],

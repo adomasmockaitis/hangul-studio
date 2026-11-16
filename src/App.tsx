@@ -9,6 +9,7 @@ import { warmup } from './lib/gemini'
 import { navigate, useRoute, type Tab } from './lib/route'
 import { AppProvider, useApp } from './store'
 import { SyncProvider } from './sync'
+import { AccountProvider } from './account'
 import { ToastProvider } from './components/Toasts'
 import { ConfirmProvider } from './components/ui'
 import { Dashboard } from './views/Dashboard'
@@ -128,9 +129,11 @@ export default function App() {
     <AppProvider>
       <ToastProvider>
         <SyncProvider>
-          <ConfirmProvider>
-            <Shell />
-          </ConfirmProvider>
+          <AccountProvider>
+            <ConfirmProvider>
+              <Shell />
+            </ConfirmProvider>
+          </AccountProvider>
         </SyncProvider>
       </ToastProvider>
     </AppProvider>

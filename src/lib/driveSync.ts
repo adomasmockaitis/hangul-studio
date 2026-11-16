@@ -1,4 +1,7 @@
-﻿import { emptyPayload, fingerprint, mergePayloads, parsePayload, type SyncPayload } from './merge'
+﻿import { parsePayload, type SyncPayload } from './merge'
+import { syncWithRemote, type RemoteStore, type SyncResult } from './remoteSync'
+
+export type { SyncResult }
 
 /**
  * Synchronisation über Google Drive (versteckter App-Ordner „appDataFolder“).
@@ -197,18 +200,23 @@ async function updateFile(accessToken: string, id: string, payload: SyncPayload)
 }
 
 // ---------- Abgleich ----------
-export interface SyncResult {
-  /** true, wenn der Drive-Stand hochgeladen wurde */
-  uploaded: boolean
-  /** true, wenn lokal etwas aus Drive übernommen wurde */
-  changedLocal: boolean
-  merged: SyncPayload
+/** Google Drive als entfernter Speicherort (eine JSON-Datei im versteckten App-Ordner) */
+export function driveRemote(accessToken: string): RemoteStore {
+  let id: string | null | undefined
+  return {
+    async load() {
+      id = await findFileId(accessToken)
+      return id ? download(accessToken, id) : null
+    },
+    async save(payload) {
+      if (id === undefined) id = await findFileId(accessToken)
+      if (id) await updateFile(accessToken, id, payload)
+      else id = await createFile(accessToken, payload)
+    },
+  }
 }
 
-/**
- * Ein Abgleich: Drive-Datei laden → mit dem lokalen Stand zusammenführen → Lokales aktualisieren → bei Bedarf hochladen.
- * `applyLocal` wird nur aufgerufen, wenn sich lokal etwas ändert.
- */
+/** Ein Abgleich mit Google Drive */
 export async function syncOnce(opts: {
   clientId: string
   interactive: boolean
@@ -218,20 +226,15 @@ export async function syncOnce(opts: {
   applyLocal: (merged: SyncPayload) => void
 }): Promise<SyncResult> {
   const accessToken = await getToken(opts.clientId, opts.interactive)
-  const id = await findFileId(accessToken)
-  const remote = id ? await download(accessToken, id) : null
-  if (remote && !opts.includeApiKey) delete remote.settings.geminiApiKey
-  const local = opts.getLocal()
-  const merged = remote ? mergePayloads(local, remote) : { ...emptyPayload(), ...local }
+  return syncWithRemote({ remote: driveRemote(accessToken), includeApiKey: opts.includeApiKey, getLocal: opts.getLocal, applyLocal: opts.applyLocal })
+}
 
-  const changedLocal = fingerprint(merged) !== fingerprint(local)
-  if (changedLocal) opts.applyLocal(merged)
-
-  const needsUpload = !remote || fingerprint(merged) !== fingerprint(remote)
-  if (needsUpload) {
-    const out: SyncPayload = { ...merged, updatedAt: Date.now() }
-    if (id) await updateFile(accessToken, id, out)
-    else await createFile(accessToken, out)
-  }
-  return { uploaded: needsUpload, changedLocal, merged }
+/** Die Sync-Datei in Google Drive löschen („Meine Daten in Google Drive löschen“) */
+export async function deleteDriveData(clientId: string): Promise<boolean> {
+  const accessToken = await getToken(clientId, true)
+  const q = encodeURIComponent(`name='${FILE_NAME}' and trashed=false`)
+  const res = await drive(`${DRIVE}/files?spaces=appDataFolder&q=${q}&fields=files(id)&pageSize=50`, accessToken)
+  const files = ((await res.json()) as { files?: { id: string }[] }).files ?? []
+  for (const f of files) await drive(`${DRIVE}/files/${f.id}`, accessToken, { method: 'DELETE' })
+  return files.length > 0
 }

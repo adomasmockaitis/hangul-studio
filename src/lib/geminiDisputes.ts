@@ -1,4 +1,5 @@
 import { kvStorage } from './storage'
+import { contributeCase } from './contribute'
 /**
  * Sammelt Widersprüche gegen Gemini-Urteile (lokal), damit der Prompt später gezielt verbessert werden kann.
  * Enthält bewusst das Bild: es ist klein (max. 256 px) und die wichtigste Information für die Auswertung.
@@ -37,6 +38,8 @@ export function loadDisputes(): GeminiDispute[] {
 }
 
 export function addDispute(d: Omit<GeminiDispute, 'id' | 'ts'>): void {
+  // Gemini lag laut Nutzer falsch: mit Einwilligung als Beispiel zur Verbesserung senden
+  contributeCase({ kind: 'gemini-dispute', target: d.target, read: d.geminiReading, model: d.model, verdict: d.geminiSaidCorrect, actuallyCorrect: d.actuallyCorrect, image: d.imagePng })
   const all = loadDisputes()
   all.push({ ...d, id: crypto.randomUUID(), ts: Date.now() })
   try {

@@ -1,10 +1,9 @@
 ﻿import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { ArrowDown, ArrowUp, ChevronLeft, Cloud, FlaskConical, CloudOff, Download, Zap, Eye, EyeOff, Info, Loader2, Monitor, Moon, PenLine, RefreshCw, RotateCcw, Sparkles, Sun, Trash2, Upload, Volume2, Wrench, type LucideIcon } from 'lucide-react'
+import { ArrowDown, ArrowUp, ChevronLeft, Cloud, FlaskConical, Download, Zap, Eye, EyeOff, Info, Loader2, Monitor, Moon, PenLine, RefreshCw, RotateCcw, Sparkles, Sun, Trash2, Upload, Volume2, Wrench, type LucideIcon } from 'lucide-react'
 import { List, ListRow, PageHeader, Segmented, Toggle, useConfirm } from '../components/ui'
 import { navigate } from '../lib/route'
 import { speakWord } from '../lib/speech'
 import { playSound } from '../lib/sounds'
-import { formatAgo } from '../lib/time'
 import { listModels, measureModels, MODEL_PRESETS, TIPS_TIME_FACTOR, setLastWorkingModel, warmup, type SpeedResult } from '../lib/gemini'
 import { exportAllDevData } from '../lib/devExport'
 import { clearDisputes, loadDisputes } from '../lib/geminiDisputes'
@@ -12,6 +11,9 @@ import { clearSamples, loadSamples, summarize } from '../lib/inputToolsLog'
 import { BATCH_SIZE, clearPending, loadPending, processPending } from '../lib/inputToolsQueue'
 import { useApp } from '../store'
 import { useSync } from '../sync'
+import { StorageChooser } from '../components/StorageChooser'
+import { useStorageMode } from '../account'
+import { accountsAvailable, loadContributions } from '../lib/firebase'
 import { CONJUGATION_KEYS, CONJUGATION_LABELS, type CanvasBackground, type CheckMethod, type SpeechMode, type StrokeStyleMode, type ThemeMode } from '../types'
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
@@ -50,6 +52,8 @@ const PAGES: Record<PageId, { title: string; icon: LucideIcon; color: string }> 
 export function SettingsView({ sub = '', onRestartOnboarding, onShowWhatsNew }: { sub?: string; onRestartOnboarding?: () => void; onShowWhatsNew?: () => void }) {
   const page = (sub in PAGES ? sub : '') as PageId | ''
   const sync = useSync()
+  const storageMode = useStorageMode()
+  const [contribMsg, setContribMsg] = useState('')
   const confirm = useConfirm()
   const { settings, updateSettings, exportBackup, importBackup, words, resetStats, restoreDemo, clearAll } = useApp()
   const [showKey, setShowKey] = useState(false)
@@ -182,7 +186,7 @@ export function SettingsView({ sub = '', onRestartOnboarding, onShowWhatsNew }: 
     darstellung: settings.theme === 'light' ? 'Hell' : settings.theme === 'dark' ? 'Dunkel' : 'System',
     ki: settings.geminiApiKey.trim() ? 'Gemini aktiv' : 'Ohne API-Key',
     audio: settings.speechMode === 'both' ? 'Koreanisch + Deutsch' : settings.speechMode === 'ko' ? 'Koreanisch' : 'Deutsch',
-    sync: sync.enabled ? (sync.state === 'needs-auth' ? 'Anmeldung nötig' : 'Verbunden') : 'Aus',
+    sync: storageMode === 'account' ? 'Konto' : storageMode === 'drive' ? (sync.state === 'needs-auth' ? 'Drive · Anmeldung nötig' : 'Google Drive') : 'Nur dieses Gerät',
   }
 
   return (
@@ -404,64 +408,16 @@ export function SettingsView({ sub = '', onRestartOnboarding, onShowWhatsNew }: 
         </Row>
       </Section>}
 
-      {page === 'sync' && <Section title="Google Drive">
-        <Row
-          title="Geräte automatisch abgleichen"
-          desc="Speichert deinen Lernstand in einem versteckten App-Ordner deines eigenen Google Drive und gleicht ihn zwischen PC, Tablet und Smartphone ab. Nur diese App kann die Datei lesen."
-          stack
-        >
-          {!sync.clientId ? (
-            <>
-              <p className="text-sm text-label-2">
-                Für die Anmeldung braucht die App eine <b>Google-Client-ID</b>. Wie du sie in wenigen Minuten erstellst, steht in der{' '}
-                <a className="font-medium text-blue" href="https://github.com/adomasmockaitis/hangul-studio/blob/main/docs/GOOGLE-DRIVE-SYNC.md" target="_blank" rel="noreferrer">Anleitung</a>.
-              </p>
-              <input
-                className="input"
-                spellCheck={false}
-                placeholder="1234567890-abc….apps.googleusercontent.com"
-                value={settings.googleClientId}
-                onChange={(e) => updateSettings({ googleClientId: e.target.value })}
-              />
-            </>
-          ) : (
-            <>
-              <div className="flex flex-wrap items-center gap-3">
-                {!sync.enabled || sync.state === 'needs-auth' ? (
-                  <button className="btn-primary" onClick={() => void sync.connect()} disabled={sync.state === 'syncing'}>
-                    {sync.state === 'syncing' ? <Loader2 size={16} className="animate-spin" /> : <Cloud size={16} />}
-                    {sync.enabled ? 'Erneut verbinden' : 'Mit Google Drive verbinden'}
-                  </button>
-                ) : (
-                  <>
-                    <button className="btn-primary" onClick={() => void sync.syncNow()} disabled={sync.state === 'syncing'}>
-                      {sync.state === 'syncing' ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />} Jetzt synchronisieren
-                    </button>
-                    <button className="btn-soft" onClick={sync.disconnect}><CloudOff size={16} /> Trennen</button>
-                  </>
-                )}
-              </div>
-              <p className="text-sm text-label-2">
-                {sync.state === 'error' ? <span className="text-red">{sync.error}</span>
-                  : sync.state === 'needs-auth' ? 'Die Anmeldung wird beim nächsten Klick automatisch erneuert – oder jetzt erneut verbinden.'
-                  : sync.enabled ? `✓ Verbunden${sync.lastSync ? ` · zuletzt synchronisiert ${formatAgo(sync.lastSync)}` : ''}`
-                  : 'Noch nicht verbunden.'}
-              </p>
-              <div className="flex items-center justify-between gap-3 rounded-xl bg-fill-4 p-3">
-                <div>
-                  <p className="text-sm font-medium">API-Key mitsynchronisieren</p>
-                  <p className="text-xs text-label-2">Standardmäßig aus: Der Key bleibt nur auf diesem Gerät.</p>
-                </div>
-                <Toggle checked={settings.syncApiKey} onChange={(syncApiKey) => updateSettings({ syncApiKey })} label="API-Key synchronisieren" />
-              </div>
-              <details className="text-sm text-label-2">
-                <summary className="cursor-pointer">Eigene Client-ID verwenden</summary>
-                <input className="input mt-2" spellCheck={false} placeholder="…apps.googleusercontent.com" value={settings.googleClientId} onChange={(e) => updateSettings({ googleClientId: e.target.value })} />
-              </details>
-            </>
-          )}
-        </Row>
-      </Section>}
+      {page === 'sync' && (
+        <section className="push-in mb-6">
+          <h2 className="label mb-1.5 px-4">Speicherort</h2>
+          <StorageChooser />
+          <details className="mt-3 px-4 text-sm text-label-2">
+            <summary className="cursor-pointer">Eigene Google-Client-ID für Drive verwenden</summary>
+            <input className="input mt-2" spellCheck={false} placeholder="…apps.googleusercontent.com" value={settings.googleClientId} onChange={(e) => updateSettings({ googleClientId: e.target.value })} />
+          </details>
+        </section>
+      )}
 
       {page === 'sync' && <Section title="Backup-Datei">
         <Row title="Backup exportieren (.json)" desc="Alle Vokabeln, Lernstände und Einstellungen – zum Übertragen auf andere Geräte.">
@@ -486,6 +442,31 @@ export function SettingsView({ sub = '', onRestartOnboarding, onShowWhatsNew }: 
         <Row title="Testlabor" desc="Modelle für Handschrift und Sätze vergleichen und Vorlese-Stimmen testen – mit deinem Key, nur in diesem Browser.">
           <button className="btn-soft" onClick={() => navigate('/labor')}><FlaskConical size={16} /> Testlabor öffnen</button>
         </Row>
+        {accountsAvailable && (
+          <Row title="Mitverbessern-Daten exportieren" desc="Lädt alle über „App mitverbessern“ gesendeten Fälle als JSON (mit Bildern). Funktioniert nur mit dem Entwickler-Konto, das in den Datenbank-Regeln eingetragen ist.">
+            <button
+              className="btn-soft"
+              onClick={async () => {
+                setContribMsg('Lade …')
+                try {
+                  const list = await loadContributions()
+                  const url = URL.createObjectURL(new Blob([JSON.stringify({ kind: 'contributions', exportedAt: new Date().toISOString(), count: list.length, items: list }, null, 2)], { type: 'application/json' }))
+                  const a = document.createElement('a')
+                  a.href = url
+                  a.download = `hangul-mitverbessern-${new Date().toISOString().slice(0, 10)}.json`
+                  a.click()
+                  setTimeout(() => URL.revokeObjectURL(url), 2000)
+                  setContribMsg(`${list.length} Fälle exportiert.`)
+                } catch (e) {
+                  setContribMsg(/permission/i.test(String((e as { code?: string })?.code ?? e)) ? 'Keine Berechtigung – nur das Entwickler-Konto darf diese Daten lesen.' : e instanceof Error ? e.message : 'Fehler')
+                }
+              }}
+            >
+              <Download size={16} /> Exportieren
+            </button>
+            {contribMsg && <p className="w-full text-sm text-label-2">{contribMsg}</p>}
+          </Row>
+        )}
         <Row title="Alles exportieren (eine Datei)" desc="Ein Klick: wartende Fälle werden zuerst von Gemini nachgeprüft, dann entsteht EINE .zip-Datei mit allen Daten (data.json) und allen Bildern (Ordner images/). Diese Datei kannst du mir geben, damit ich Input-Tools-Erkennung und Gemini-Prompt auswerten und verbessern kann." stack>
           <div className="flex flex-wrap items-center gap-3">
             <button className="btn-primary !px-5 !py-2.5" disabled={exporting || (!sum.total && !disputes.length && !pendingCount)} onClick={() => void runExport()}>

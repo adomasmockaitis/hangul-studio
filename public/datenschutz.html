@@ -27,41 +27,57 @@
 
   <div class="card">
     <h2>1. Worum es geht</h2>
-    <p>Hangul Studio ist eine kostenlose, private Lern-App für Koreanisch. Sie läuft vollständig in deinem Browser. Es gibt <b>keinen eigenen Server</b>, <b>kein Benutzerkonto</b>, <b>keine Werbung</b> und <b>kein Tracking oder Analyse-Tools</b>.</p>
+    <p>Hangul Studio ist eine kostenlose, private Lern-App für Koreanisch. Sie läuft in deinem Browser. Es gibt <b>keinen eigenen Server</b>, <b>keine Werbung</b> und <b>kein Tracking oder Analyse-Tools</b>. Ein Benutzerkonto ist <b>freiwillig</b>; ohne Konto bleibt alles auf deinem Gerät.</p>
 
     <h2>2. Verantwortlich</h2>
     <p>Betreiber des Projekts: <a href="https://github.com/adomasmockaitis" target="_blank" rel="noreferrer">adomasmockaitis</a> (GitHub). Fragen zum Datenschutz bitte als Anfrage im Projekt: <a href="https://github.com/adomasmockaitis/hangul-studio/issues" target="_blank" rel="noreferrer">github.com/adomasmockaitis/hangul-studio/issues</a>.</p>
 
     <h2>3. Welche Daten es gibt und wo sie liegen</h2>
-    <p>Vokabeln, Lernstand, Einstellungen und – falls du ihn einträgst – dein Gemini-API-Key werden <b>ausschließlich lokal in deinem Browser</b> (<code>localStorage</code>) gespeichert. Der Betreiber hat darauf keinen Zugriff. Löschst du die Browserdaten, sind sie weg; ein Backup kannst du in den Einstellungen exportieren.</p>
+    <p>Vokabeln, Lernstand, Notizen, Beispielsätze, Einstellungen und – falls du ihn einträgst – dein Gemini-API-Key werden zunächst <b>lokal in deinem Browser</b> gespeichert (IndexedDB bzw. <code>localStorage</code>). Der Betreiber hat darauf keinen Zugriff. Löschst du die Browserdaten, sind sie weg; ein Backup kannst du in den Einstellungen exportieren. Du wählst selbst, ob die Daten nur auf dem Gerät bleiben, in deinem Google Drive (Abschnitt 4) oder in einem Hangul-Studio-Konto (Abschnitt 5) gespeichert werden.</p>
 
     <h2>4. Google-Anmeldung und Google Drive (optional)</h2>
     <p>Wenn du die Synchronisation aktivierst, meldest du dich mit deinem Google-Konto an. Die App fragt dabei nur den Zugriff auf den <b>versteckten App-Datenordner</b> deines eigenen Google Drive an (Berechtigung <code>drive.appdata</code>). Sie kann <b>keine anderen Dateien</b> in deinem Drive sehen oder ändern.</p>
     <ul>
       <li>In diesem Ordner liegt eine Datei mit deinen Vokabeln, deinem Lernstand und deinen Einstellungen. Der API-Key wird nur dann mitgespeichert, wenn du das ausdrücklich einschaltest.</li>
       <li>Die Daten gehen direkt zwischen deinem Browser und Google. Sie laufen <b>nicht</b> über Server des Betreibers; der Betreiber kann sie nicht einsehen.</li>
-      <li>Die App speichert keine Google-Zugangsdaten. Das kurzlebige Zugriffstoken bleibt nur im Arbeitsspeicher des Browser-Tabs.</li>
+      <li>Die App speichert keine Google-Zugangsdaten. Das kurzlebige Zugriffstoken (gültig etwa eine Stunde, nur für den App-Ordner) wird im Browser gemerkt, damit ein Neuladen nicht sofort abmeldet.</li>
+      <li>In der App kannst du unter <b>Einstellungen → Sync &amp; Backup</b> die Datei in deinem Drive mit einem Klick löschen.</li>
       <li>Du kannst die Verbindung jederzeit in der App trennen und den Zugriff sowie die gespeicherten App-Daten unter <a href="https://myaccount.google.com/connections" target="_blank" rel="noreferrer">myaccount.google.com/connections</a> löschen.</li>
     </ul>
     <p>Die Nutzung und Übertragung von Informationen, die von Google-APIs empfangen werden, durch Hangul Studio entspricht der <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noreferrer">Google API Services User Data Policy</a>, einschließlich der Anforderungen zur eingeschränkten Nutzung (Limited Use). Die Daten werden ausschließlich für die Synchronisationsfunktion verwendet, nicht an Dritte weitergegeben und nicht für Werbung genutzt.</p>
 
-    <h2>5. KI-Prüfung der Handschrift (optional)</h2>
+    <h2>5. Hangul-Studio-Konto (optional)</h2>
+    <p>Wählst du „Hangul-Studio-Konto“, meldest du dich mit Google oder mit E-Mail und Passwort an. Dafür nutzt die App <b>Google Firebase</b> (Firebase Authentication und Cloud Firestore) im kostenlosen Tarif. Firebase ist ein Dienst von Google; Google verarbeitet die Daten dabei als Auftragsverarbeiter.</p>
+    <ul>
+      <li><b>Gespeichert werden:</b> deine E-Mail-Adresse bzw. die Kennung deines Google-Kontos (für die Anmeldung) sowie dein Lernstand: Vokabeln, Ordner, Notizen, Beispielsätze, Lernstände und Einstellungen. Der API-Key nur, wenn du „API-Key mitsynchronisieren“ einschaltest. <b>Handschrift-Bilder werden nicht gespeichert</b> (Ausnahme: Abschnitt 6, nur mit Einwilligung).</li>
+      <li><b>Speicherort:</b> Rechenzentrum in Frankfurt am Main (Region <code>europe-west3</code>).</li>
+      <li><b>Zugriff:</b> Nur du kannst deine Daten lesen und ändern; das stellen die Sicherheitsregeln der Datenbank sicher.</li>
+      <li><b>Zweck und Rechtsgrundlage:</b> Bereitstellung der von dir gewünschten Synchronisation (Art. 6 Abs. 1 lit. b DSGVO).</li>
+      <li><b>Löschen:</b> Unter <b>Einstellungen → Sync &amp; Backup → Konto und alle Daten löschen</b> werden dein Konto und alle Daten darin sofort gelöscht. Vorher bietet die App eine Sicherung als Datei an.</li>
+    </ul>
+
+    <h2>6. „App mitverbessern“ (freiwillig, standardmäßig aus)</h2>
+    <p>Nur wenn du das ausdrücklich einschaltest und mit einem Konto angemeldet bist: Liegt die Handschrift-Erkennung daneben oder widersprichst du der KI, wird dieser Fall gesendet – das Bild deiner Schrift, das Zielwort, der erkannte Text, das verwendete Modell und das Datum. <b>Ohne Bezug zu dir</b>: keine Nutzer-ID, keine E-Mail, keine Geräteinformationen. Die Fälle liegen getrennt von allen Konten in Firebase (Frankfurt), nur der Betreiber kann sie lesen, und sie dienen ausschließlich dazu, Erkennung und Prompts der App zu verbessern (Art. 6 Abs. 1 lit. a DSGVO, Einwilligung). Du kannst das jederzeit abschalten. Weil gesendete Fälle niemandem zugeordnet sind, lassen sie sich später nicht einzeln löschen.</p>
+
+    <h2>7. KI-Prüfung der Handschrift (optional)</h2>
     <ul>
       <li><b>Gemini (Google):</b> Nur wenn du einen API-Key einträgst und auf „Prüfen“ klickst, wird ein kleines Bild deiner Handschrift an die Gemini-API von Google gesendet. Beim Datei-Scanner gilt das für die hochgeladene Datei bzw. den eingefügten Text. Es gelten die Bedingungen von Google für die Gemini-API.</li>
       <li><b>Input Tools (Google):</b> Bei dieser Prüfmethode werden die Koordinaten deiner Striche (kein Bild) an einen Google-Dienst zur Handschrifterkennung gesendet.</li>
       <li>Beides passiert nur auf deine Aktion hin. Ohne Key und mit abgeschalteten Methoden findet keine solche Übertragung statt (Selbst-Check).</li>
+      <li>Im <b>kostenlosen</b> Kontingent der Gemini-API kann Google Ein- und Ausgaben einsehen, um seine Dienste zu verbessern. Sende deshalb keine privaten Inhalte über den Datei-Scanner. Google verlangt für die Gemini-API ein Mindestalter von 18 Jahren.</li>
+      <li><b>Sprachausgabe mit Gemini:</b> Nutzt du die Gemini-Stimme, wird der vorzulesende Text an Google gesendet und das Ergebnis lokal gespeichert.</li>
     </ul>
 
-    <h2>6. Hosting</h2>
+    <h2>8. Hosting</h2>
     <p>Die Seite wird über <b>GitHub Pages</b> ausgeliefert. Dabei kann GitHub technisch bedingt Zugriffsdaten (z. B. IP-Adresse) verarbeiten; siehe die <a href="https://docs.github.com/de/site-policy/privacy-policies/github-general-privacy-statement" target="_blank" rel="noreferrer">Datenschutzerklärung von GitHub</a>. Der Betreiber der App erhält daraus keine Auswertung.</p>
 
-    <h2>7. Sprachausgabe und Töne</h2>
-    <p>Die Sprachausgabe nutzt die Funktionen deines Browsers bzw. Geräts. Die Klänge werden im Browser erzeugt. Dabei werden keine Daten übertragen.</p>
+    <h2>9. Sprachausgabe und Töne</h2>
+    <p>Die Standard-Sprachausgabe nutzt die Funktionen deines Browsers bzw. Geräts. Die Klänge werden im Browser erzeugt. Dabei werden keine Daten an den Betreiber übertragen.</p>
 
-    <h2>8. Deine Rechte</h2>
-    <p>Da der Betreiber keine personenbezogenen Daten von dir erhält oder speichert, kannst du alle deine Daten selbst einsehen, exportieren und löschen: in den Einstellungen der App, in deinem Browser und – bei aktivierter Synchronisation – in deinem Google-Konto. Bei Fragen melde dich über die oben genannte Adresse.</p>
+    <h2>10. Deine Rechte</h2>
+    <p>Du hast das Recht auf Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung, Datenübertragbarkeit und Widerspruch sowie das Recht, eine erteilte Einwilligung jederzeit zu widerrufen und dich bei einer Datenschutz-Aufsichtsbehörde zu beschweren. Die meisten dieser Rechte kannst du direkt in der App ausüben: Daten exportieren (Backup), Konto und Daten löschen, Google-Drive-Daten löschen, „App mitverbessern“ abschalten. Bei Fragen melde dich über die oben genannte Adresse.</p>
 
-    <h2>9. Änderungen</h2>
+    <h2>11. Änderungen</h2>
     <p>Diese Erklärung wird angepasst, wenn sich Funktionen der App ändern. Die jeweils aktuelle Fassung steht auf dieser Seite.</p>
   </div>
 
@@ -69,8 +85,10 @@
 
   <h1 style="font-size:24px">Privacy Policy (summary)</h1>
   <div class="card">
-    <p>Hangul Studio is a free, private Korean-learning web app that runs entirely in your browser. There is no backend, no account, no ads and no analytics. Your vocabulary, progress and settings are stored locally in your browser (<code>localStorage</code>).</p>
-    <p><b>Google Drive sync (optional):</b> If you enable it, the app requests only the <code>drive.appdata</code> scope: access to a hidden, app-specific folder in <i>your own</i> Google Drive. It cannot see or modify your other files. A single file with your vocabulary, progress and settings is stored there. Data is transferred directly between your browser and Google; the developer has no access. The access token is kept in memory only. You can disconnect in the app and revoke access at <a href="https://myaccount.google.com/connections" target="_blank" rel="noreferrer">myaccount.google.com/connections</a>.</p>
+    <p>Hangul Studio is a free, private Korean-learning web app that runs in your browser. There is no own backend, no ads and no analytics. Your vocabulary, progress and settings are stored locally in your browser. An account is optional.</p>
+    <p><b>Hangul Studio account (optional):</b> uses Google Firebase (Authentication and Cloud Firestore, region europe-west3 / Frankfurt). Stored: your email or Google account ID for sign-in and your learning data. Only you can read it. You can delete your account and all data in the app at any time.</p>
+    <p><b>“Help improve the app” (opt-in, off by default):</b> with an account, recognition errors (handwriting image, target word, recognized text, model, date) are sent without any user identifier and can only be read by the developer.</p>
+    <p><b>Google Drive sync (optional):</b> If you enable it, the app requests only the <code>drive.appdata</code> scope: access to a hidden, app-specific folder in <i>your own</i> Google Drive. It cannot see or modify your other files. A single file with your vocabulary, progress and settings is stored there. Data is transferred directly between your browser and Google; the developer has no access. The short-lived access token (about one hour, app folder only) is remembered in the browser. You can disconnect in the app and revoke access at <a href="https://myaccount.google.com/connections" target="_blank" rel="noreferrer">myaccount.google.com/connections</a>.</p>
     <p>Hangul Studio's use and transfer of information received from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noreferrer">Google API Services User Data Policy</a>, including the Limited Use requirements. Data is used only to provide the sync feature, is not shared with third parties and is not used for advertising.</p>
     <p><b>Handwriting check (optional):</b> If you add a Gemini API key and press “Check”, a small image of your handwriting is sent to Google's Gemini API; the “Input Tools” method sends stroke coordinates to a Google handwriting-recognition service. This only happens on your action.</p>
     <p><b>Hosting:</b> GitHub Pages, which may process technical access data under its own privacy statement.</p>

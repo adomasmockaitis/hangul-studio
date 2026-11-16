@@ -9,6 +9,8 @@ import { speakWord } from '../lib/speech'
 import { playSound } from '../lib/sounds'
 import { useApp } from '../store'
 import { useSync } from '../sync'
+import { useStorageMode } from '../account'
+import { StorageChooser } from './StorageChooser'
 import {
   CONJUGATION_KEYS, CONJUGATION_LABELS, type CanvasBackground, type CheckMethod, type SpeechMode, type StrokeStyleMode, type ThemeMode,
 } from '../types'
@@ -94,6 +96,7 @@ const METHOD_INFO: Record<CheckMethod, { title: string; desc: string }> = {
 export function Onboarding({ onClose }: { onClose: () => void }) {
   const { settings, updateSettings } = useApp()
   const sync = useSync()
+  const storageMode = useStorageMode()
   const [stepId, setStepId] = useState('welcome')
   const hasKey = settings.geminiApiKey.trim().length > 0
 
@@ -166,36 +169,16 @@ export function Onboarding({ onClose }: { onClose: () => void }) {
           <Page
             icon={Cloud}
             color="#0a84ff"
-            title="Auf allen Geräten lernen"
-            text="Verbinde Google Drive, dann ist dein Lernstand auf PC, Tablet und Smartphone derselbe – automatisch. Gespeichert wird in einem versteckten Ordner in deinem eigenen Drive, den nur diese App sehen kann."
+            title="Wo sollen deine Daten liegen?"
+            text="Nur auf diesem Gerät, in deinem Google Drive oder in einem Hangul-Studio-Konto. Mit Drive oder Konto ist dein Lernstand auf PC, Tablet und Smartphone derselbe. Du kannst das später jederzeit ändern."
           >
-            <div className="card p-4">
-              {sync.enabled && sync.state !== 'needs-auth' ? (
-                <div className="space-y-3">
-                  <p className="flex items-center gap-2 font-semibold text-green"><Check size={18} /> Mit Google Drive verbunden</p>
-                  {sync.lastResult?.changedLocal ? (
-                    <>
-                      <p className="text-sm text-label-2">Dein Lernstand und deine Einstellungen von den anderen Geräten wurden geladen. Du kannst die Einrichtung abkürzen oder trotzdem alles durchgehen.</p>
-                      <button className="btn-soft" onClick={finish}>Einrichtung abkürzen und loslegen</button>
-                    </>
-                  ) : (
-                    <p className="text-sm text-label-2">Dein Stand wird ab jetzt automatisch gesichert und mit deinen anderen Geräten abgeglichen.</p>
-                  )}
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <button className="btn-primary !px-5 !py-3 !text-base" onClick={() => void sync.connect()} disabled={sync.state === 'syncing' || !sync.clientId}>
-                    <Cloud size={18} /> {sync.state === 'syncing' ? 'Verbinde …' : 'Mit Google verbinden'}
-                  </button>
-                  {sync.state === 'error' && <p className="text-sm text-red">{sync.error}</p>}
-                  <p className="text-xs text-label-3">Die App bekommt nur Zugriff auf ihren eigenen Ordner – nicht auf deine anderen Dateien. Du kannst die Verbindung jederzeit trennen.</p>
-                </div>
-              )}
-            </div>
-            <div className="rounded-2xl bg-fill-4 p-4 text-sm leading-relaxed text-label-2">
-              <p className="mb-1 font-medium text-label-2">Ohne Verbindung</p>
-              Alles bleibt <b>lokal in diesem Browser</b> gespeichert. Du kannst deine Daten dann jederzeit selbst sichern und übertragen: <b>Einstellungen → Backup</b> (exportieren und auf einem anderen Gerät importieren). Die Synchronisation kannst du später in den Einstellungen nachholen.
-            </div>
+            <StorageChooser compact />
+            {sync.lastResult?.changedLocal && (
+              <div className="card space-y-2 p-4">
+                <p className="text-sm text-label-2">Dein Lernstand und deine Einstellungen von den anderen Geräten wurden geladen.</p>
+                <button className="btn-soft" onClick={finish}>Einrichtung abkürzen und loslegen</button>
+              </div>
+            )}
           </Page>
         )
 
@@ -532,7 +515,7 @@ export function Onboarding({ onClose }: { onClose: () => void }) {
             className="btn-primary flex-1 !py-3.5 !text-base"
             onClick={() => (last ? finish() : go(1))}
           >
-            {first ? 'Los geht’s' : last ? 'Loslegen' : stepId === 'key' && !hasKey ? 'Ohne KI weiter' : stepId === 'sync' && !sync.enabled ? 'Ohne Synchronisation weiter' : 'Weiter'}
+            {first ? 'Los geht’s' : last ? 'Loslegen' : stepId === 'key' && !hasKey ? 'Ohne KI weiter' : stepId === 'sync' && storageMode === 'local' ? 'Nur auf diesem Gerät weiter' : 'Weiter'}
           </button>
         </div>
         <p className="mx-auto mt-2 max-w-xl text-center text-xs text-label-2">Schritt {idx + 1} von {list.length}</p>

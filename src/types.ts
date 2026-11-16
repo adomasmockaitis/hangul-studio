@@ -94,6 +94,8 @@ export interface Settings {
   speechMode: SpeechMode
   /** Fehlende Beispielsätze beim Lernen automatisch von Gemini erzeugen lassen (nur mit API-Key) */
   autoExamples: boolean
+  /** „App mitverbessern“: Fehlerfälle der Erkennung ohne Nutzerbezug senden (nur mit Konto) */
+  contribute: boolean
   /** Dezente Klänge bei richtig/falsch usw. */
   soundEffects: boolean
   soundVolume: number
