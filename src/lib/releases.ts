@@ -7,7 +7,7 @@
  *                    aber als Zeile unter „Außerdem“, sobald ein großes Update angezeigt wird.
  * Das Fenster erscheint höchstens einmal pro Besuch: ein Fenster, bis zu 3 große Updates untereinander.
  */
-export type ReleaseIcon = 'cloud' | 'shield' | 'bell' | 'clock' | 'pin' | 'check' | 'pointer' | 'sparkles' | 'layers' | 'back' | 'folder' | 'gauge'
+export type ReleaseIcon = 'cloud' | 'shield' | 'bell' | 'clock' | 'pin' | 'check' | 'pointer' | 'sparkles' | 'layers' | 'back' | 'folder' | 'gauge' | 'ear'
 
 export interface Release {
   /** Eindeutige Kennung */
@@ -23,6 +23,38 @@ export interface Release {
   cta?: 'sync'
 }
 export const RELEASES: Release[] = [
+  {
+    id: '2026-11-notes-dictation',
+    size: 'major',
+    title: 'Neu in Hangul Studio',
+    subtitle: 'Beispielsätze, Notizen und Diktat',
+    features: [
+      {
+        icon: 'sparkles',
+        color: '#5856d6',
+        title: 'Beispielsätze',
+        text: 'Beim Lernen zeigt jede Karte zwei Beispielsätze zum Anhören. Mit API-Key schreibt Gemini sie passend zu deinem Lernstand.',
+      },
+      {
+        icon: 'pin',
+        color: '#ff9500',
+        title: 'Eigene Notizen',
+        text: 'Halte Eselsbrücken direkt am Wort fest – auf der Lernkarte oder beim Bearbeiten.',
+      },
+      {
+        icon: 'ear',
+        color: '#007aff',
+        title: 'Diktat',
+        text: 'Neu unter „Üben“: Koreanisch hören und aufschreiben – oder hören und die Bedeutung tippen.',
+      },
+      {
+        icon: 'check',
+        color: '#34c759',
+        title: 'Vorlesen ohne Verraten',
+        text: 'Im Test wird nur die gefragte Sprache vorgelesen, die Lösung bleibt verborgen.',
+      },
+    ],
+  },
   {
     id: '2026-11-smart-fsrs',
     size: 'major',

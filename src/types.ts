@@ -31,9 +31,23 @@ export interface WordItem {
   updatedAt?: number
   /** Ordner, in dem das Wort liegt (fehlt = „Ohne Ordner“) */
   folderId?: string
+  /** Eigene Notiz (Eselsbrücke o. ä.) */
+  note?: string
+  /** Bis zu zwei Beispielsätze */
+  examples?: Example[]
   /** FSRS-Wiederholungsplanung je Richtung (deko = Deutsch→Koreanisch, kode = Koreanisch→Deutsch) */
   srs?: { deko?: import('./lib/fsrs').SrsCard; kode?: import('./lib/fsrs').SrsCard }
 }
+
+/** Beispielsatz zu einem Wort */
+export interface Example {
+  ko: string
+  de: string
+  /** Woher der Satz kommt: KI, selbst eingetragen oder aus der Satz-Datenbank */
+  source: 'ai' | 'user' | 'pool'
+}
+
+export const MAX_EXAMPLES = 2
 
 /** Ordner für Wörter, bis zu 3 Ebenen tief (parentId = null: oberste Ebene) */
 export interface Folder {
@@ -78,6 +92,8 @@ export interface Settings {
   autoSpeak: boolean
   /** Vorlesen: Koreanisch + Deutsch, nur Koreanisch oder nur Deutsch */
   speechMode: SpeechMode
+  /** Fehlende Beispielsätze beim Lernen automatisch von Gemini erzeugen lassen (nur mit API-Key) */
+  autoExamples: boolean
   /** Dezente Klänge bei richtig/falsch usw. */
   soundEffects: boolean
   soundVolume: number

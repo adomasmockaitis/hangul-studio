@@ -8,7 +8,7 @@ import { LOCAL_ONLY_SETTINGS, maxStamp, type SyncPayload } from './lib/merge'
 import { canAddSubfolder, descendantIds, planChapterConversion } from './lib/folders'
 import { getItem, setItem } from './lib/storage'
 import { cardOf, personalRetention, retrievability, schedule, type Dir, type Grade4, type ReviewLogEntry, type SrsCard } from './lib/fsrs'
-import type { Activity, BackupFile, CheckMethod, CheckStep, Folder, Settings, WordItem, WordType } from './types'
+import { MAX_EXAMPLES, type Activity, type BackupFile, type CheckMethod, type CheckStep, type Folder, type Settings, type WordItem, type WordType } from './types'
 
 const K_DELETED = 'hangul-studio:deleted'
 const K_WORDS = 'hangul-studio:words'
@@ -50,6 +50,7 @@ export const DEFAULT_SETTINGS: Settings = {
   strokeOrderStyle: 'numbers',
   autoSpeak: false,
   speechMode: 'both',
+  autoExamples: true,
   soundEffects: true,
   soundVolume: 0.5,
   activeConjugations: ['presentPolite'],
@@ -91,6 +92,13 @@ export function sanitizeWord(raw: unknown): WordItem | null {
     updatedAt: typeof r.updatedAt === 'number' ? r.updatedAt : undefined,
     folderId: str(r.folderId),
     srs: r.srs && typeof r.srs === 'object' ? (r.srs as WordItem['srs']) : undefined,
+    note: str(r.note),
+    examples: Array.isArray(r.examples)
+      ? (r.examples as Record<string, unknown>[])
+          .filter((e) => e && typeof e.ko === 'string' && e.ko.trim())
+          .slice(0, MAX_EXAMPLES)
+          .map((e) => ({ ko: String(e.ko).trim(), de: typeof e.de === 'string' ? e.de.trim() : '', source: e.source === 'user' || e.source === 'pool' ? e.source : 'ai' }))
+      : undefined,
     stats: {
       correctCount: num(s.correctCount, 0),
       wrongCount: num(s.wrongCount, 0),

@@ -1,23 +1,25 @@
-import { Layers, Repeat2, Trophy } from 'lucide-react'
+import { Ear, Layers, Repeat2, Trophy } from 'lucide-react'
 import { PageHeader, Segmented } from '../components/ui'
 import { navigate } from '../lib/route'
 import { useApp } from '../store'
 import { ConjugationTrainer } from './Conjugation'
 import { Browse } from './Learn'
 import { QuizSetup } from './Quiz'
+import { DictationSetup } from './Dictation'
 
-type Mode = 'lernen' | 'quiz' | 'beugung'
+type Mode = 'lernen' | 'quiz' | 'diktat' | 'beugung'
 
 const SUBTITLE: Record<Mode, string> = {
   lernen: 'Karteikarten durchgehen und Schreiben üben',
   quiz: 'Abfragemodus – stelle dein Quiz zusammen',
+  diktat: 'Koreanisch hören und aufschreiben oder verstehen',
   beugung: 'Verben & Adjektive in die gefragte Form bringen',
 }
 
 /** Ein Tab für alles Üben: Karteikarten, Quiz und Beugungs-Trainer. */
 export function Practice({ sub }: { sub: string }) {
   const { words } = useApp()
-  const mode: Mode = sub === 'quiz' || sub === 'beugung' ? sub : 'lernen'
+  const mode: Mode = sub === 'quiz' || sub === 'beugung' || sub === 'diktat' ? sub : 'lernen'
   const toStart = () => navigate('/start')
 
   return (
@@ -32,9 +34,10 @@ export function Practice({ sub }: { sub: string }) {
             value={mode}
             onChange={(m) => navigate(m === 'lernen' ? '/ueben' : `/ueben/${m}`)}
             options={[
-              { value: 'lernen', label: <><Layers size={15} /> Lernen</> },
-              { value: 'quiz', label: <><Trophy size={15} /> Quiz</> },
-              { value: 'beugung', label: <><Repeat2 size={15} /> Beugung</> },
+              { value: 'lernen', label: <><Layers size={15} className="hidden sm:block" /> Lernen</> },
+              { value: 'quiz', label: <><Trophy size={15} className="hidden sm:block" /> Quiz</> },
+              { value: 'diktat', label: <><Ear size={15} className="hidden sm:block" /> Diktat</> },
+              { value: 'beugung', label: <><Repeat2 size={15} className="hidden sm:block" /> Beugung</> },
             ]}
           />
         }
@@ -46,6 +49,8 @@ export function Practice({ sub }: { sub: string }) {
         <div className="card p-8 text-center text-label-2">Noch keine Vokabeln – füge unter „Wörter“ welche hinzu.</div>
       ) : mode === 'lernen' ? (
         <Browse onDashboard={toStart} />
+      ) : mode === 'diktat' ? (
+        <DictationSetup onDashboard={toStart} />
       ) : (
         <QuizSetup onDashboard={toStart} />
       )}

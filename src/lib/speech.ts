@@ -29,6 +29,13 @@ function utter(text: string, lang: 'ko-KR' | 'de-DE', rate: number): SpeechSynth
   return u
 }
 
+/** Deutschen Text vorlesen (gekürzt), z. B. die Frage im Test Deutsch → Koreanisch */
+export function speakGerman(text: string) {
+  if (!supported() || !text.trim()) return
+  window.speechSynthesis.cancel()
+  window.speechSynthesis.speak(utter(shortGerman(text), 'de-DE', 0.95))
+}
+
 /** Koreanischen Text vorlesen (z. B. Beugungsformen, Hör-Diktat) */
 export function speak(text: string) {
   if (!supported()) return

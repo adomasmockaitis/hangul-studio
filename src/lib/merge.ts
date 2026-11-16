@@ -53,6 +53,8 @@ export function mergeWord(a: WordItem, b: WordItem): WordItem {
     srs: a.srs || b.srs ? { deko: newerCard(a.srs?.deko, b.srs?.deko), kode: newerCard(a.srs?.kode, b.srs?.kode) } : undefined,
     // fehlende Felder aus dem anderen Stand ergänzen
     pronunciation: newer.pronunciation ?? older.pronunciation,
+    note: newer.note ?? older.note,
+    examples: newer.examples ?? older.examples,
     conjugations: newer.conjugations ?? older.conjugations,
   }
 }

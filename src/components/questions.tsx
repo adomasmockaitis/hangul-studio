@@ -1,6 +1,7 @@
 ﻿import { useEffect, useState, type ReactNode } from 'react'
 import { ArrowRight, Check, Volume2, X } from 'lucide-react'
-import { speak } from '../lib/speech'
+import { speak, speakGerman } from '../lib/speech'
+import { useApp } from '../store'
 import { playSound } from '../lib/sounds'
 import type { WordItem } from '../types'
 import { HangulCanvas } from './HangulCanvas'
@@ -15,8 +16,10 @@ interface Common {
 
 /** Antwort wird ins Hangul-Zeichenfeld geschrieben (Deutsch→Koreanisch, Hör-Diktat, Beugung) */
 export function WriteQuestion({
-  prompt, target, solutionNote, audioPrompt, autoPlay, onResult, onRevise, onNext, nextLabel,
+  prompt, target, solutionNote, audioPrompt, autoPlay, speakPrompt, onResult, onRevise, onNext, nextLabel,
 }: Common & {
+  /** Deutsche Frage: wird bei „automatisch vorlesen“ auf Deutsch gesprochen (nur die Ausgangssprache) */
+  speakPrompt?: string
   prompt: ReactNode
   /** Zu schreibender koreanischer Text */
   target: string
@@ -26,8 +29,10 @@ export function WriteQuestion({
   autoPlay?: boolean
 }) {
   const [done, setDone] = useState(false)
+  const { settings } = useApp()
   useEffect(() => {
     if (autoPlay && audioPrompt) speak(audioPrompt)
+    else if (speakPrompt && settings.autoSpeak) speakGerman(speakPrompt)
     // nur beim Erscheinen der Karte
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -64,35 +69,17 @@ export function WriteQuestion({
   )
 }
 
-// ---------- Deutsch-Vergleich ----------
-function norm(s: string) {
-  return s
-    .toLowerCase()
-    .normalize('NFC')
-    .replace(/\(.*?\)/g, '')
-    .replace(/[.,!?;:"'()]/g, '')
-    .replace(/^(der|die|das|ein|eine|zu|to)\s+/, '')
-    .replace(/\s+/g, ' ')
-    .trim()
-}
-
-function lev(a: string, b: string): number {
-  const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)] as number[])
-  for (let j = 1; j <= b.length; j++) d[0][j] = j
-  for (let i = 1; i <= a.length; i++)
-    for (let j = 1; j <= b.length; j++)
-      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1))
-  return d[a.length][b.length]
-}
-
-export function matchesGerman(input: string, german: string): boolean {
-  const x = norm(input)
-  if (!x) return false
-  const variants = [german, ...german.split(/[,;/]/)].map(norm).filter((v) => v.length >= 3 || v === norm(german))
-  return variants.some((v) => v === x || (v.length >= 6 && x.length >= 6 && lev(v, x) <= 1))
-}
+export { matchesGerman } from '../lib/german'
+import { matchesGerman } from '../lib/german'
 
 function KoreanPrompt({ word }: { word: WordItem }) {
+  const { settings } = useApp()
+  // Im Test nur die Ausgangssprache vorlesen – die deutsche Lösung bleibt verborgen
+  useEffect(() => {
+    if (settings.autoSpeak) speak(word.korean)
+    // nur beim Erscheinen der Karte
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   return (
     <>
       <p className="label mb-1">Was bedeutet das?</p>
@@ -129,6 +116,59 @@ export function TypeQuestion({ word, onResult, onNext, nextLabel }: Common & { w
         <div className={`fade-up mt-4 flex items-center justify-center gap-2 rounded-2xl p-3 ${res ? 'bg-green/15' : 'bg-red/15'}`}>
           {res ? <Check className="text-green" /> : <X className="text-red" />}
           <span className="text-lg font-semibold">{word.german}</span>
+        </div>
+      )}
+      <div className="mt-5 flex justify-center">
+        {res === null ? (
+          <button className="btn-primary" onClick={check} disabled={!text.trim()}><Check size={16} /> Prüfen</button>
+        ) : (
+          <button className="btn-primary" onClick={onNext}>{nextLabel} <ArrowRight size={16} /></button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/** Hör-Diktat: Koreanisch hören, deutsche Bedeutung tippen (Hörverstehen) */
+export function ListenTypeQuestion({ word, onResult, onNext, nextLabel }: Common & { word: WordItem }) {
+  const [text, setText] = useState('')
+  const [res, setRes] = useState<boolean | null>(null)
+  useEffect(() => {
+    speak(word.korean)
+    // nur beim Erscheinen der Karte
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  const check = () => {
+    if (res !== null || !text.trim()) return
+    const ok = matchesGerman(text, word.german)
+    setRes(ok)
+    playSound(ok ? 'success' : 'error')
+    onResult({ correct: ok, read: text.trim() })
+  }
+  return (
+    <div className="card fade-up p-6 text-center">
+      <p className="label mb-1">Hör-Diktat</p>
+      <p className="text-xl font-semibold">Was bedeutet das Gehörte?</p>
+      <button className="btn-primary mx-auto mt-3 !px-6 !py-3" onClick={() => speak(word.korean)}>
+        <Volume2 size={20} /> Nochmal anhören
+      </button>
+      <input
+        autoFocus
+        className="input mt-5 !py-3.5 text-center !text-xl"
+        placeholder="Deutsche Bedeutung…"
+        value={text}
+        disabled={res !== null}
+        onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) res === null ? check() : onNext() }}
+        aria-label="Deutsche Bedeutung"
+      />
+      {res !== null && (
+        <div className={`fade-up mt-4 rounded-2xl p-3 ${res ? 'bg-green/15' : 'bg-red/15'}`}>
+          <p className="flex items-center justify-center gap-2">
+            {res ? <Check className="text-green" /> : <X className="text-red" />}
+            <span lang="ko" className="text-2xl font-bold">{word.korean}</span>
+          </p>
+          <p className="text-lg font-semibold">{word.german}</p>
         </div>
       )}
       <div className="mt-5 flex justify-center">

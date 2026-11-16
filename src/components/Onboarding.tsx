@@ -382,6 +382,13 @@ export function Onboarding({ onClose }: { onClose: () => void }) {
               </div>
               <Toggle checked={settings.writingTips} onChange={(writingTips) => updateSettings({ writingTips })} label="Schreib-Tipps" />
             </div>
+            <div className="card flex items-center justify-between gap-3 p-4">
+              <div>
+                <p className="font-medium">Beispielsätze automatisch erzeugen</p>
+                <p className="text-sm text-label-2">Fehlen einem Wort Beispielsätze, schreibt Gemini beim Lernen zwei passend zu deinem Stand – einmal pro Wort.</p>
+              </div>
+              <Toggle checked={settings.autoExamples} onChange={(autoExamples) => updateSettings({ autoExamples })} label="Beispielsätze automatisch erzeugen" />
+            </div>
             {settings.writingTips && (
               <div className="card p-4">
                 <p className="mb-2 font-medium">Wie streng soll Gemini sein?</p>

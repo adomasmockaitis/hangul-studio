@@ -297,6 +297,9 @@ export function SettingsView({ sub = '', onRestartOnboarding, onShowWhatsNew }: 
             onChange={(e) => chooseModel(e.target.value, false)}
           />
         </Row>
+        <Row title="Beispielsätze automatisch erzeugen" desc="Fehlen einem Wort Beispielsätze, schreibt Gemini beim Lernen selbst zwei passend zu deinem Lernstand – einmal pro Wort, danach gespeichert. Aus: nur auf Knopfdruck.">
+          <Toggle checked={settings.autoExamples} onChange={(autoExamples) => updateSettings({ autoExamples })} label="Beispielsätze automatisch erzeugen" />
+        </Row>
         <Row title="Gemini-Zeitlimit" desc="Antwortet Gemini (inklusive Modellwechsel) in dieser Zeit nicht, springt die App zur nächsten Methode. Bei längeren Wörtern kommt automatisch Zeit dazu (ab 3 Zeichen +0,5 s je Zeichen, höchstens +2 s). Sind die Schreib-Tipps an, gilt die Basiszeit x1,5, weil Gemini dann länger braucht.">
           <div className="flex items-center gap-3">
             <input type="range" min={2} max={15} value={settings.geminiTimeoutSec} onChange={(e) => updateSettings({ geminiTimeoutSec: +e.target.value })} className="w-36 accent-blue" />

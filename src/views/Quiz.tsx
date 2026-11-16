@@ -9,7 +9,7 @@ import { resolveSelection, smartPick, SMART, type Pick, type Selection } from '.
 import { useApp } from '../store'
 import type { WordItem } from '../types'
 
-type Direction = 'de-ko' | 'ko-de' | 'mixed' | 'dictation'
+type Direction = 'de-ko' | 'ko-de' | 'mixed'
 type AnswerType = 'type' | 'choice'
 type Kind = 'de-ko' | 'ko-de' | 'dictation'
 
@@ -24,7 +24,7 @@ const shuffle = <T,>(a: T[]): T[] => {
 
 /** Hör-Diktat schreibt Koreanisch → zählt für die Richtung Deutsch→Koreanisch (aktives Schreiben) */
 const dirOfKind = (k: Kind): Dir => (k === 'ko-de' ? 'kode' : 'deko')
-const kindOfDir = (d: Dir, direction: Direction): Kind => (direction === 'dictation' ? 'dictation' : d === 'kode' ? 'ko-de' : 'de-ko')
+const kindOfDir = (d: Dir): Kind => (d === 'kode' ? 'ko-de' : 'de-ko')
 
 function makeQuestion(word: WordItem, kind: Kind, answerType: AnswerType, all: WordItem[], n: number): Q {
   const key = `${word.id}-${n}`
@@ -59,6 +59,7 @@ function makeQuestion(word: WordItem, kind: Kind, answerType: AnswerType, all: W
       <WriteQuestion
         {...a}
         target={word.korean}
+        speakPrompt={word.german}
         prompt={<><p className="label mb-1">Schreibe auf Koreanisch</p><h2 className="text-4xl font-bold tracking-tight">{word.german}</h2></>}
       />
     ),
@@ -100,7 +101,7 @@ export function QuizSetup({ onDashboard }: { onDashboard: () => void }) {
 
   const start = () => {
     const chosen = selection.mode === 'smart' ? shuffle(picks) : shuffle(picks).slice(0, count || picks.length)
-    setQuestions(chosen.map((p, n) => makeQuestion(p.word, kindOfDir(p.dir, direction), answerType, words, n)))
+    setQuestions(chosen.map((p, n) => makeQuestion(p.word, kindOfDir(p.dir), answerType, words, n)))
   }
 
   if (questions) {
@@ -135,7 +136,6 @@ export function QuizSetup({ onDashboard }: { onDashboard: () => void }) {
             ['de-ko', 'Deutsch → Koreanisch', 'Schreiben im Zeichenfeld'],
             ['ko-de', 'Koreanisch → Deutsch', 'Tippen oder Multiple Choice'],
             ['mixed', 'Gemischt', 'Smart: je Wort die dringendere Richtung'],
-            ['dictation', 'Hör-Diktat', 'Nur Audio → Koreanisch schreiben'],
           ] as [Direction, string, string][]).map(([v, t, d]) => (
             <button key={v} onClick={() => setDirection(v)}
               className={`rounded-xl border p-3 text-left transition ${direction === v ? 'border-blue bg-blue/10' : 'border-separator hover:bg-fill-4'}`}>

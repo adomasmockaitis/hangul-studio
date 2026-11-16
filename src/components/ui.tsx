@@ -37,9 +37,18 @@ export function Segmented<T extends string>({
       setThumb(el ? { left: el.offsetLeft, width: el.offsetWidth } : null)
     }
     measure()
-    const ro = new ResizeObserver(measure)
+    // Auch die einzelnen Knöpfe beobachten: ihre Breite ändert sich z. B., wenn Symbole auf dem Handy ausgeblendet werden
+    let raf = 0
+    const ro = new ResizeObserver(() => {
+      cancelAnimationFrame(raf)
+      raf = requestAnimationFrame(measure)
+    })
     ro.observe(box)
-    return () => ro.disconnect()
+    for (const el of box.querySelectorAll('[role="radio"]')) ro.observe(el)
+    return () => {
+      cancelAnimationFrame(raf)
+      ro.disconnect()
+    }
   }, [value, options.length])
   useEffect(() => {
     const id = requestAnimationFrame(() => setAnimate(true))

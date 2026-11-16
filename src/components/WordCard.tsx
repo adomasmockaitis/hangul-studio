@@ -4,6 +4,7 @@ import { speak, speakWord } from '../lib/speech'
 import { useApp } from '../store'
 import { CONJUGATION_LABELS, WORD_TYPE_LABELS, type ConjugationKey, type WordItem } from '../types'
 import { HangulCanvas } from './HangulCanvas'
+import { WordExtras } from './WordExtras'
 
 interface Props {
   word: WordItem
@@ -84,6 +85,7 @@ export function WordCard({ word, mode, onResult, onRevise, onNext, nextLabel }: 
             )}
           </div>
         )}
+        {!hideKorean && <WordExtras key={word.id} word={word} />}
       </div>
 
       <div className="card p-4 sm:p-5">

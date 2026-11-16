@@ -11,7 +11,7 @@ import { playSound } from '../lib/sounds'
 import { speakWord } from '../lib/speech'
 import { getItem, setItem } from '../lib/storage'
 import { useApp } from '../store'
-import { CONJUGATION_KEYS, CONJUGATION_LABELS, WORD_TYPE_LABELS, type Conjugations, type Folder, type WordItem, type WordType } from '../types'
+import { CONJUGATION_KEYS, CONJUGATION_LABELS, MAX_EXAMPLES, WORD_TYPE_LABELS, type Conjugations, type Example, type Folder, type WordItem, type WordType } from '../types'
 
 interface Draft {
   korean: string
@@ -21,14 +21,17 @@ interface Draft {
   tags: string
   conj: Conjugations
   folderId: string
+  note: string
+  examples: Example[]
 }
 
-const emptyDraft = (folderId: string | null): Draft => ({ korean: '', german: '', pronunciation: '', wordType: 'noun', tags: '', conj: {}, folderId: folderId ?? '' })
+const emptyDraft = (folderId: string | null): Draft => ({ korean: '', german: '', pronunciation: '', wordType: 'noun', tags: '', conj: {}, folderId: folderId ?? '', note: '', examples: [] })
 
 function toDraft(w: WordItem, folderIds: Set<string>): Draft {
   return {
     korean: w.korean, german: w.german, pronunciation: w.pronunciation ?? '', wordType: w.wordType,
     tags: w.tags.join(' '), conj: w.conjugations ?? {}, folderId: effectiveFolder(w, folderIds) ?? '',
+    note: w.note ?? '', examples: w.examples ?? [],
   }
 }
 
@@ -130,6 +133,11 @@ export function Dictionary() {
       tags: parseTags(draft.tags),
       conjugations: isConj && Object.keys(conj).length ? (conj as Conjugations) : undefined,
       folderId: draft.folderId || undefined,
+      note: draft.note.trim() || undefined,
+      examples: (() => {
+        const ex = draft.examples.map((e) => ({ ...e, ko: e.ko.trim(), de: e.de.trim() })).filter((e) => e.ko)
+        return ex.length ? ex : undefined
+      })(),
     }
     if (editing.id) updateWord(editing.id, base)
     else addWord(base)
@@ -466,6 +474,25 @@ export function Dictionary() {
               </select>
             </div>
             <div><p className="label mb-1">Tags (mit Leerzeichen getrennt)</p><input className="input" placeholder="#Verb #Alltag" value={draft.tags} onChange={(e) => setDraft({ tags: e.target.value })} /></div>
+            <div><p className="label mb-1">Notiz</p><textarea className="input min-h-16" placeholder="Eselsbrücke, Hinweis …" value={draft.note} onChange={(e) => setDraft({ note: e.target.value })} /></div>
+            <div className="space-y-2">
+              <p className="label">Beispielsätze</p>
+              {Array.from({ length: MAX_EXAMPLES }, (_, i) => {
+                const ex = draft.examples[i] ?? { ko: '', de: '', source: 'user' as const }
+                const setEx = (patch: Partial<Example>) => {
+                  const list = [...draft.examples]
+                  while (list.length <= i) list.push({ ko: '', de: '', source: 'user' })
+                  list[i] = { ...list[i], ...patch, source: 'user' }
+                  setDraft({ examples: list })
+                }
+                return (
+                  <div key={i} className="grid gap-1.5 rounded-2xl bg-fill-4 p-2 sm:grid-cols-2">
+                    <input className="input" lang="ko" placeholder={`Satz ${i + 1} auf Koreanisch`} value={ex.ko} onChange={(e) => setEx({ ko: e.target.value })} aria-label={`Beispielsatz ${i + 1} Koreanisch`} />
+                    <input className="input" placeholder="Übersetzung" value={ex.de} onChange={(e) => setEx({ de: e.target.value })} aria-label={`Beispielsatz ${i + 1} Deutsch`} />
+                  </div>
+                )
+              })}
+            </div>
             {isConj && (
               <div className="space-y-2 rounded-2xl bg-fill-4 p-3">
                 <p className="label">Beugungen</p>
