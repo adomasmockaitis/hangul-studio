@@ -33,6 +33,11 @@ export interface SpeakResult {
   /** Rohe Antworten des Prüfmodells (gekürzt), um unbekannte Formate zu verstehen */
   heardRaw?: string[]
   heardOk?: boolean
+  /** Endprüfung: Lautstärke am Ende im Verhältnis zum lautesten Teil */
+  tailRatio?: number
+  tailCut?: boolean
+  /** Wie viele Erzeugungen nötig waren */
+  attempts?: number
   error?: string
 }
 
@@ -53,6 +58,33 @@ export function pcmToWav(chunks: Int16Array[], sampleRate: number): Uint8Array {
   for (const c of chunks) for (let i = 0; i < c.length; i++, o += 2) dv.setInt16(o, c[i], true)
   return out
 }
+
+/**
+ * Endprüfung: Natürliche Sprache klingt am Ende leise aus. Hört das Audio mitten im Ton auf,
+ * ist es abgeschnitten. Verglichen wird die Lautstärke der letzten 30 ms mit dem lautesten 20-ms-Fenster.
+ */
+export const TAIL_CUT_RATIO = 0.15
+export function tailCheck(chunks: Int16Array[], sampleRate: number): { ratio: number; cut: boolean } {
+  const n = chunks.reduce((a, c) => a + c.length, 0)
+  if (!n) return { ratio: 1, cut: true }
+  const all = new Int16Array(n)
+  let o = 0
+  for (const c of chunks) { all.set(c, o); o += c.length }
+  const rms = (from: number, to: number) => {
+    let sum = 0
+    for (let i = from; i < to; i++) sum += all[i] * all[i]
+    return Math.sqrt(sum / Math.max(1, to - from))
+  }
+  const win = Math.floor(sampleRate * 0.02)
+  let peak = 1
+  for (let i = 0; i + win <= n; i += win) peak = Math.max(peak, rms(i, i + win))
+  const tail = rms(Math.max(0, n - Math.floor(sampleRate * 0.03)), n)
+  const ratio = Math.round((tail / peak) * 100) / 100
+  return { ratio, cut: ratio > TAIL_CUT_RATIO }
+}
+
+/** Text mit Schlusszeichen senden, damit das Modell zu Ende betont */
+export const withFinalStop = (t: string) => (/[.!?。…~]$/.test(t.trim()) ? t.trim() : t.trim() + '.')
 
 /** Alle "text"-Felder einer unbekannten Antwortstruktur einsammeln */
 function anyText(o: unknown): string {
@@ -145,8 +177,13 @@ export function verifyAudioLive(apiKey: string, model: string, chunks: Int16Arra
           if (t) text += t
           return
         }
-        const piece = sc.inputTranscription?.text ?? sc.outputTranscription?.text ?? sc.modelTurn?.parts?.map((p) => p.text ?? '').join('') ?? anyText(sc)
-        if (piece) text += piece
+        // interimInputTranscription enthält jedes Mal den GANZEN bisherigen Text -> ersetzen statt anhängen
+        const interim = (sc as { interimInputTranscription?: { text?: string } }).interimInputTranscription?.text
+        if (interim) text = interim
+        else {
+          const piece = sc.inputTranscription?.text ?? sc.outputTranscription?.text ?? sc.modelTurn?.parts?.map((p) => p.text ?? '').join('') ?? anyText(sc)
+          if (piece) text += piece
+        }
         clearTimeout(quiet)
         // Fertig, wenn das Modell den Zug beendet oder 1,5 s lang nichts mehr kommt
         quiet = setTimeout(() => end(), sc.turnComplete ? 300 : 1500)

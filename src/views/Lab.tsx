@@ -8,11 +8,12 @@ import {
   HANDWRITING_CANDIDATES, gemmaModels, generateSentences, listAllModels, readOne, samplesFromExport, samplesFromLocal, sleep,
   type HandResult, type HandSample, type LabModel, type SentenceResult,
 } from '../lib/lab/bench'
-import { LIVE_VOICES, LiveSession, isVerbatim, playPcm, speakWithTtsModel, verifyAudio, verifyAudioLive, type SpeakResult } from '../lib/lab/liveTts'
+import { LIVE_VOICES, LiveSession, isVerbatim, playPcm, speakWithTtsModel, tailCheck, verifyAudio, verifyAudioLive, withFinalStop, type SpeakResult } from '../lib/lab/liveTts'
 import { useApp } from '../store'
 
 type Section = 'hand' | 'saetze' | 'stimme'
 
+const MAX_ATTEMPTS = 3
 const DEFAULT_WORDS = '학생\n감사합니다\n먹다\n읽다\n한국어\n괜찮아요\n학교에 가요\n물을 마셔요\nSchüler\nDanke\nessen\nKoreanisch'
 
 /** Verstecktes Testlabor (#/labor): Modelle für Handschrift und Sätze vergleichen, Vorlesen testen. */
@@ -344,15 +345,32 @@ function VoiceBench({ apiKey, allModels }: { apiKey: string; allModels: { id: st
       const connectMs = await s.open()
       setStatus(`Verbunden in ${connectMs} ms`)
       for (const l of lines) {
-        const r = await s.speak(l)
-        if (check && !r.error && r.pcm.length) {
-          try {
-            r.heard = /transcribe/i.test(checker) ? await verifyAudioLive(apiKey, checker, r.pcm, r.sampleRate, (raw) => { r.heardRaw = [...(r.heardRaw ?? []), raw].slice(0, 8) }) : await verifyAudio(apiKey, checker, r.pcm, r.sampleRate)
-            r.heardOk = isVerbatim(l, r.heard)
-          } catch (e) {
-            r.heard = `(Gegenprüfung fehlgeschlagen: ${e instanceof Error ? e.message : 'Fehler'})`
+        // Bis zu 3 Erzeugungen: angenommen wird ein Ergebnis, das sauber endet und (falls geprüft) richtig gehört wurde
+        let r: SpeakResult | null = null
+        for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+          const cand = await s.speak(withFinalStop(l))
+          cand.text = l
+          cand.attempts = attempt
+          if (!cand.error && cand.pcm.length) {
+            const t = tailCheck(cand.pcm, cand.sampleRate)
+            cand.tailRatio = t.ratio
+            cand.tailCut = t.cut
+            if (check) {
+              try {
+                cand.heard = /transcribe/i.test(checker)
+                  ? await verifyAudioLive(apiKey, checker, cand.pcm, cand.sampleRate, (raw) => { cand.heardRaw = [...(cand.heardRaw ?? []), raw].slice(0, 6) })
+                  : await verifyAudio(apiKey, checker, cand.pcm, cand.sampleRate)
+                cand.heardOk = isVerbatim(l, cand.heard)
+              } catch (e) {
+                cand.heard = `(Gegenprüfung fehlgeschlagen: ${e instanceof Error ? e.message : 'Fehler'})`
+              }
+            }
           }
+          r = cand
+          const good = !cand.error && !cand.tailCut && cand.heardOk !== false
+          if (good || cand.error?.startsWith('Verbindung')) break
         }
+        if (!r) continue
         setResults((prev) => [...prev, { ...r, source: `${liveModel} · ${voice}` }])
         if (r.error?.startsWith('Verbindung')) break
       }
@@ -435,10 +453,10 @@ function VoiceBench({ apiKey, allModels }: { apiKey: string; allModels: { id: st
             <ListRow
               key={i}
               title={<span lang="ko">{r.text}</span>}
-              subtitle={r.error ? <span className="text-red">{r.error}</span> : `Selbst: „${r.transcript || '–'}“${r.heard !== undefined ? ` · gehört: „${r.heard || '–'}“` : ''} · Audio ${((r.audioMs ?? 0) / 1000).toFixed(1)} s${r.lateChunks ? ` (+${r.lateChunks} nachgereicht)` : ''} · ${r.firstAudioMs ?? '–'} ms bis Ton · ${r.source}`}
+              subtitle={r.error ? <span className="text-red">{r.error}</span> : `Selbst: „${r.transcript || '–'}“${r.heard !== undefined ? ` · gehört: „${r.heard || '–'}“` : ''} · Audio ${((r.audioMs ?? 0) / 1000).toFixed(1)} s${r.tailRatio !== undefined ? ` · Ende ${r.tailCut ? 'abgeschnitten' : 'sauber'} (${Math.round(r.tailRatio * 100)} %)` : ''}${r.attempts && r.attempts > 1 ? ` · ${r.attempts} Versuche` : ''}${r.lateChunks ? ` (+${r.lateChunks} nachgereicht)` : ''} · ${r.firstAudioMs ?? '–'} ms bis Ton · ${r.source}`}
               right={
                 <span className="flex shrink-0 items-center gap-2">
-                  {!r.error && (() => { const ok = r.heardOk ?? r.verbatim; return <span className={`text-sm font-semibold ${ok ? 'text-green' : 'text-orange'}`}>{ok ? '✓ wörtlich' : '≠ abweichend'}</span> })()}
+                  {!r.error && (() => { const ok = (r.heardOk ?? r.verbatim) && !r.tailCut; return <span className={`text-sm font-semibold ${ok ? 'text-green' : 'text-orange'}`}>{ok ? '✓ sauber' : r.tailCut ? '✂ abgeschnitten' : '≠ abweichend'}</span> })()}
                   <button className="grid h-11 w-11 place-items-center rounded-full text-blue transition hover:bg-fill-3 disabled:opacity-30" disabled={!r.pcm.length} onClick={() => playPcm(r.pcm, r.sampleRate)} aria-label={`${r.text} abspielen`}>
                     <Play size={18} fill="currentColor" />
                   </button>
