@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronLeft, Download, FileArchive, Loader2, Mic, PenLine, Play, Square, Type } from 'lucide-react'
-import { List, ListRow, PageHeader, Segmented } from '../components/ui'
+import { List, ListRow, PageHeader, Segmented, Toggle } from '../components/ui'
 import { loadDisputes } from '../lib/geminiDisputes'
 import { loadSamples } from '../lib/inputToolsLog'
 import { navigate } from '../lib/route'
@@ -8,7 +8,7 @@ import {
   HANDWRITING_CANDIDATES, gemmaModels, generateSentences, listAllModels, readOne, samplesFromExport, samplesFromLocal, sleep,
   type HandResult, type HandSample, type LabModel, type SentenceResult,
 } from '../lib/lab/bench'
-import { LIVE_VOICES, LiveSession, playPcm, speakWithTtsModel, type SpeakResult } from '../lib/lab/liveTts'
+import { LIVE_VOICES, LiveSession, isVerbatim, playPcm, speakWithTtsModel, verifyAudio, type SpeakResult } from '../lib/lab/liveTts'
 import { useApp } from '../store'
 
 type Section = 'hand' | 'saetze' | 'stimme'
@@ -326,6 +326,8 @@ function VoiceBench({ apiKey, allModels }: { apiKey: string; allModels: { id: st
   const [results, setResults] = useState<(SpeakResult & { source: string })[]>([])
   const [status, setStatus] = useState('')
   const [running, setRunning] = useState(false)
+  const [check, setCheck] = useState(true)
+  const CHECK_MODEL = 'gemini-3.1-flash-lite'
   const lines = text.split('\n').map((l) => l.trim()).filter(Boolean)
 
   const runLive = async () => {
@@ -338,6 +340,14 @@ function VoiceBench({ apiKey, allModels }: { apiKey: string; allModels: { id: st
       setStatus(`Verbunden in ${connectMs} ms`)
       for (const l of lines) {
         const r = await s.speak(l)
+        if (check && !r.error && r.pcm.length) {
+          try {
+            r.heard = await verifyAudio(apiKey, CHECK_MODEL, r.pcm, r.sampleRate)
+            r.heardOk = isVerbatim(l, r.heard)
+          } catch (e) {
+            r.heard = `(Gegenprüfung fehlgeschlagen: ${e instanceof Error ? e.message : 'Fehler'})`
+          }
+        }
         setResults((prev) => [...prev, { ...r, source: `${liveModel} · ${voice}` }])
         if (r.error?.startsWith('Verbindung')) break
       }
@@ -361,10 +371,12 @@ function VoiceBench({ apiKey, allModels }: { apiKey: string; allModels: { id: st
 
   const live = results.filter((r) => !r.source.includes('tts') && !r.error)
   const verbatimRate = live.length ? Math.round((live.filter((r) => r.verbatim).length / live.length) * 100) : null
+  const checked = live.filter((r) => r.heardOk !== undefined)
+  const heardRate = checked.length ? Math.round((checked.filter((r) => r.heardOk).length / checked.length) * 100) : null
 
   return (
     <div>
-      <List title="Einstellungen" footer="Die Live API hat kein Tageslimit, ist aber ein Gesprächsmodell. Geprüft wird, ob ihre eigene Mitschrift genau dem Text entspricht. Die Mitschrift kann sich selbst irren – hör im Zweifel rein.">
+      <List title="Einstellungen" footer="Die Live API hat kein Tageslimit, ist aber ein Gesprächsmodell. Ihre eigene Mitschrift ist unzuverlässig (sie zeigte schon den vollen Text bei abgeschnittenem Audio). Die Gegenprüfung lässt deshalb ein zweites Modell das Audio anhören und aufschreiben.">
         <ListRow
           title="Live-Modell"
           right={
@@ -373,6 +385,11 @@ function VoiceBench({ apiKey, allModels }: { apiKey: string; allModels: { id: st
               {liveModels.map((m) => <option key={m}>{m}</option>)}
             </select>
           }
+        />
+        <ListRow
+          title="Gegenprüfung"
+          subtitle={`${CHECK_MODEL} hört jedes Audio an (1 Anfrage je Text, 500/Tag)`}
+          right={<Toggle checked={check} onChange={setCheck} label="Gegenprüfung" />}
         />
         <ListRow
           title="Stimme"
@@ -395,22 +412,22 @@ function VoiceBench({ apiKey, allModels }: { apiKey: string; allModels: { id: st
           Vergleich: TTS-Modell (2 Wörter)
         </button>
         {results.length > 0 && (
-          <button className="btn-soft" onClick={() => download(`hangul-labor-stimme-${new Date().toISOString().slice(0, 10)}.json`, { kind: 'voice', verbatimRate, results: results.map(({ pcm: _pcm, ...r }) => r) })}>
+          <button className="btn-soft" onClick={() => download(`hangul-labor-stimme-${new Date().toISOString().slice(0, 10)}.json`, { kind: 'voice', verbatimRate, heardRate, results: results.map(({ pcm: _pcm, ...r }) => r) })}>
             <Download size={16} /> Ergebnis speichern
           </button>
         )}
       </div>
-      {status && <p className="mb-4 px-4 text-sm text-label-2">{status}{verbatimRate !== null && ` · wörtlich: ${verbatimRate} %`}</p>}
+      {status && <p className="mb-4 px-4 text-sm text-label-2">{status}{verbatimRate !== null && ` · Selbst-Mitschrift wörtlich: ${verbatimRate} %`}{heardRate !== null && ` · Gegenprüfung wörtlich: ${heardRate} %`}</p>}
       {results.length > 0 && (
         <List title="Ergebnis">
           {results.map((r, i) => (
             <ListRow
               key={i}
               title={<span lang="ko">{r.text}</span>}
-              subtitle={r.error ? <span className="text-red">{r.error}</span> : `„${r.transcript || '–'}“ · ${r.firstAudioMs ?? '–'} ms bis Ton · ${r.totalMs} ms gesamt · ${r.source}`}
+              subtitle={r.error ? <span className="text-red">{r.error}</span> : `Selbst: „${r.transcript || '–'}“${r.heard !== undefined ? ` · gehört: „${r.heard || '–'}“` : ''} · Audio ${((r.audioMs ?? 0) / 1000).toFixed(1)} s${r.lateChunks ? ` (+${r.lateChunks} nachgereicht)` : ''} · ${r.firstAudioMs ?? '–'} ms bis Ton · ${r.source}`}
               right={
                 <span className="flex shrink-0 items-center gap-2">
-                  {!r.error && <span className={`text-sm font-semibold ${r.verbatim ? 'text-green' : 'text-orange'}`}>{r.verbatim ? '✓ wörtlich' : '≠ abweichend'}</span>}
+                  {!r.error && (() => { const ok = r.heardOk ?? r.verbatim; return <span className={`text-sm font-semibold ${ok ? 'text-green' : 'text-orange'}`}>{ok ? '✓ wörtlich' : '≠ abweichend'}</span> })()}
                   <button className="grid h-11 w-11 place-items-center rounded-full text-blue transition hover:bg-fill-3 disabled:opacity-30" disabled={!r.pcm.length} onClick={() => playPcm(r.pcm, r.sampleRate)} aria-label={`${r.text} abspielen`}>
                     <Play size={18} fill="currentColor" />
                   </button>

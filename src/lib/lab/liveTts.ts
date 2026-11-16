@@ -24,7 +24,56 @@ export interface SpeakResult {
   /** PCM 16 bit mono */
   pcm: Int16Array[]
   sampleRate: number
+  /** Länge des empfangenen Audios */
+  audioMs?: number
+  /** Audiostücke, die erst nach „turnComplete“ kamen */
+  lateChunks?: number
+  /** Unabhängige Gegenprüfung: was ein zweites Modell im Audio hört */
+  heard?: string
+  heardOk?: boolean
   error?: string
+}
+
+/** So lange nach „turnComplete“ noch auf nachgeschickte Stücke warten */
+const LATE_GRACE_MS = 700
+
+/** PCM in eine WAV-Datei packen (für die Gegenprüfung) */
+export function pcmToWav(chunks: Int16Array[], sampleRate: number): Uint8Array {
+  const n = chunks.reduce((a, c) => a + c.length, 0)
+  const out = new Uint8Array(44 + n * 2)
+  const dv = new DataView(out.buffer)
+  const w = (o: number, s: string) => { for (let i = 0; i < 4; i++) out[o + i] = s.charCodeAt(i) }
+  w(0, 'RIFF'); dv.setUint32(4, 36 + n * 2, true); w(8, 'WAVE'); w(12, 'fmt ')
+  dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 1, true)
+  dv.setUint32(24, sampleRate, true); dv.setUint32(28, sampleRate * 2, true); dv.setUint16(32, 2, true); dv.setUint16(34, 16, true)
+  w(36, 'data'); dv.setUint32(40, n * 2, true)
+  let o = 44
+  for (const c of chunks) for (let i = 0; i < c.length; i++, o += 2) dv.setInt16(o, c[i], true)
+  return out
+}
+
+/**
+ * Unabhängige Gegenprüfung: Ein normales Gemini-Modell hört sich das erzeugte Audio an und schreibt auf, was es hört.
+ * Die eigene Mitschrift der Live API reicht nicht – sie zeigte schon den vollen Text, obwohl das Audio abgeschnitten war.
+ */
+export async function verifyAudio(apiKey: string, model: string, chunks: Int16Array[], sampleRate: number): Promise<string> {
+  const wav = pcmToWav(chunks, sampleRate)
+  let s = ''
+  for (let i = 0; i < wav.length; i += 0x8000) s += String.fromCharCode(...wav.subarray(i, i + 0x8000))
+  const res = await fetch(`${BASE}/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey.trim())}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ parts: [
+        { text: 'Transkribiere exakt, was in dieser Aufnahme gesprochen wird – nur den gesprochenen Text in Originalsprache und Originalschrift (Koreanisch in Hangul), ohne Übersetzung, ohne Ergänzung. Ist etwas abgeschnitten, schreib nur den hörbaren Teil. Nichts zu hören: leere Antwort.' },
+        { inlineData: { mimeType: 'audio/wav', data: btoa(s) } },
+      ] }],
+      generationConfig: { temperature: 0 },
+    }),
+  })
+  const j = (await res.json().catch(() => ({}))) as { candidates?: { content?: { parts?: { text?: string }[] } }[]; error?: { message?: string } }
+  if (!res.ok) throw new Error(j.error?.message ?? `HTTP ${res.status}`)
+  return (j.candidates?.[0]?.content?.parts?.map((p) => p.text ?? '').join('') ?? '').trim()
 }
 
 const normalize = (s: string) => s.normalize('NFC').replace(/[\s.,!?·'"„“…~-]/g, '').toLowerCase()
@@ -140,16 +189,29 @@ export class LiveSession {
         resolve({ ...res, error: 'Keine offene Verbindung' })
         return
       }
+      let done = false
+      let quiet: ReturnType<typeof setTimeout> | undefined
+      let turnDone = false
       const finish = (error?: string) => {
+        if (done) return
+        done = true
         clearTimeout(timer)
+        clearTimeout(quiet)
         this.handler = null
         res.totalMs = Math.round(performance.now() - t0)
         res.transcript = res.transcript.trim()
         res.verbatim = isVerbatim(text, res.transcript)
+        res.audioMs = Math.round((res.pcm.reduce((a, c) => a + c.length, 0) / res.sampleRate) * 1000)
         resolve(error ? { ...res, error } : res)
       }
       const timer = setTimeout(() => finish('Zeitüberschreitung'), timeoutMs)
       ws.onclose = (e) => finish(`Verbindung geschlossen (${e.code}${e.reason ? ': ' + e.reason : ''})`)
+      // Die Live API schickt Audio und Mitschrift teils NACH „turnComplete“ nach. Deshalb erst abschließen,
+      // wenn danach eine Weile nichts mehr kommt – sonst landet das Wortende beim nächsten Text.
+      const settle = () => {
+        clearTimeout(quiet)
+        quiet = setTimeout(() => finish(), LATE_GRACE_MS)
+      }
       this.handler = (msg) => {
         const sc = msg.serverContent as
           | { modelTurn?: { parts?: { inlineData?: { mimeType?: string; data?: string } }[] }; outputTranscription?: { text?: string }; turnComplete?: boolean }
@@ -160,10 +222,12 @@ export class LiveSession {
             if (res.firstAudioMs === null) res.firstAudioMs = Math.round(performance.now() - t0)
             res.sampleRate = rateOf(p.inlineData.mimeType)
             res.pcm.push(b64ToInt16(p.inlineData.data))
+            if (turnDone) res.lateChunks = (res.lateChunks ?? 0) + 1
           }
         }
         if (sc.outputTranscription?.text) res.transcript += sc.outputTranscription.text
-        if (sc.turnComplete) finish()
+        if (sc.turnComplete) turnDone = true
+        if (turnDone) settle()
       }
       ws.send(JSON.stringify({ clientContent: { turns: [{ role: 'user', parts: [{ text }] }], turnComplete: true } }))
     })
