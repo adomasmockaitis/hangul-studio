@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronLeft, Download, FileArchive, Loader2, Mic, PenLine, Play, Square, Type } from 'lucide-react'
-import { List, ListRow, PageHeader, Segmented, Toggle } from '../components/ui'
+import { List, ListRow, PageHeader, Segmented } from '../components/ui'
 import { loadDisputes } from '../lib/geminiDisputes'
 import { loadSamples } from '../lib/inputToolsLog'
 import { navigate } from '../lib/route'
@@ -8,7 +8,7 @@ import {
   HANDWRITING_CANDIDATES, gemmaModels, generateSentences, listAllModels, readOne, samplesFromExport, samplesFromLocal, sleep,
   type HandResult, type HandSample, type LabModel, type SentenceResult,
 } from '../lib/lab/bench'
-import { LIVE_VOICES, LiveSession, isVerbatim, playPcm, speakWithTtsModel, verifyAudio, type SpeakResult } from '../lib/lab/liveTts'
+import { LIVE_VOICES, LiveSession, isVerbatim, playPcm, speakWithTtsModel, verifyAudio, verifyAudioLive, type SpeakResult } from '../lib/lab/liveTts'
 import { useApp } from '../store'
 
 type Section = 'hand' | 'saetze' | 'stimme'
@@ -326,8 +326,13 @@ function VoiceBench({ apiKey, allModels }: { apiKey: string; allModels: { id: st
   const [results, setResults] = useState<(SpeakResult & { source: string })[]>([])
   const [status, setStatus] = useState('')
   const [running, setRunning] = useState(false)
-  const [check, setCheck] = useState(true)
-  const CHECK_MODEL = 'gemini-3.1-flash-lite'
+  const transcribeModels = useMemo(() => (allModels ?? []).filter((m) => /transcribe/i.test(m.id) && m.methods.includes('bidiGenerateContent')).map((m) => m.id), [allModels])
+  // Prüfer: Transcribe Live (kein Tageslimit) bevorzugt; 3.1 Flash Lite nur als Ausweichlösung, weil es das Handschrift-Kontingent teilt
+  const [checker, setChecker] = useState('')
+  useEffect(() => {
+    if (!checker && allModels) setChecker(transcribeModels[0] ?? 'gemini-3.1-flash-lite')
+  }, [allModels, transcribeModels, checker])
+  const check = checker !== 'aus'
   const lines = text.split('\n').map((l) => l.trim()).filter(Boolean)
 
   const runLive = async () => {
@@ -342,7 +347,7 @@ function VoiceBench({ apiKey, allModels }: { apiKey: string; allModels: { id: st
         const r = await s.speak(l)
         if (check && !r.error && r.pcm.length) {
           try {
-            r.heard = await verifyAudio(apiKey, CHECK_MODEL, r.pcm, r.sampleRate)
+            r.heard = /transcribe/i.test(checker) ? await verifyAudioLive(apiKey, checker, r.pcm, r.sampleRate) : await verifyAudio(apiKey, checker, r.pcm, r.sampleRate)
             r.heardOk = isVerbatim(l, r.heard)
           } catch (e) {
             r.heard = `(Gegenprüfung fehlgeschlagen: ${e instanceof Error ? e.message : 'Fehler'})`
@@ -388,8 +393,14 @@ function VoiceBench({ apiKey, allModels }: { apiKey: string; allModels: { id: st
         />
         <ListRow
           title="Gegenprüfung"
-          subtitle={`${CHECK_MODEL} hört jedes Audio an (1 Anfrage je Text, 500/Tag)`}
-          right={<Toggle checked={check} onChange={setCheck} label="Gegenprüfung" />}
+          subtitle={/transcribe/i.test(checker) ? 'Transcribe Live hört jedes Audio an – ohne Tageslimit' : checker === 'aus' ? 'aus' : 'Teilt das Tageskontingent mit der Handschrift-Prüfung (500/Tag)'}
+          right={
+            <select className="input !w-auto max-w-[14rem]" value={checker} onChange={(e) => setChecker(e.target.value)} aria-label="Gegenprüfung">
+              {transcribeModels.map((m) => <option key={m}>{m}</option>)}
+              <option>gemini-3.1-flash-lite</option>
+              <option value="aus">aus</option>
+            </select>
+          }
         />
         <ListRow
           title="Stimme"

@@ -52,6 +52,93 @@ export function pcmToWav(chunks: Int16Array[], sampleRate: number): Uint8Array {
   return out
 }
 
+/** Lineares Umrechnen auf 16 kHz – die übliche Eingangsrate der Live API */
+function resampleTo16k(chunks: Int16Array[], rate: number): Int16Array {
+  const n = chunks.reduce((a, c) => a + c.length, 0)
+  const src = new Int16Array(n)
+  let o = 0
+  for (const c of chunks) { src.set(c, o); o += c.length }
+  if (rate === 16000) return src
+  const outLen = Math.floor((n * 16000) / rate)
+  const out = new Int16Array(outLen)
+  for (let i = 0; i < outLen; i++) {
+    const x = (i * rate) / 16000
+    const i0 = Math.floor(x)
+    const f = x - i0
+    out[i] = Math.round((src[i0] ?? 0) * (1 - f) + (src[i0 + 1] ?? src[i0] ?? 0) * f)
+  }
+  return out
+}
+const int16ToB64 = (a: Int16Array) => {
+  const b = new Uint8Array(a.buffer, a.byteOffset, a.byteLength)
+  let s = ''
+  for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode(...b.subarray(i, i + 0x8000))
+  return btoa(s)
+}
+
+/**
+ * Gegenprüfung über ein Transcribe-Live-Modell (kein Tageslimit): eigene kurze Verbindung pro Text,
+ * Audio als 16-kHz-PCM senden, danach Ende signalisieren und allen zurückkommenden Text einsammeln.
+ * Das genaue Antwortformat dieses Modells ist nicht dokumentiert – daher werden alle Textfelder gelesen.
+ */
+export function verifyAudioLive(apiKey: string, model: string, chunks: Int16Array[], sampleRate: number, timeoutMs = 12_000): Promise<string> {
+  const pcm16 = resampleTo16k(chunks, sampleRate)
+  return new Promise((resolve, reject) => {
+    const ws = new WebSocket(`${WS}?key=${encodeURIComponent(apiKey.trim())}`)
+    let text = ''
+    let quiet: ReturnType<typeof setTimeout> | undefined
+    let settled = false
+    const end = (err?: Error) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      clearTimeout(quiet)
+      ws.onclose = null
+      ws.close()
+      if (err && !text) reject(err)
+      else resolve(text.trim())
+    }
+    const timer = setTimeout(() => end(new Error('Zeitüberschreitung')), timeoutMs)
+    ws.onerror = () => end(new Error('WebSocket-Fehler'))
+    ws.onclose = (e) => end(new Error(`Verbindung geschlossen (${e.code}${e.reason ? ': ' + e.reason : ''})`))
+    let queue = Promise.resolve()
+    ws.onmessage = (ev) => {
+      queue = queue.then(async () => {
+        const raw = typeof ev.data === 'string' ? ev.data : await (ev.data as Blob).text()
+        let msg: Record<string, unknown>
+        try {
+          msg = JSON.parse(raw)
+        } catch {
+          return
+        }
+        if ('setupComplete' in msg) {
+          // Audio in Stücken zu 0,2 s, dann 0,4 s Stille und Ende des Datenstroms
+          const step = 3200
+          const padded = new Int16Array(pcm16.length + 6400)
+          padded.set(pcm16)
+          for (let i = 0; i < padded.length; i += step) {
+            ws.send(JSON.stringify({ realtimeInput: { audio: { mimeType: 'audio/pcm;rate=16000', data: int16ToB64(padded.subarray(i, i + step)) } } }))
+          }
+          ws.send(JSON.stringify({ realtimeInput: { audioStreamEnd: true } }))
+          return
+        }
+        const sc = msg.serverContent as
+          | { inputTranscription?: { text?: string }; outputTranscription?: { text?: string }; modelTurn?: { parts?: { text?: string }[] }; turnComplete?: boolean }
+          | undefined
+        if (!sc) return
+        const piece = sc.inputTranscription?.text ?? sc.outputTranscription?.text ?? sc.modelTurn?.parts?.map((p) => p.text ?? '').join('') ?? ''
+        if (piece) text += piece
+        clearTimeout(quiet)
+        // Fertig, wenn das Modell den Zug beendet oder 1,5 s lang nichts mehr kommt
+        quiet = setTimeout(() => end(), sc.turnComplete ? 300 : 1500)
+      })
+    }
+    ws.onopen = () => {
+      ws.send(JSON.stringify({ setup: { model: `models/${model}`, inputAudioTranscription: {} } }))
+    }
+  })
+}
+
 /**
  * Unabhängige Gegenprüfung: Ein normales Gemini-Modell hört sich das erzeugte Audio an und schreibt auf, was es hört.
  * Die eigene Mitschrift der Live API reicht nicht – sie zeigte schon den vollen Text, obwohl das Audio abgeschnitten war.
