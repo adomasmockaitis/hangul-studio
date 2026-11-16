@@ -239,7 +239,7 @@ function SentenceBench({ apiKey, allModels }: { apiKey: string; allModels: { id:
     ],
     [allModels],
   )
-  const [chosen, setChosen] = useState<string[]>(['gemini-3.5-flash-lite', 'gemini-3.1-flash-lite'])
+  const [chosen, setChosen] = useState<string[]>(['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite'])
   useEffect(() => {
     if (allModels) setChosen((c) => [...new Set([...c, ...gemmaModels(allModels).map((m) => m.id)])])
   }, [allModels])

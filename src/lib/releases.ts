@@ -24,6 +24,14 @@ export interface Release {
 }
 export const RELEASES: Release[] = [
   {
+    id: '2026-11-model-order',
+    size: 'minor',
+    title: 'Neu in Hangul Studio',
+    subtitle: 'Schnellere Handschrift-Prüfung',
+    summary: 'Die Handschrift-Prüfung fragt jetzt zuerst Gemini 3.1 Flash Lite – im Test das genaueste und schnellste Modell. Ein nicht mehr verfügbares Modell wurde entfernt.',
+    features: [],
+  },
+  {
     id: '2026-11-motion',
     size: 'minor',
     title: 'Neu in Hangul Studio',

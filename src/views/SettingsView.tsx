@@ -85,7 +85,7 @@ export function SettingsView({ sub = '', onRestartOnboarding, onShowWhatsNew }: 
     return () => clearTimeout(id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings.geminiApiKey])
-  const MODEL_NOTES = ['Schnellster · 500 Anfragen/Tag', '500 Anfragen/Tag', 'Stark für große PDFs/Übungsblätter', 'Oft ausgelastet', 'Oft ausgelastet · nur 20/Tag']
+  const MODEL_NOTES = ['Im Test am genauesten und schnellsten · 500/Tag', '500 Anfragen/Tag', 'Gründlicher, langsamer · 20/Tag', 'Oft ausgelastet · 20/Tag']
   const chooseModel = (m: string, check = true) => {
     updateSettings({ geminiModel: m })
     if (m.trim()) setLastWorkingModel(m.trim())

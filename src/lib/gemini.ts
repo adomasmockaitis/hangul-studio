@@ -1,17 +1,20 @@
 ﻿import type { WordItem } from '../types'
 
-/** Fallback-Kette, exakt in dieser Reihenfolge (nur Modelle mit nutzbarem Free-Tier-Limit) */
+/**
+ * Fallback-Kette, exakt in dieser Reihenfolge (nur Modelle mit nutzbarem Free-Tier-Limit).
+ * Reihenfolge nach dem Testlabor (16.11.2026, 15 Handschrift-Beispiele): 3.1 Flash Lite 100 % in Ø 2,4 s,
+ * 3.5 Flash Lite 93 % in Ø 3,5 s, 3.6 Flash 93 % in Ø 6,2 s; 3.8 Flash meist überlastet, gemini-3-flash existiert nicht mehr.
+ */
 export const MODEL_CHAIN = [
-  'gemini-3.5-flash-lite',
   'gemini-3.1-flash-lite',
-  'gemini-3-flash',
+  'gemini-3.5-flash-lite',
   'gemini-3.6-flash',
   'gemini-3.8-flash',
 ] as const
 export const DEFAULT_MODEL = MODEL_CHAIN[0]
 export const MODEL_PRESETS: readonly string[] = MODEL_CHAIN
 /** Frühere Standardmodelle, die ersetzt werden */
-export const OBSOLETE_MODELS = ['gemini-2.5-flash', 'gemini-3.0-flash']
+export const OBSOLETE_MODELS = ['gemini-2.5-flash', 'gemini-3.0-flash', 'gemini-3-flash']
 
 const BASE = 'https://generativelanguage.googleapis.com/v1beta'
 const REQUEST_TIMEOUT_MS = 8000

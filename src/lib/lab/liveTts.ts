@@ -30,11 +30,41 @@ export interface SpeakResult {
 const normalize = (s: string) => s.normalize('NFC').replace(/[\s.,!?·'"„“…~-]/g, '').toLowerCase()
 export const isVerbatim = (text: string, transcript: string) => !!transcript && normalize(text) === normalize(transcript)
 
-function b64ToInt16(b64: string): Int16Array {
+function b64ToBytes(b64: string): Uint8Array {
   const bin = atob(b64)
   const bytes = new Uint8Array(bin.length)
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
+  return bytes
+}
+function b64ToInt16(b64: string): Int16Array {
+  const bytes = b64ToBytes(b64)
   return new Int16Array(bytes.buffer, 0, Math.floor(bytes.length / 2))
+}
+
+/**
+ * Audio aus einer TTS-Antwort: Ist es eine WAV-Datei, nur den „data“-Block nehmen.
+ * Metadaten-Blöcke (z. B. LIST am Dateiende) würden sonst als lautes Rauschen abgespielt.
+ */
+export function pcmFromAudio(bytes: Uint8Array, mime: string | undefined): { pcm: Int16Array; rate: number } {
+  const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+  const tag = (o: number) => String.fromCharCode(bytes[o], bytes[o + 1], bytes[o + 2], bytes[o + 3])
+  if (bytes.length > 12 && tag(0) === 'RIFF' && tag(8) === 'WAVE') {
+    let rate = 24000
+    let o = 12
+    while (o + 8 <= bytes.length) {
+      const id = tag(o)
+      const size = dv.getUint32(o + 4, true)
+      if (id === 'fmt ') rate = dv.getUint32(o + 12, true)
+      if (id === 'data') {
+        const len = Math.min(size, bytes.length - o - 8)
+        const copy = bytes.slice(o + 8, o + 8 + len - (len % 2))
+        return { pcm: new Int16Array(copy.buffer), rate }
+      }
+      o += 8 + size + (size % 2)
+    }
+  }
+  const copy = bytes.slice(0, bytes.length - (bytes.length % 2))
+  return { pcm: new Int16Array(copy.buffer), rate: rateOf(mime) }
 }
 const rateOf = (mime: string | undefined) => Number(/rate=(\d+)/.exec(mime ?? '')?.[1] ?? 24000)
 
@@ -63,20 +93,25 @@ export class LiveSession {
         clearTimeout(timer)
         reject(new Error(`Verbindung geschlossen (${e.code}${e.reason ? ': ' + e.reason : ''})`))
       }
-      ws.onmessage = async (ev) => {
-        const raw = typeof ev.data === 'string' ? ev.data : await (ev.data as Blob).text()
-        let msg: Record<string, unknown>
-        try {
-          msg = JSON.parse(raw)
-        } catch {
-          return
-        }
-        if ('setupComplete' in msg) {
-          clearTimeout(timer)
-          resolve(Math.round(performance.now() - t0))
-          return
-        }
-        this.handler?.(msg)
+      // Nachrichten strikt in Ankunftsreihenfolge verarbeiten: Blob.text() ist asynchron, sonst könnte
+      // „turnComplete“ vor dem letzten Audiostück ankommen und das Wortende abschneiden.
+      let queue = Promise.resolve()
+      ws.onmessage = (ev) => {
+        queue = queue.then(async () => {
+          const raw = typeof ev.data === 'string' ? ev.data : await (ev.data as Blob).text()
+          let msg: Record<string, unknown>
+          try {
+            msg = JSON.parse(raw)
+          } catch {
+            return
+          }
+          if ('setupComplete' in msg) {
+            clearTimeout(timer)
+            resolve(Math.round(performance.now() - t0))
+            return
+          }
+          this.handler?.(msg)
+        })
       }
       ws.onopen = () => {
         ws.send(
@@ -161,11 +196,9 @@ export async function speakWithTtsModel(apiKey: string, model: string, voice: st
     if (!res.ok) return { ...base, totalMs, error: j.error?.message ?? `HTTP ${res.status}` }
     const part = j.candidates?.[0]?.content?.parts?.find((p) => p.inlineData?.data)
     if (!part?.inlineData?.data) return { ...base, totalMs, error: 'Kein Audio in der Antwort' }
-    let pcm = b64ToInt16(part.inlineData.data)
-    // WAV-Kopf (RIFF) überspringen, falls vorhanden
-    if (/wav/i.test(part.inlineData.mimeType ?? '')) pcm = pcm.subarray(22)
+    const { pcm, rate } = pcmFromAudio(b64ToBytes(part.inlineData.data), part.inlineData.mimeType)
     // TTS-Modelle lesen laut Doku wörtlich; keine Mitschrift verfügbar
-    return { ...base, transcript: '(TTS-Modell, keine Mitschrift)', verbatim: true, firstAudioMs: totalMs, totalMs, pcm: [pcm], sampleRate: rateOf(part.inlineData.mimeType) }
+    return { ...base, transcript: '(TTS-Modell, keine Mitschrift)', verbatim: true, firstAudioMs: totalMs, totalMs, pcm: [pcm], sampleRate: rate }
   } catch {
     return { ...base, totalMs: Math.round(performance.now() - t0), error: 'Netzwerkfehler' }
   }
@@ -181,6 +214,13 @@ export function playPcm(chunks: Int16Array[], sampleRate: number) {
   const ch = buf.getChannelData(0)
   let o = 0
   for (const c of chunks) for (let i = 0; i < c.length; i++) ch[o++] = c[i] / 32768
+  // 15 ms ein- und ausblenden, damit Anfang und Ende nicht knacken
+  const fade = Math.min(Math.floor(sampleRate * 0.015), Math.floor(total / 4))
+  for (let i = 0; i < fade; i++) {
+    const g = i / fade
+    ch[i] *= g
+    ch[total - 1 - i] *= g
+  }
   const src = ctx.createBufferSource()
   src.buffer = buf
   src.connect(ctx.destination)

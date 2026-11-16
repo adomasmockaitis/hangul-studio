@@ -20,7 +20,6 @@ export interface LabModel {
 export const HANDWRITING_CANDIDATES: LabModel[] = [
   { id: 'gemini-3.5-flash-lite', rpm: 15, rpd: 500 },
   { id: 'gemini-3.1-flash-lite', rpm: 15, rpd: 500 },
-  { id: 'gemini-3-flash', rpm: 5, rpd: 20 },
   { id: 'gemini-3.6-flash', rpm: 5, rpd: 20 },
   { id: 'gemini-3.8-flash', rpm: 5, rpd: 20 },
 ]
@@ -262,6 +261,9 @@ export function checkSentence(particle: '이/가' | '을/를', it: { sentence?: 
   if (gaps !== 1) return { ...base, valid: false, problem: `${gaps} Lücken statt 1` }
   const head = sentence.split('___')[0]
   if (!head || /\s$/.test(head)) return { ...base, valid: false, problem: 'Lücke steht nicht direkt am Nomen' }
+  // Nach der Lücke muss ein eigenes Wort folgen (Prädikat), sonst entstehen Sätze wie „학교___어요“
+  const tail = sentence.split('___')[1] ?? ''
+  if (!/^\s+[가-힣]/.test(tail)) return { ...base, valid: false, problem: 'kein Prädikat nach der Lücke' }
   const before = head.trim().split(/\s+/).pop() ?? ''
   const [withB, withoutB] = PAIR[particle]
   const expected = hasBatchim(before) ? withB : withoutB
