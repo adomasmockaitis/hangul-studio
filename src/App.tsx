@@ -14,6 +14,7 @@ import { ConfirmProvider } from './components/ui'
 import { Dashboard } from './views/Dashboard'
 import { Dictionary } from './views/Dictionary'
 import { Practice } from './views/Practice'
+import { Lab } from './views/Lab'
 import { SettingsView } from './views/SettingsView'
 
 const NAV: { id: Tab; label: string; icon: LucideIcon }[] = [
@@ -64,7 +65,7 @@ function Shell() {
           </div>
           <nav aria-label="Hauptnavigation" className="relative space-y-1">
             {/* Auswahl gleitet zur gewählten Zeile (44 px Zeile + 4 px Abstand) */}
-            <span aria-hidden className="ease-spring pointer-events-none absolute inset-x-0 top-0 h-11 rounded-full bg-fill-2 transition-transform duration-300" style={{ transform: `translateY(${idx * 48}px)` }} />
+            <span aria-hidden className="ease-spring pointer-events-none absolute inset-x-0 top-0 h-11 rounded-full bg-fill-2 transition-transform duration-300" style={{ transform: `translateY(${idx * 48}px)`, opacity: idx < 0 ? 0 : 1 }} />
             {NAV.map((n) => (
               <button
                 key={n.id}
@@ -88,6 +89,7 @@ function Shell() {
           {tab === 'start' && <Dashboard />}
           {tab === 'woerter' && <Dictionary />}
           {tab === 'ueben' && <Practice sub={sub} />}
+          {tab === 'labor' && <Lab />}
           {tab === 'einstellungen' && <SettingsView sub={sub} onRestartOnboarding={() => setOnboarding(true)} onShowWhatsNew={() => setWhatsNew(true)} />}
         </div>
       </main>
@@ -101,7 +103,7 @@ function Shell() {
         className="glass fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-40 mx-auto max-w-md rounded-full p-1 md:hidden"
       >
         <div className="relative flex">
-        <span aria-hidden className="ease-spring pointer-events-none absolute inset-y-0 left-0 w-1/4 rounded-full bg-fill-2 transition-transform duration-300" style={{ transform: `translateX(${idx * 100}%)` }} />
+        <span aria-hidden className="ease-spring pointer-events-none absolute inset-y-0 left-0 w-1/4 rounded-full bg-fill-2 transition-transform duration-300" style={{ transform: `translateX(${idx * 100}%)`, opacity: idx < 0 ? 0 : 1 }} />
         {NAV.map((n) => (
           <button
             key={n.id}

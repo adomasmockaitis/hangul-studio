@@ -4,8 +4,9 @@ import { useSyncExternalStore } from 'react'
  * Kleines Hash-Routing (#/ueben/quiz). Funktioniert auf GitHub Pages ohne Server-Regeln;
  * Zurück-Taste und Neuladen bleiben auf der Seite.
  */
-export type Tab = 'start' | 'ueben' | 'woerter' | 'einstellungen'
-const TABS: Tab[] = ['start', 'ueben', 'woerter', 'einstellungen']
+export type Tab = 'start' | 'ueben' | 'woerter' | 'einstellungen' | 'labor'
+/** 'labor' ist eine versteckte Testseite ohne eigenen Tab */
+const TABS: Tab[] = ['start', 'ueben', 'woerter', 'einstellungen', 'labor']
 
 const read = () => window.location.hash.replace(/^#\/?/, '').replace(/\/+$/, '')
 

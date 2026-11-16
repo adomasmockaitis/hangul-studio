@@ -1,5 +1,5 @@
 ﻿import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { ArrowDown, ArrowUp, ChevronLeft, Cloud, CloudOff, Download, Zap, Eye, EyeOff, Info, Loader2, Monitor, Moon, PenLine, RefreshCw, RotateCcw, Sparkles, Sun, Trash2, Upload, Volume2, Wrench, type LucideIcon } from 'lucide-react'
+import { ArrowDown, ArrowUp, ChevronLeft, Cloud, FlaskConical, CloudOff, Download, Zap, Eye, EyeOff, Info, Loader2, Monitor, Moon, PenLine, RefreshCw, RotateCcw, Sparkles, Sun, Trash2, Upload, Volume2, Wrench, type LucideIcon } from 'lucide-react'
 import { List, ListRow, PageHeader, Segmented, Toggle, useConfirm } from '../components/ui'
 import { navigate } from '../lib/route'
 import { speakWord } from '../lib/speech'
@@ -480,6 +480,9 @@ export function SettingsView({ sub = '', onRestartOnboarding, onShowWhatsNew }: 
       </Section>}
 
       {page === 'erweitert' && <Section title="Entwickler">
+        <Row title="Testlabor" desc="Modelle für Handschrift und Sätze vergleichen und Vorlese-Stimmen testen – mit deinem Key, nur in diesem Browser.">
+          <button className="btn-soft" onClick={() => navigate('/labor')}><FlaskConical size={16} /> Testlabor öffnen</button>
+        </Row>
         <Row title="Alles exportieren (eine Datei)" desc="Ein Klick: wartende Fälle werden zuerst von Gemini nachgeprüft, dann entsteht EINE .zip-Datei mit allen Daten (data.json) und allen Bildern (Ordner images/). Diese Datei kannst du mir geben, damit ich Input-Tools-Erkennung und Gemini-Prompt auswerten und verbessern kann." stack>
           <div className="flex flex-wrap items-center gap-3">
             <button className="btn-primary !px-5 !py-2.5" disabled={exporting || (!sum.total && !disputes.length && !pendingCount)} onClick={() => void runExport()}>
