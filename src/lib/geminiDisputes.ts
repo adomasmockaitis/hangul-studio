@@ -1,3 +1,4 @@
+import { kvStorage } from './storage'
 /**
  * Sammelt Widersprüche gegen Gemini-Urteile (lokal), damit der Prompt später gezielt verbessert werden kann.
  * Enthält bewusst das Bild: es ist klein (max. 256 px) und die wichtigste Information für die Auswertung.
@@ -27,7 +28,7 @@ export interface GeminiDispute {
 
 export function loadDisputes(): GeminiDispute[] {
   try {
-    const raw = localStorage.getItem(KEY)
+    const raw = kvStorage.getItem(KEY)
     const arr = raw ? (JSON.parse(raw) as GeminiDispute[]) : []
     return Array.isArray(arr) ? arr : []
   } catch {
@@ -39,11 +40,11 @@ export function addDispute(d: Omit<GeminiDispute, 'id' | 'ts'>): void {
   const all = loadDisputes()
   all.push({ ...d, id: crypto.randomUUID(), ts: Date.now() })
   try {
-    localStorage.setItem(KEY, JSON.stringify(all.slice(-MAX_ENTRIES)))
+    kvStorage.setItem(KEY, JSON.stringify(all.slice(-MAX_ENTRIES)))
   } catch {
     // Speicher voll: ohne Bilder erneut versuchen
     try {
-      localStorage.setItem(KEY, JSON.stringify(all.slice(-MAX_ENTRIES).map((x) => ({ ...x, imagePng: undefined }))))
+      kvStorage.setItem(KEY, JSON.stringify(all.slice(-MAX_ENTRIES).map((x) => ({ ...x, imagePng: undefined }))))
     } catch {
       /* ignore */
     }
@@ -52,7 +53,7 @@ export function addDispute(d: Omit<GeminiDispute, 'id' | 'ts'>): void {
 
 export function clearDisputes(): void {
   try {
-    localStorage.removeItem(KEY)
+    kvStorage.removeItem(KEY)
   } catch {
     /* ignore */
   }

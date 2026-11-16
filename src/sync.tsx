@@ -48,7 +48,7 @@ function loadCfg(): { enabled: boolean; lastSync: number | null } {
 }
 
 export function SyncProvider({ children }: { children: ReactNode }) {
-  const { words, deleted, activity, settings, applySyncPayload } = useApp()
+  const { words, deleted, activity, settings, folders, deletedFolders, applySyncPayload } = useApp()
   const toast = useToast()
   const cfg0 = useMemo(loadCfg, [])
   const [enabled, setEnabled] = useState(cfg0.enabled)
@@ -60,8 +60,8 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   const clientId = settings.googleClientId.trim() || ENV_CLIENT_ID
 
   // Aktueller Stand für Abgleiche, ohne ständig neue Funktionen zu erzeugen
-  const live = useRef({ words, deleted, activity, settings })
-  live.current = { words, deleted, activity, settings }
+  const live = useRef({ words, deleted, activity, settings, folders, deletedFolders })
+  live.current = { words, deleted, activity, settings, folders, deletedFolders }
   const busy = useRef(false)
   const lastFp = useRef('')
   const lastRun = useRef(0)
@@ -86,6 +86,8 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       activity: live.current.activity,
       settings: out,
       settingsUpdatedAt: s.settingsUpdatedAt ?? 0,
+      folders: live.current.folders,
+      deletedFolders: live.current.deletedFolders,
     }
   }, [])
 
@@ -205,7 +207,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       if (fingerprint(getLocal()) !== lastFp.current) void run(false)
     }, 4000)
     return () => clearTimeout(id)
-  }, [words, deleted, activity, settings, enabled, clientId, getLocal, run])
+  }, [words, deleted, activity, settings, folders, deletedFolders, enabled, clientId, getLocal, run])
 
   // Anmeldung erneuern. Google erlaubt das nur direkt nach einem Klick (sonst blockiert der Browser das kurze
   // Anmeldefenster). Deshalb: Läuft die Anmeldung bald ab oder fehlt sie nach einem Neustart, wird sie beim

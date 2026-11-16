@@ -1,3 +1,4 @@
+import { kvStorage } from './storage'
 /**
  * Sammelt Rückmeldungen zur Input-Tools-Erkennung (lokal im Browser), damit sie später
  * als JSON-Datei exportiert und zur Verbesserung der Erkennung ausgewertet werden können.
@@ -37,7 +38,7 @@ export interface InputToolsSample {
 
 export function loadSamples(): InputToolsSample[] {
   try {
-    const raw = localStorage.getItem(KEY)
+    const raw = kvStorage.getItem(KEY)
     const arr = raw ? (JSON.parse(raw) as InputToolsSample[]) : []
     return Array.isArray(arr) ? arr : []
   } catch {
@@ -50,11 +51,11 @@ export function addSample(s: Omit<InputToolsSample, 'id' | 'ts'>): string {
   const id = crypto.randomUUID()
   all.push({ ...s, id, ts: Date.now() })
   try {
-    localStorage.setItem(KEY, JSON.stringify(all.slice(-MAX_ENTRIES)))
+    kvStorage.setItem(KEY, JSON.stringify(all.slice(-MAX_ENTRIES)))
   } catch {
     // Speicher knapp: Bilder weglassen und noch einmal versuchen
     try {
-      localStorage.setItem(KEY, JSON.stringify(all.slice(-MAX_ENTRIES).map((x) => ({ ...x, imagePng: undefined }))))
+      kvStorage.setItem(KEY, JSON.stringify(all.slice(-MAX_ENTRIES).map((x) => ({ ...x, imagePng: undefined }))))
     } catch {
       /* Speicher voll – Eintrag verwerfen */
     }
@@ -72,7 +73,7 @@ export interface AgreementCounter {
 
 export function loadAgreement(): AgreementCounter {
   try {
-    const j = JSON.parse(localStorage.getItem(AGREE_KEY) || '{}') as Partial<AgreementCounter>
+    const j = JSON.parse(kvStorage.getItem(AGREE_KEY) || '{}') as Partial<AgreementCounter>
     return { agree: j.agree ?? 0, disagree: j.disagree ?? 0 }
   } catch {
     return { agree: 0, disagree: 0 }
@@ -85,7 +86,7 @@ export function bumpAgreement(agreed: boolean): void {
   if (agreed) c.agree++
   else c.disagree++
   try {
-    localStorage.setItem(AGREE_KEY, JSON.stringify(c))
+    kvStorage.setItem(AGREE_KEY, JSON.stringify(c))
   } catch {
     /* ignore */
   }
@@ -93,7 +94,7 @@ export function bumpAgreement(agreed: boolean): void {
 
 export function clearAgreement(): void {
   try {
-    localStorage.removeItem(AGREE_KEY)
+    kvStorage.removeItem(AGREE_KEY)
   } catch {
     /* ignore */
   }
@@ -106,7 +107,7 @@ export function updateSample(id: string, patch: Partial<InputToolsSample>): void
   if (i < 0) return
   all[i] = { ...all[i], ...patch }
   try {
-    localStorage.setItem(KEY, JSON.stringify(all))
+    kvStorage.setItem(KEY, JSON.stringify(all))
   } catch {
     /* ignore */
   }
@@ -115,7 +116,7 @@ export function updateSample(id: string, patch: Partial<InputToolsSample>): void
 export function clearSamples(): void {
   clearAgreement()
   try {
-    localStorage.removeItem(KEY)
+    kvStorage.removeItem(KEY)
   } catch {
     /* ignore */
   }

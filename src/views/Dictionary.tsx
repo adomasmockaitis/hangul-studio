@@ -1,11 +1,17 @@
 ﻿import { useMemo, useState } from 'react'
-import { ChevronRight, Loader2, Plus, ScanText, Search, Sparkles, Trash2, Volume2 } from 'lucide-react'
-import { PageHeader, Sheet, useConfirm } from '../components/ui'
+import {
+  Check, ChevronLeft, ChevronRight, CircleDashed, Folder as FolderIcon, FolderInput, FolderPlus, Loader2, Pencil, Plus, ScanText, Search, Sparkles, Tag, Trash2, Volume2,
+} from 'lucide-react'
+import { List, ListRow, PageHeader, Sheet, useConfirm } from '../components/ui'
 import { parseTags, UploadScanner } from '../components/UploadScanner'
+import { canAddSubfolder, chapterTagSuggestions, countWords, effectiveFolder, folderPath, sortFolders } from '../lib/folders'
 import { completeWord } from '../lib/gemini'
+import { navigate, useRoute } from '../lib/route'
+import { playSound } from '../lib/sounds'
 import { speakWord } from '../lib/speech'
+import { getItem, setItem } from '../lib/storage'
 import { useApp } from '../store'
-import { CONJUGATION_KEYS, CONJUGATION_LABELS, WORD_TYPE_LABELS, type Conjugations, type WordItem, type WordType } from '../types'
+import { CONJUGATION_KEYS, CONJUGATION_LABELS, WORD_TYPE_LABELS, type Conjugations, type Folder, type WordItem, type WordType } from '../types'
 
 interface Draft {
   korean: string
@@ -14,12 +20,16 @@ interface Draft {
   wordType: WordType
   tags: string
   conj: Conjugations
+  folderId: string
 }
 
-const emptyDraft: Draft = { korean: '', german: '', pronunciation: '', wordType: 'noun', tags: '', conj: {} }
+const emptyDraft = (folderId: string | null): Draft => ({ korean: '', german: '', pronunciation: '', wordType: 'noun', tags: '', conj: {}, folderId: folderId ?? '' })
 
-function toDraft(w: WordItem): Draft {
-  return { korean: w.korean, german: w.german, pronunciation: w.pronunciation ?? '', wordType: w.wordType, tags: w.tags.join(' '), conj: w.conjugations ?? {} }
+function toDraft(w: WordItem, folderIds: Set<string>): Draft {
+  return {
+    korean: w.korean, german: w.german, pronunciation: w.pronunciation ?? '', wordType: w.wordType,
+    tags: w.tags.join(' '), conj: w.conjugations ?? {}, folderId: effectiveFolder(w, folderIds) ?? '',
+  }
 }
 
 type Sort = 'new' | 'old' | 'errors'
@@ -29,9 +39,34 @@ const errorRate = (w: WordItem) => {
   return t ? w.stats.wrongCount / t : -1
 }
 
+const NO_FOLDER = 'ohne'
+const K_CHAPTER_OFFER = 'hangul-studio:chapter-offer-done'
+
+/** Ordner als eingerückte Liste in Baumreihenfolge */
+function flatTree(folders: Folder[]): { f: Folder; depth: number }[] {
+  const out: { f: Folder; depth: number }[] = []
+  const walk = (parent: string | null, depth: number) => {
+    for (const f of sortFolders(folders.filter((x) => x.parentId === parent))) {
+      out.push({ f, depth })
+      walk(f.id, depth + 1)
+    }
+  }
+  walk(null, 0)
+  return out
+}
+
 export function Dictionary() {
-  const { words, settings, addWord, updateWord, deleteWord } = useApp()
+  const {
+    words, settings, folders, addWord, updateWord, deleteWord, addFolder, renameFolder, deleteFolder, moveWords, addTagToWords, convertChapterTags,
+  } = useApp()
   const confirm = useConfirm()
+  const { sub } = useRoute()
+  const folderIds = useMemo(() => new Set(folders.map((f) => f.id)), [folders])
+  // Ort: '' = Übersicht, 'ohne' = ohne Ordner, sonst Ordner-ID
+  const place = sub === NO_FOLDER ? NO_FOLDER : sub && folderIds.has(sub) ? sub : ''
+  const current = place && place !== NO_FOLDER ? folders.find((f) => f.id === place)! : null
+  const path = useMemo(() => folderPath(folders, current?.id ?? null), [folders, current])
+
   const [q, setQ] = useState('')
   const [tag, setTag] = useState('')
   const [sort, setSort] = useState<Sort>('new')
@@ -39,16 +74,47 @@ export function Dictionary() {
   const [scanner, setScanner] = useState(false)
   const [aiBusy, setAiBusy] = useState(false)
   const [aiMsg, setAiMsg] = useState('')
+  const [selecting, setSelecting] = useState(false)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [nameSheet, setNameSheet] = useState<{ mode: 'new' | 'rename'; parentId: string | null; id?: string; name: string } | null>(null)
+  const [moveSheet, setMoveSheet] = useState(false)
+  const [tagSheet, setTagSheet] = useState<string | null>(null)
+  const [deleteSheet, setDeleteSheet] = useState<Folder | null>(null)
+  const [offerDone, setOfferDone] = useState(() => getItem<boolean>(K_CHAPTER_OFFER, false))
+  const [notice, setNotice] = useState('')
+
+  const counts = useMemo(() => countWords(folders, words), [folders, words])
+  const noFolderCount = useMemo(() => words.filter((w) => !effectiveFolder(w, folderIds)).length, [words, folderIds])
+  const childFolders = useMemo(() => (place === NO_FOLDER ? [] : sortFolders(folders.filter((f) => f.parentId === (current?.id ?? null)))), [folders, current, place])
+  const chapterTags = useMemo(() => chapterTagSuggestions(words, folderIds), [words, folderIds])
 
   const tags = useMemo(() => [...new Set(words.flatMap((w) => w.tags))].sort(), [words])
   const list = useMemo(() => {
     const s = q.trim().toLowerCase()
-    const f = words.filter((w) => (!tag || w.tags.includes(tag)) && (!s || w.korean.includes(s) || w.german.toLowerCase().includes(s)))
+    const inPlace = (w: WordItem) => {
+      const f = effectiveFolder(w, folderIds)
+      if (place === '') return true
+      if (place === NO_FOLDER) return f === null
+      return f === place
+    }
+    const f = words.filter((w) => inPlace(w) && (!tag || w.tags.includes(tag)) && (!s || w.korean.includes(s) || w.german.toLowerCase().includes(s)))
     return f.sort((a, b) =>
       sort === 'new' ? b.createdAt - a.createdAt : sort === 'old' ? a.createdAt - b.createdAt : errorRate(b) - errorRate(a) || b.stats.wrongCount - a.stats.wrongCount,
     )
-  }, [words, q, tag, sort])
+  }, [words, q, tag, sort, place, folderIds])
+  const folderName = (w: WordItem) => {
+    const id = effectiveFolder(w, folderIds)
+    return id ? folderPath(folders, id).map((f) => f.name).join(' › ') : ''
+  }
 
+  const go = (to: string) => {
+    setSelecting(false)
+    setSelected(new Set())
+    setQ('')
+    navigate(to ? `/woerter/${to}` : '/woerter')
+  }
+
+  // ---------- Wort bearbeiten ----------
   const draft = editing?.draft
   const setDraft = (patch: Partial<Draft>) => setEditing((e) => (e ? { ...e, draft: { ...e.draft, ...patch } } : e))
   const isConj = draft?.wordType === 'verb' || draft?.wordType === 'adjective'
@@ -63,6 +129,7 @@ export function Dictionary() {
       wordType: draft.wordType,
       tags: parseTags(draft.tags),
       conjugations: isConj && Object.keys(conj).length ? (conj as Conjugations) : undefined,
+      folderId: draft.folderId || undefined,
     }
     if (editing.id) updateWord(editing.id, base)
     else addWord(base)
@@ -89,15 +156,71 @@ export function Dictionary() {
     }
   }
 
+  // ---------- Auswahl ----------
+  const toggle = (id: string) =>
+    setSelected((s) => {
+      const n = new Set(s)
+      if (n.has(id)) n.delete(id)
+      else n.add(id)
+      return n
+    })
+  const allSelected = list.length > 0 && list.every((w) => selected.has(w.id))
+
+  // ---------- Ordner ----------
+  const submitName = () => {
+    if (!nameSheet || !nameSheet.name.trim()) return
+    if (nameSheet.mode === 'rename' && nameSheet.id) renameFolder(nameSheet.id, nameSheet.name)
+    else addFolder(nameSheet.name, nameSheet.parentId)
+    setNameSheet(null)
+  }
+
+  const askDelete = async (f: Folder) => {
+    if ((counts.get(f.id) ?? 0) === 0) {
+      const sub = folders.some((x) => x.parentId === f.id)
+      if (await confirm({ title: `„${f.name}“ löschen?`, message: sub ? 'Der Ordner und seine leeren Unterordner werden gelöscht.' : 'Der Ordner ist leer.', confirmLabel: 'Löschen', destructive: true })) {
+        deleteFolder(f.id, 'move')
+        go(f.parentId ?? '')
+      }
+    } else setDeleteSheet(f)
+  }
+
+  const convert = () => {
+    const n = convertChapterTags()
+    setItem(K_CHAPTER_OFFER, true)
+    setOfferDone(true)
+    setNotice(`${n} Wörter in ${chapterTags.size} Ordner einsortiert.`)
+    playSound('success')
+  }
+
+  const canSub = current ? canAddSubfolder(folders, current.id) : place === ''
+  const title = place === NO_FOLDER ? 'Ohne Ordner' : current ? current.name : 'Wörter'
+  const backTo = path.length > 1 ? path[path.length - 2] : null
+
   return (
-    <div className="mx-auto max-w-4xl">
+    <div className="mx-auto max-w-4xl pb-24">
+      {place !== '' && (
+        <button className="-ml-2 mb-1 flex min-h-11 items-center gap-0.5 rounded-full px-2 text-base font-medium text-blue transition hover:bg-fill-4" onClick={() => go(backTo?.id ?? '')}>
+          <ChevronLeft size={22} /> {backTo?.name ?? 'Wörter'}
+        </button>
+      )}
       <PageHeader
-        title="Wörter"
-        subtitle={`${words.length} Wörter`}
+        title={title}
+        subtitle={`${list.length} ${list.length === 1 ? 'Wort' : 'Wörter'}${place === '' && folders.length ? ` · ${folders.length} ${folders.length === 1 ? 'Ordner' : 'Ordner'}` : ''}`}
         right={
           <div className="flex flex-wrap gap-2">
-            <button className="btn-soft" onClick={() => setScanner(true)}><ScanText size={16} /> Datei scannen</button>
-            <button className="btn-primary" onClick={() => setEditing({ id: null, draft: emptyDraft })}><Plus size={16} /> Neues Wort</button>
+            {place === '' && <button className="btn-soft" onClick={() => setScanner(true)}><ScanText size={16} /> Datei scannen</button>}
+            {canSub && (
+              <button className="btn-soft" onClick={() => setNameSheet({ mode: 'new', parentId: current?.id ?? null, name: '' })}>
+                <FolderPlus size={16} /> {current ? 'Unterordner' : 'Neuer Ordner'}
+              </button>
+            )}
+            {current && (
+              <>
+                <button className="btn-soft !px-3" aria-label="Ordner umbenennen" title="Umbenennen" onClick={() => setNameSheet({ mode: 'rename', parentId: current.parentId, id: current.id, name: current.name })}><Pencil size={16} /></button>
+                <button className="btn-soft !px-3 !text-red" aria-label="Ordner löschen" title="Löschen" onClick={() => void askDelete(current)}><Trash2 size={16} /></button>
+              </>
+            )}
+            <button className="btn-primary" onClick={() => setEditing({ id: null, draft: emptyDraft(current?.id ?? null) })}><Plus size={16} /> Neues Wort</button>
           </div>
         }
       />
@@ -106,14 +229,50 @@ export function Dictionary() {
         <UploadScanner />
       </Sheet>
 
-      <div className="mb-4 flex flex-wrap gap-2">
+      {/* Einmaliges Angebot: Kapitel-Tags in Ordner umwandeln */}
+      {place === '' && !offerDone && chapterTags.size > 0 && (
+        <div className="card fade-up mb-6 p-5">
+          <p className="flex items-center gap-2 font-semibold"><FolderInput size={18} className="text-blue" /> Kapitel als Ordner?</p>
+          <p className="mt-1 text-sm text-label-2">
+            Deine Wörter haben Kapitel-Tags. Daraus können Ordner werden:{' '}
+            {[...chapterTags.entries()].sort(([a], [b]) => a.localeCompare(b, 'de', { numeric: true })).map(([n, c]) => `${n} (${c})`).join(', ')}. Der Kapitel-Tag wird dabei entfernt, alle anderen Tags bleiben.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button className="btn-primary" onClick={convert}>In Ordner umwandeln</button>
+            <button className="btn-soft" onClick={() => { setItem(K_CHAPTER_OFFER, true); setOfferDone(true) }}>Nein, danke</button>
+          </div>
+        </div>
+      )}
+      {notice && <p className="fade-up mb-4 px-4 text-sm text-green">{notice}</p>}
+
+      {/* Ordner */}
+      {(childFolders.length > 0 || (place === '' && folders.length > 0)) && (
+        <List title={current ? 'Unterordner' : 'Ordner'}>
+          {childFolders.map((f) => (
+            <ListRow
+              key={f.id}
+              icon={<FolderIcon size={17} />}
+              iconColor="var(--color-blue)"
+              title={f.name}
+              value={counts.get(f.id) ?? 0}
+              onClick={() => go(f.id)}
+            />
+          ))}
+          {place === '' && (
+            <ListRow icon={<CircleDashed size={17} />} iconColor="#8e8e93" title="Ohne Ordner" value={noFolderCount} onClick={() => go(NO_FOLDER)} />
+          )}
+        </List>
+      )}
+
+      {/* Suche und Filter */}
+      <div className="mb-3 flex flex-wrap gap-2">
         <div className="relative w-full sm:w-auto sm:flex-1 sm:basis-48">
           <Search size={17} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-label-2" />
           <input
             type="search"
             aria-label="Wörter durchsuchen"
             className="min-h-11 w-full rounded-xl bg-fill-3 pl-9 pr-3 text-base outline-none transition placeholder:text-label-2 focus:ring-2 focus:ring-blue/40"
-            placeholder="Suchen"
+            placeholder={place === '' ? 'In allen Wörtern suchen' : 'In diesem Ordner suchen'}
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
@@ -129,18 +288,36 @@ export function Dictionary() {
         </select>
       </div>
 
+      <div className="mb-1.5 flex items-center justify-between px-4">
+        <h2 className="text-xs font-medium text-label-2">{place === '' ? 'Alle Wörter' : 'Wörter'}</h2>
+        {list.length > 0 && (
+          <button
+            className="min-h-9 rounded-full px-3 text-sm font-medium text-blue transition hover:bg-fill-4"
+            onClick={() => { setSelecting((s) => !s); setSelected(new Set()) }}
+          >
+            {selecting ? 'Fertig' : 'Auswählen'}
+          </button>
+        )}
+      </div>
       <div className="stagger card divide-y divide-separator overflow-hidden">
-        {list.length === 0 && <p className="p-6 text-center text-sm text-label-2">Keine Wörter gefunden.</p>}
+        {list.length === 0 && <p className="p-6 text-center text-sm text-label-2">{q || tag ? 'Keine Wörter gefunden.' : 'Hier liegen noch keine Wörter.'}</p>}
         {list.map((w) => {
           const rate = errorRate(w)
+          const on = selected.has(w.id)
+          const fname = place === '' ? folderName(w) : ''
           return (
-            <div key={w.id} className="flex items-center">
-              {/* Tipp auf die Zeile öffnet das Wort zum Bearbeiten (Löschen liegt dort) */}
+            <div key={w.id} className={`flex items-center ${on ? 'bg-blue/10' : ''}`}>
               <button
-                className="flex min-h-14 min-w-0 flex-1 items-center gap-2 py-2.5 pl-4 text-left transition hover:bg-fill-4 active:bg-fill-3"
-                onClick={() => setEditing({ id: w.id, draft: toDraft(w) })}
-                aria-label={`${w.korean}, ${w.german} – bearbeiten`}
+                className="flex min-h-14 min-w-0 flex-1 items-center gap-3 py-2.5 pl-4 text-left transition hover:bg-fill-4 active:bg-fill-3"
+                onClick={() => (selecting ? toggle(w.id) : setEditing({ id: w.id, draft: toDraft(w, folderIds) }))}
+                aria-label={selecting ? `${w.korean} ${on ? 'abwählen' : 'auswählen'}` : `${w.korean}, ${w.german} – bearbeiten`}
+                aria-pressed={selecting ? on : undefined}
               >
+                {selecting && (
+                  <span className={`grid h-6 w-6 shrink-0 place-items-center rounded-full border-2 transition ${on ? 'border-blue bg-blue text-white' : 'border-label-3'}`} aria-hidden>
+                    {on && <Check size={14} strokeWidth={3} />}
+                  </span>
+                )}
                 <span className="min-w-0 flex-1">
                   <span className="flex flex-wrap items-baseline gap-x-2">
                     <span lang="ko" className="text-xl font-semibold">{w.korean}</span>
@@ -149,18 +326,113 @@ export function Dictionary() {
                   </span>
                   <span className="mt-0.5 flex flex-wrap gap-x-2 text-xs text-label-2">
                     <span className="font-medium">{WORD_TYPE_LABELS[w.wordType]}</span>
+                    {fname && <span className="inline-flex items-center gap-1"><FolderIcon size={11} /> {fname}</span>}
                     {w.tags.map((t) => <span key={t}>{t}</span>)}
                     {rate >= 0 && <span className={rate > 0.4 ? 'font-medium text-red' : ''}>· {Math.round(rate * 100)} % Fehler</span>}
                   </span>
                 </span>
-                <ChevronRight size={18} className="shrink-0 text-label-3" />
+                {!selecting && <ChevronRight size={18} className="shrink-0 text-label-3" />}
               </button>
-              <button className="mx-2 grid h-11 w-11 shrink-0 place-items-center rounded-full text-blue transition hover:bg-fill-3" onClick={() => speakWord(w, settings.speechMode)} aria-label={`${w.korean} vorlesen`}><Volume2 size={20} /></button>
+              {!selecting && (
+                <button className="mx-2 grid h-11 w-11 shrink-0 place-items-center rounded-full text-blue transition hover:bg-fill-3" onClick={() => speakWord(w, settings.speechMode)} aria-label={`${w.korean} vorlesen`}><Volume2 size={20} /></button>
+              )}
             </div>
           )
         })}
       </div>
 
+      {/* Aktionsleiste im Auswahlmodus */}
+      {selecting && (
+        <div className="glass sheet-up fixed inset-x-3 bottom-[calc(var(--tabbar-space)+0.5rem)] z-40 mx-auto flex max-w-xl items-center gap-2 rounded-full p-1.5 md:bottom-4">
+          <button className="btn-soft" onClick={() => setSelected(allSelected ? new Set() : new Set(list.map((w) => w.id)))}>{allSelected ? 'Keine' : 'Alle'}</button>
+          <span className="flex-1 px-1 text-sm font-medium" aria-live="polite">{selected.size} ausgewählt</span>
+          <button className="btn-soft" disabled={!selected.size} onClick={() => setMoveSheet(true)} aria-label="Verschieben"><FolderInput size={16} /> <span className="hidden sm:inline">Verschieben</span></button>
+          <button className="btn-soft" disabled={!selected.size} onClick={() => setTagSheet('')} aria-label="Tag hinzufügen"><Tag size={16} /> <span className="hidden sm:inline">Tag</span></button>
+        </div>
+      )}
+
+      {/* Verschieben */}
+      <Sheet open={moveSheet} onClose={() => setMoveSheet(false)} title={`${selected.size} ${selected.size === 1 ? 'Wort' : 'Wörter'} verschieben`}>
+        <List>
+          <ListRow icon={<CircleDashed size={17} />} iconColor="#8e8e93" title="Ohne Ordner" onClick={() => { moveWords([...selected], null); setMoveSheet(false); setSelecting(false); setSelected(new Set()); playSound('success') }} />
+          {flatTree(folders).map(({ f, depth }) => (
+            <ListRow
+              key={f.id}
+              icon={<FolderIcon size={17} />}
+              iconColor="var(--color-blue)"
+              title={<span style={{ paddingLeft: depth * 16 }}>{f.name}</span>}
+              value={counts.get(f.id) ?? 0}
+              onClick={() => { moveWords([...selected], f.id); setMoveSheet(false); setSelecting(false); setSelected(new Set()); playSound('success') }}
+            />
+          ))}
+        </List>
+        {folders.length === 0 && <p className="px-4 text-sm text-label-2">Noch keine Ordner – lege oben unter „Wörter“ einen an.</p>}
+      </Sheet>
+
+      {/* Tag hinzufügen */}
+      <Sheet open={tagSheet !== null} onClose={() => setTagSheet(null)} title={`Tag für ${selected.size} ${selected.size === 1 ? 'Wort' : 'Wörter'}`}>
+        <form
+          className="space-y-3"
+          onSubmit={(e) => {
+            e.preventDefault()
+            if (!tagSheet?.trim()) return
+            addTagToWords([...selected], tagSheet)
+            setTagSheet(null)
+            setSelecting(false)
+            setSelected(new Set())
+            playSound('success')
+          }}
+        >
+          <input className="input" autoFocus placeholder="#Alltag" value={tagSheet ?? ''} onChange={(e) => setTagSheet(e.target.value)} aria-label="Tag" list="known-tags" />
+          <datalist id="known-tags">{tags.map((t) => <option key={t} value={t} />)}</datalist>
+          <div className="flex justify-end gap-2">
+            <button type="button" className="btn-soft" onClick={() => setTagSheet(null)}>Abbrechen</button>
+            <button type="submit" className="btn-primary" disabled={!tagSheet?.trim()}>Hinzufügen</button>
+          </div>
+        </form>
+      </Sheet>
+
+      {/* Ordner anlegen / umbenennen */}
+      <Sheet open={!!nameSheet} onClose={() => setNameSheet(null)} title={nameSheet?.mode === 'rename' ? 'Ordner umbenennen' : nameSheet?.parentId ? 'Neuer Unterordner' : 'Neuer Ordner'}>
+        <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); submitName() }}>
+          <input className="input" autoFocus placeholder="z. B. Lektion 3" value={nameSheet?.name ?? ''} onChange={(e) => setNameSheet((s) => (s ? { ...s, name: e.target.value } : s))} aria-label="Ordnername" />
+          {nameSheet?.parentId && <p className="text-xs text-label-2">In: {folderPath(folders, nameSheet.parentId).map((f) => f.name).join(' › ')}</p>}
+          <div className="flex justify-end gap-2">
+            <button type="button" className="btn-soft" onClick={() => setNameSheet(null)}>Abbrechen</button>
+            <button type="submit" className="btn-primary" disabled={!nameSheet?.name.trim()}>{nameSheet?.mode === 'rename' ? 'Umbenennen' : 'Anlegen'}</button>
+          </div>
+        </form>
+      </Sheet>
+
+      {/* Ordner mit Wörtern löschen */}
+      <Sheet open={!!deleteSheet} onClose={() => setDeleteSheet(null)} title={`„${deleteSheet?.name ?? ''}“ löschen?`}>
+        {deleteSheet && (
+          <div className="space-y-3">
+            <p className="text-sm text-label-2">
+              Darin liegen {counts.get(deleteSheet.id) ?? 0} Wörter (inklusive Unterordner). Was soll mit ihnen passieren?
+            </p>
+            <button className="btn-primary w-full" onClick={() => { deleteFolder(deleteSheet.id, 'move'); const p = deleteSheet.parentId; setDeleteSheet(null); go(p ?? '') }}>
+              Wörter nach „Ohne Ordner“ verschieben
+            </button>
+            <button
+              className="btn-red w-full"
+              onClick={async () => {
+                const f = deleteSheet
+                if (await confirm({ title: 'Wörter wirklich löschen?', message: `${counts.get(f.id) ?? 0} Wörter und ihr Lernstand werden gelöscht.`, confirmLabel: 'Alles löschen', destructive: true })) {
+                  deleteFolder(f.id, 'delete')
+                  setDeleteSheet(null)
+                  go(f.parentId ?? '')
+                }
+              }}
+            >
+              Wörter mitlöschen
+            </button>
+            <button className="btn-soft w-full" onClick={() => setDeleteSheet(null)}>Abbrechen</button>
+          </div>
+        )}
+      </Sheet>
+
+      {/* Wort bearbeiten */}
       <Sheet open={!!editing} onClose={() => setEditing(null)} title={editing?.id ? 'Wort bearbeiten' : 'Neues Wort'}>
         {draft && (
           <div className="space-y-3">
@@ -186,7 +458,14 @@ export function Dictionary() {
                 </select>
               </div>
             </div>
-            <div><p className="label mb-1">Tags (mit Leerzeichen getrennt)</p><input className="input" placeholder="#Verb #Alltag #Kapitel1" value={draft.tags} onChange={(e) => setDraft({ tags: e.target.value })} /></div>
+            <div>
+              <p className="label mb-1">Ordner</p>
+              <select className="input" value={draft.folderId} onChange={(e) => setDraft({ folderId: e.target.value })} aria-label="Ordner">
+                <option value="">Ohne Ordner</option>
+                {flatTree(folders).map(({ f, depth }) => <option key={f.id} value={f.id}>{'  '.repeat(depth * 2)}{f.name}</option>)}
+              </select>
+            </div>
+            <div><p className="label mb-1">Tags (mit Leerzeichen getrennt)</p><input className="input" placeholder="#Verb #Alltag" value={draft.tags} onChange={(e) => setDraft({ tags: e.target.value })} /></div>
             {isConj && (
               <div className="space-y-2 rounded-2xl bg-fill-4 p-3">
                 <p className="label">Beugungen</p>

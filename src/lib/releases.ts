@@ -7,7 +7,7 @@
  *                    aber als Zeile unter „Außerdem“, sobald ein großes Update angezeigt wird.
  * Das Fenster erscheint höchstens einmal pro Besuch: ein Fenster, bis zu 3 große Updates untereinander.
  */
-export type ReleaseIcon = 'cloud' | 'shield' | 'bell' | 'clock' | 'pin' | 'check' | 'pointer' | 'sparkles' | 'layers' | 'back'
+export type ReleaseIcon = 'cloud' | 'shield' | 'bell' | 'clock' | 'pin' | 'check' | 'pointer' | 'sparkles' | 'layers' | 'back' | 'folder'
 
 export interface Release {
   /** Eindeutige Kennung */
@@ -23,6 +23,38 @@ export interface Release {
   cta?: 'sync'
 }
 export const RELEASES: Release[] = [
+  {
+    id: '2026-11-folders',
+    size: 'major',
+    title: 'Neu in Hangul Studio',
+    subtitle: 'Ordner für deine Wörter',
+    features: [
+      {
+        icon: 'folder',
+        color: '#007aff',
+        title: 'Ordner bis 3 Ebenen',
+        text: 'Sortiere Wörter z. B. nach Kurs › Lektion › Teil. Unter „Wörter“ legst du Ordner an, benennst sie um oder löschst sie.',
+      },
+      {
+        icon: 'check',
+        color: '#34c759',
+        title: 'Mehrere auf einmal',
+        text: 'Mit „Auswählen“ markierst du mehrere Wörter und verschiebst oder taggst sie in einem Schritt.',
+      },
+      {
+        icon: 'layers',
+        color: '#ff9500',
+        title: 'Kapitel werden Ordner',
+        text: 'Hast du Tags wie #Kapitel1, bietet die App einmal an, daraus Ordner zu machen.',
+      },
+      {
+        icon: 'shield',
+        color: '#af52de',
+        title: 'Mehr Platz, sicher umgezogen',
+        text: 'Deine Daten liegen jetzt in einem größeren Speicher des Browsers. Vor dem Umzug wurde automatisch eine Sicherungskopie angelegt.',
+      },
+    ],
+  },
   {
     id: '2026-11-model-order',
     size: 'minor',

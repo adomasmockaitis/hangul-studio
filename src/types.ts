@@ -29,7 +29,20 @@ export interface WordItem {
   stats: WordStats
   /** Zeitpunkt der letzten Änderung (für den Geräte-Abgleich) */
   updatedAt?: number
+  /** Ordner, in dem das Wort liegt (fehlt = „Ohne Ordner“) */
+  folderId?: string
 }
+
+/** Ordner für Wörter, bis zu 3 Ebenen tief (parentId = null: oberste Ebene) */
+export interface Folder {
+  id: string
+  name: string
+  parentId: string | null
+  createdAt: number
+  updatedAt: number
+}
+
+export const MAX_FOLDER_DEPTH = 3
 
 export type ThemeMode = 'light' | 'dark' | 'system'
 export type CanvasBackground = 'blank' | 'grid' | 'lined' | 'hangul'
@@ -86,6 +99,8 @@ export interface BackupFile {
   words: WordItem[]
   settings: Partial<Settings>
   activity: Activity
+  /** Ab Version 2 der App: Ordner (ältere Sicherungen haben keine) */
+  folders?: Folder[]
 }
 
 

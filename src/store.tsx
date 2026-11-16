@@ -5,12 +5,16 @@ import { observe, stamp } from './lib/clock'
 import { configureSounds } from './lib/sounds'
 import { applyReview, dateKey } from './lib/srs'
 import { LOCAL_ONLY_SETTINGS, maxStamp, type SyncPayload } from './lib/merge'
-import type { Activity, BackupFile, CheckMethod, CheckStep, Settings, WordItem, WordType } from './types'
+import { canAddSubfolder, descendantIds, planChapterConversion } from './lib/folders'
+import { getItem, setItem } from './lib/storage'
+import type { Activity, BackupFile, CheckMethod, CheckStep, Folder, Settings, WordItem, WordType } from './types'
 
 const K_DELETED = 'hangul-studio:deleted'
 const K_WORDS = 'hangul-studio:words'
 const K_SETTINGS = 'hangul-studio:settings'
 const K_ACTIVITY = 'hangul-studio:activity'
+const K_FOLDERS = 'hangul-studio:folders'
+const K_DELETED_FOLDERS = 'hangul-studio:deleted-folders'
 
 const ALL_METHODS: CheckMethod[] = ['gemini', 'inputtools', 'manual']
 const DEFAULT_ORDER: CheckStep[] = ALL_METHODS.map((method) => ({ method, enabled: true }))
@@ -50,22 +54,9 @@ export const DEFAULT_SETTINGS: Settings = {
   syncApiKey: false,
 }
 
-function load<T>(key: string, fallback: T): T {
-  try {
-    const raw = localStorage.getItem(key)
-    return raw ? (JSON.parse(raw) as T) : fallback
-  } catch {
-    return fallback
-  }
-}
-
-function save(key: string, value: unknown) {
-  try {
-    localStorage.setItem(key, JSON.stringify(value))
-  } catch {
-    /* Speicher voll / blockiert */
-  }
-}
+/** Lerndaten liegen in IndexedDB (siehe lib/storage.ts), vor dem Start in den Arbeitsspeicher geladen */
+const load = <T,>(key: string, fallback: T): T => getItem<T>(key, fallback)
+const save = (key: string, value: unknown) => setItem(key, value)
 
 const WORD_TYPES: WordType[] = ['verb', 'adjective', 'noun', 'other']
 
@@ -94,6 +85,7 @@ export function sanitizeWord(raw: unknown): WordItem | null {
     createdAt: num(r.createdAt, Date.now()),
     conjugations: Object.values(conj).some(Boolean) ? conj : undefined,
     updatedAt: typeof r.updatedAt === 'number' ? r.updatedAt : undefined,
+    folderId: str(r.folderId),
     stats: {
       correctCount: num(s.correctCount, 0),
       wrongCount: num(s.wrongCount, 0),
@@ -110,6 +102,17 @@ interface Ctx {
   activity: Activity
   /** Löschmarken für den Geräte-Abgleich */
   deleted: Record<string, number>
+  folders: Folder[]
+  deletedFolders: Record<string, number>
+  /** Neuer Ordner; liefert die ID oder null, wenn die maximale Tiefe erreicht ist */
+  addFolder: (name: string, parentId: string | null) => string | null
+  renameFolder: (id: string, name: string) => void
+  /** Ordner samt Unterordnern löschen; Wörter mitlöschen oder nach „Ohne Ordner“ verschieben */
+  deleteFolder: (id: string, words: 'delete' | 'move') => void
+  moveWords: (ids: string[], folderId: string | null) => void
+  addTagToWords: (ids: string[], tag: string) => void
+  /** Kapitel-Tags (#Kapitel1 …) in Ordner umwandeln; liefert die Zahl der verschobenen Wörter */
+  convertChapterTags: () => number
   /** Übernimmt einen zusammengeführten Stand aus der Synchronisation */
   applySyncPayload: (p: SyncPayload) => void
   updateSettings: (patch: Partial<Settings>) => void
@@ -154,10 +157,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   })
   const [activity, setActivity] = useState<Activity>(() => load<Activity>(K_ACTIVITY, {}))
   const [deleted, setDeleted] = useState<Record<string, number>>(() => load<Record<string, number>>(K_DELETED, {}))
+  const [folders, setFolders] = useState<Folder[]>(() => load<Folder[]>(K_FOLDERS, []))
+  const [deletedFolders, setDeletedFolders] = useState<Record<string, number>>(() => load<Record<string, number>>(K_DELETED_FOLDERS, {}))
 
   // Beim Start: bereits gespeicherte Zeitstempel in die logische Uhr übernehmen
   useEffect(() => {
-    observe(maxStamp(words, deleted, settings.settingsUpdatedAt ?? 0))
+    observe(maxStamp(words, deleted, settings.settingsUpdatedAt ?? 0, folders, deletedFolders))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -165,6 +170,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => save(K_WORDS, words), [words])
   useEffect(() => save(K_SETTINGS, settings), [settings])
   useEffect(() => save(K_ACTIVITY, activity), [activity])
+  useEffect(() => save(K_FOLDERS, folders), [folders])
+  useEffect(() => save(K_DELETED_FOLDERS, deletedFolders), [deletedFolders])
 
   // Theme anwenden
   useEffect(() => {
@@ -253,6 +260,79 @@ export function AppProvider({ children }: { children: ReactNode }) {
     )
   }, [])
 
+  // ---------- Ordner ----------
+  const addFolder: Ctx['addFolder'] = useCallback(
+    (name, parentId) => {
+      if (!name.trim() || !canAddSubfolder(folders, parentId)) return null
+      const now = stamp()
+      const id = crypto.randomUUID()
+      setFolders((fs) => [...fs, { id, name: name.trim(), parentId, createdAt: now, updatedAt: now }])
+      return id
+    },
+    [folders],
+  )
+
+  const renameFolder: Ctx['renameFolder'] = useCallback((id, name) => {
+    if (!name.trim()) return
+    const now = stamp()
+    setFolders((fs) => fs.map((f) => (f.id === id ? { ...f, name: name.trim(), updatedAt: now } : f)))
+  }, [])
+
+  const deleteFolder: Ctx['deleteFolder'] = useCallback(
+    (id, mode) => {
+      const gone = descendantIds(folders, id)
+      const now = stamp()
+      setFolders((fs) => fs.filter((f) => !gone.has(f.id)))
+      setDeletedFolders((d) => {
+        const next = { ...d }
+        for (const g of gone) next[g] = now
+        return next
+      })
+      setWords((ws) => {
+        if (mode === 'delete') {
+          const removed = ws.filter((w) => w.folderId && gone.has(w.folderId))
+          if (removed.length)
+            setDeleted((d) => {
+              const next = { ...d }
+              for (const w of removed) next[w.korean] = now
+              return next
+            })
+          return ws.filter((w) => !(w.folderId && gone.has(w.folderId)))
+        }
+        return ws.map((w) => (w.folderId && gone.has(w.folderId) ? { ...w, folderId: undefined, updatedAt: now } : w))
+      })
+    },
+    [folders],
+  )
+
+  const moveWords: Ctx['moveWords'] = useCallback((ids, folderId) => {
+    const set = new Set(ids)
+    const now = stamp()
+    setWords((ws) => ws.map((w) => (set.has(w.id) ? { ...w, folderId: folderId ?? undefined, updatedAt: now } : w)))
+  }, [])
+
+  const addTagToWords: Ctx['addTagToWords'] = useCallback((ids, tag) => {
+    const t = tag.trim()
+    if (!t) return
+    const norm = t.startsWith('#') ? t : '#' + t
+    const set = new Set(ids)
+    const now = stamp()
+    setWords((ws) => ws.map((w) => (set.has(w.id) && !w.tags.includes(norm) ? { ...w, tags: [...w.tags, norm], updatedAt: now } : w)))
+  }, [])
+
+  const convertChapterTags: Ctx['convertChapterTags'] = useCallback(() => {
+    const now = stamp()
+    const plan = planChapterConversion(words, folders, () => crypto.randomUUID(), now)
+    if (!plan.moves.length) return 0
+    setFolders((fs) => [...fs, ...plan.newFolders])
+    const byId = new Map(plan.moves.map((m) => [m.id, m]))
+    setWords((ws) => ws.map((w) => {
+      const m = byId.get(w.id)
+      return m ? { ...w, folderId: m.folderId, tags: m.tags, updatedAt: now } : w
+    }))
+    return plan.moves.length
+  }, [words, folders])
+
   const resetStats = useCallback(() => {
     const now = stamp()
     // Zurücksetzen gilt als neue Änderung, damit es beim Abgleich nicht von alten Ständen überschrieben wird
@@ -286,13 +366,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return []
     })
     setActivity({})
+    setFolders((cur) => {
+      if (cur.length)
+        setDeletedFolders((d) => {
+          const next = { ...d }
+          for (const f of cur) next[f.id] = now
+          return next
+        })
+      return []
+    })
   }, [])
 
   const applySyncPayload: Ctx['applySyncPayload'] = useCallback((p) => {
     // Logische Uhr nachziehen: spätere Änderungen auf diesem Gerät gelten dann sicher als neuer als alles Übernommene
-    observe(maxStamp(p.words, p.deleted, p.settingsUpdatedAt))
+    observe(maxStamp(p.words, p.deleted, p.settingsUpdatedAt, p.folders, p.deletedFolders))
     setWords(p.words)
     setDeleted(p.deleted)
+    setFolders(p.folders ?? [])
+    setDeletedFolders(p.deletedFolders ?? {})
     setActivity(p.activity)
     setSettings((s) => {
       const incoming: Partial<Settings> = { ...p.settings }
@@ -318,6 +409,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         words,
         settings: includeApiKey ? { ...rest, geminiApiKey } : rest,
         activity,
+        folders,
       }
       const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' })
       const url = URL.createObjectURL(blob)
@@ -329,7 +421,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       a.remove()
       setTimeout(() => URL.revokeObjectURL(url), 1000)
     },
-    [settings, words, activity],
+    [settings, words, activity, folders],
   )
 
   const importBackup: Ctx['importBackup'] = useCallback((json, mode) => {
@@ -340,6 +432,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const incoming = data.words.map(sanitizeWord).filter((w): w is WordItem => !!w)
     const inAct = data.activity && typeof data.activity === 'object' ? data.activity : {}
     const now = stamp()
+    const inFolders: Folder[] = Array.isArray(data.folders)
+      ? data.folders
+          .filter((f) => f && typeof f.id === 'string' && typeof f.name === 'string')
+          .map((f) => ({ id: f.id, name: f.name, parentId: typeof f.parentId === 'string' ? f.parentId : null, createdAt: Number(f.createdAt) || now, updatedAt: now }))
+      : []
+    if (mode === 'replace') {
+      setFolders((cur) => {
+        const keep = new Set(inFolders.map((f) => f.id))
+        const gone = cur.filter((f) => !keep.has(f.id))
+        if (gone.length)
+          setDeletedFolders((d) => {
+            const next = { ...d }
+            for (const f of gone) next[f.id] = now
+            return next
+          })
+        return inFolders
+      })
+    } else if (inFolders.length) {
+      setFolders((cur) => {
+        const ids = new Set(cur.map((f) => f.id))
+        return [...cur, ...inFolders.filter((f) => !ids.has(f.id))]
+      })
+    }
     if (mode === 'replace') {
       setWords((cur) => {
         // Nicht mehr vorhandene Wörter als gelöscht markieren, damit die Synchronisation das mitnimmt
@@ -390,8 +505,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     () => ({
       words, settings, activity, deleted, applySyncPayload, updateSettings, addWord, addWords, updateWord, deleteWord,
       recordReview, reviseReview, resetStats, restoreDemo, clearAll, exportBackup, importBackup,
+      folders, deletedFolders, addFolder, renameFolder, deleteFolder, moveWords, addTagToWords, convertChapterTags,
     }),
-    [words, settings, activity, deleted, applySyncPayload, updateSettings, addWord, addWords, updateWord, deleteWord, recordReview, reviseReview, resetStats, restoreDemo, clearAll, exportBackup, importBackup],
+    [folders, deletedFolders, addFolder, renameFolder, deleteFolder, moveWords, addTagToWords, convertChapterTags, words, settings, activity, deleted, applySyncPayload, updateSettings, addWord, addWords, updateWord, deleteWord, recordReview, reviseReview, resetStats, restoreDemo, clearAll, exportBackup, importBackup],
   )
 
   return <AppCtx.Provider value={value}>{children}</AppCtx.Provider>

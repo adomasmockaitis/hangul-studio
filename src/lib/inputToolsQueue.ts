@@ -1,5 +1,6 @@
 ﻿import { readHandwritingBatch } from './gemini'
 import { addSample, loadSamples, type InputToolsSample } from './inputToolsLog'
+import { kvStorage } from './storage'
 
 /**
  * Warteschlange für die gesammelte Gemini-Nachprüfung der Input-Tools-Ausweichfälle:
@@ -24,7 +25,7 @@ export interface PendingItem {
 
 export function loadPending(): PendingItem[] {
   try {
-    const raw = localStorage.getItem(PKEY)
+    const raw = kvStorage.getItem(PKEY)
     const arr = raw ? (JSON.parse(raw) as PendingItem[]) : []
     return Array.isArray(arr) ? arr : []
   } catch {
@@ -34,7 +35,7 @@ export function loadPending(): PendingItem[] {
 
 function savePending(items: PendingItem[]) {
   try {
-    localStorage.setItem(PKEY, JSON.stringify(items.slice(-MAX_PENDING)))
+    kvStorage.setItem(PKEY, JSON.stringify(items.slice(-MAX_PENDING)))
   } catch {
     /* ignore */
   }
@@ -50,7 +51,7 @@ export function enqueuePending(png: string, base: SampleBase): { id: string; cou
 
 export function clearPending() {
   try {
-    localStorage.removeItem(PKEY)
+    kvStorage.removeItem(PKEY)
   } catch {
     /* ignore */
   }
@@ -67,7 +68,7 @@ export function updateByPendingId(pendingId: string, patch: Partial<InputToolsSa
   if (i < 0) return false
   all[i] = { ...all[i], ...patch }
   try {
-    localStorage.setItem(SKEY, JSON.stringify(all))
+    kvStorage.setItem(SKEY, JSON.stringify(all))
   } catch {
     /* ignore */
   }

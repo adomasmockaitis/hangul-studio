@@ -1,4 +1,4 @@
-import type { Activity, Settings, WordItem } from '../types'
+import type { Activity, Folder, Settings, WordItem } from '../types'
 
 /** Einstellungen, die nur auf dem jeweiligen Gerät bleiben und nie synchronisiert werden */
 export const LOCAL_ONLY_SETTINGS = ['googleClientId', 'syncApiKey'] as const
@@ -15,6 +15,10 @@ export interface SyncPayload {
   activity: Activity
   settings: Partial<Settings>
   settingsUpdatedAt: number
+  /** Ordner (ab App-Version 2; ältere Stände haben keine) */
+  folders?: Folder[]
+  /** Gelöschte Ordner (Schlüssel = Ordner-ID, Wert = Zeitpunkt) */
+  deletedFolders?: Record<string, number>
 }
 
 const DAY = 86_400_000
@@ -50,6 +54,32 @@ export function mergeWord(a: WordItem, b: WordItem): WordItem {
   }
 }
 
+/**
+ * Ordner zusammenführen: Vereinigung nach ID, bei gleicher ID gewinnt die neuere Änderung.
+ * Löschmarken gelten nur, wenn der Ordner danach nicht mehr geändert wurde.
+ */
+export function mergeFolders(
+  local: Folder[], remote: Folder[], localDel: Record<string, number>, remoteDel: Record<string, number>, now = Date.now(),
+): { folders: Folder[]; deletedFolders: Record<string, number> } {
+  const deletedFolders: Record<string, number> = { ...remoteDel }
+  for (const [k, t] of Object.entries(localDel)) deletedFolders[k] = Math.max(deletedFolders[k] ?? 0, t)
+  const map = new Map<string, Folder>()
+  for (const f of [...local, ...remote]) {
+    const ex = map.get(f.id)
+    map.set(f.id, !ex || f.updatedAt > ex.updatedAt ? f : ex)
+  }
+  for (const [id, t] of Object.entries(deletedFolders)) {
+    const f = map.get(id)
+    if (f) {
+      if (t >= f.updatedAt) map.delete(id)
+      else delete deletedFolders[id]
+    }
+    if (now - t > TOMBSTONE_TTL) delete deletedFolders[id]
+  }
+  const folders = [...map.values()].sort((a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id))
+  return { folders, deletedFolders }
+}
+
 /** Führt lokalen und entfernten Stand zusammen (kommutativ, damit die Reihenfolge der Geräte egal ist) */
 export function mergePayloads(local: SyncPayload, remote: SyncPayload, now = Date.now()): SyncPayload {
   // 1) Löschmarken vereinigen
@@ -81,11 +111,16 @@ export function mergePayloads(local: SyncPayload, remote: SyncPayload, now = Dat
   const useRemote = remote.settingsUpdatedAt > local.settingsUpdatedAt
   const settings = useRemote ? { ...local.settings, ...remote.settings } : { ...remote.settings, ...local.settings }
 
+  // 6) Ordner
+  const { folders, deletedFolders } = mergeFolders(local.folders ?? [], remote.folders ?? [], local.deletedFolders ?? {}, remote.deletedFolders ?? {}, now)
+
   return {
     app: 'hangul-studio',
     kind: 'sync',
     version: 2,
     updatedAt: Math.max(local.updatedAt, remote.updatedAt),
+    folders,
+    deletedFolders,
     words: [...map.values()].sort((x, y) => x.createdAt - y.createdAt || x.korean.localeCompare(y.korean)),
     deleted,
     activity,
@@ -103,12 +138,16 @@ export function fingerprint(p: SyncPayload): string {
     a: sortKeys(p.activity),
     s: sortKeys(p.settings as Record<string, unknown>),
     t: p.settingsUpdatedAt,
+    f: [...(p.folders ?? [])].sort((a, b) => a.id.localeCompare(b.id)),
+    fd: sortKeys(p.deletedFolders ?? {}),
   })
 }
 
 /** Größter Zeitstempel in einem Stand (für die logische Uhr) */
-export function maxStamp(words: WordItem[], deleted: Record<string, number>, settingsUpdatedAt = 0): number {
+export function maxStamp(words: WordItem[], deleted: Record<string, number>, settingsUpdatedAt = 0, folders: Folder[] = [], deletedFolders: Record<string, number> = {}): number {
   let m = settingsUpdatedAt
+  for (const f of folders) if (f.updatedAt > m) m = f.updatedAt
+  for (const t of Object.values(deletedFolders)) if (t > m) m = t
   for (const w of words) if ((w.updatedAt ?? 0) > m) m = w.updatedAt!
   for (const t of Object.values(deleted)) if (t > m) m = t
   return m
@@ -132,5 +171,7 @@ export function parsePayload(raw: unknown): SyncPayload | null {
     settings: r.settings && typeof r.settings === 'object' ? r.settings : {},
     settingsUpdatedAt: typeof r.settingsUpdatedAt === 'number' ? r.settingsUpdatedAt : 0,
     updatedAt: typeof r.updatedAt === 'number' ? r.updatedAt : 0,
+    folders: Array.isArray(r.folders) ? (r.folders as Folder[]).filter((f) => f && typeof f.id === 'string' && typeof f.name === 'string') : [],
+    deletedFolders: r.deletedFolders && typeof r.deletedFolders === 'object' ? r.deletedFolders : {},
   }
 }
