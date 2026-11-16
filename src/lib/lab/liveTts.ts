@@ -30,6 +30,8 @@ export interface SpeakResult {
   lateChunks?: number
   /** Unabhängige Gegenprüfung: was ein zweites Modell im Audio hört */
   heard?: string
+  /** Rohe Antworten des Prüfmodells (gekürzt), um unbekannte Formate zu verstehen */
+  heardRaw?: string[]
   heardOk?: boolean
   error?: string
 }
@@ -49,6 +51,17 @@ export function pcmToWav(chunks: Int16Array[], sampleRate: number): Uint8Array {
   w(36, 'data'); dv.setUint32(40, n * 2, true)
   let o = 44
   for (const c of chunks) for (let i = 0; i < c.length; i++, o += 2) dv.setInt16(o, c[i], true)
+  return out
+}
+
+/** Alle "text"-Felder einer unbekannten Antwortstruktur einsammeln */
+function anyText(o: unknown): string {
+  if (!o || typeof o !== 'object') return ''
+  let out = ''
+  for (const [k, v] of Object.entries(o as Record<string, unknown>)) {
+    if (k === 'text' && typeof v === 'string') out += v
+    else if (v && typeof v === 'object') out += anyText(v)
+  }
   return out
 }
 
@@ -81,7 +94,7 @@ const int16ToB64 = (a: Int16Array) => {
  * Audio als 16-kHz-PCM senden, danach Ende signalisieren und allen zurückkommenden Text einsammeln.
  * Das genaue Antwortformat dieses Modells ist nicht dokumentiert – daher werden alle Textfelder gelesen.
  */
-export function verifyAudioLive(apiKey: string, model: string, chunks: Int16Array[], sampleRate: number, timeoutMs = 12_000): Promise<string> {
+export function verifyAudioLive(apiKey: string, model: string, chunks: Int16Array[], sampleRate: number, onRaw?: (raw: string) => void, timeoutMs = 12_000): Promise<string> {
   const pcm16 = resampleTo16k(chunks, sampleRate)
   return new Promise((resolve, reject) => {
     const ws = new WebSocket(`${WS}?key=${encodeURIComponent(apiKey.trim())}`)
@@ -105,6 +118,8 @@ export function verifyAudioLive(apiKey: string, model: string, chunks: Int16Arra
     ws.onmessage = (ev) => {
       queue = queue.then(async () => {
         const raw = typeof ev.data === 'string' ? ev.data : await (ev.data as Blob).text()
+        // Rohe Antwort für die Auswertung (lange Base64-Daten gekürzt)
+        onRaw?.(raw.replace(/"[A-Za-z0-9+/=]{200,}"/g, '"…"').slice(0, 600))
         let msg: Record<string, unknown>
         try {
           msg = JSON.parse(raw)
@@ -125,8 +140,12 @@ export function verifyAudioLive(apiKey: string, model: string, chunks: Int16Arra
         const sc = msg.serverContent as
           | { inputTranscription?: { text?: string }; outputTranscription?: { text?: string }; modelTurn?: { parts?: { text?: string }[] }; turnComplete?: boolean }
           | undefined
-        if (!sc) return
-        const piece = sc.inputTranscription?.text ?? sc.outputTranscription?.text ?? sc.modelTurn?.parts?.map((p) => p.text ?? '').join('') ?? ''
+        if (!sc) {
+          const t = anyText(msg)
+          if (t) text += t
+          return
+        }
+        const piece = sc.inputTranscription?.text ?? sc.outputTranscription?.text ?? sc.modelTurn?.parts?.map((p) => p.text ?? '').join('') ?? anyText(sc)
         if (piece) text += piece
         clearTimeout(quiet)
         // Fertig, wenn das Modell den Zug beendet oder 1,5 s lang nichts mehr kommt

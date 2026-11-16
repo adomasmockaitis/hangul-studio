@@ -347,7 +347,7 @@ function VoiceBench({ apiKey, allModels }: { apiKey: string; allModels: { id: st
         const r = await s.speak(l)
         if (check && !r.error && r.pcm.length) {
           try {
-            r.heard = /transcribe/i.test(checker) ? await verifyAudioLive(apiKey, checker, r.pcm, r.sampleRate) : await verifyAudio(apiKey, checker, r.pcm, r.sampleRate)
+            r.heard = /transcribe/i.test(checker) ? await verifyAudioLive(apiKey, checker, r.pcm, r.sampleRate, (raw) => { r.heardRaw = [...(r.heardRaw ?? []), raw].slice(0, 8) }) : await verifyAudio(apiKey, checker, r.pcm, r.sampleRate)
             r.heardOk = isVerbatim(l, r.heard)
           } catch (e) {
             r.heard = `(Gegenprüfung fehlgeschlagen: ${e instanceof Error ? e.message : 'Fehler'})`
