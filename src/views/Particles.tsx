@@ -25,6 +25,7 @@ import { PARTICLE_IDS, checkGap, familyOf, fillSentence, formTip, parseSentence,
 import type { PoolSentence } from '../lib/particles/pool'
 import { useApp } from '../store'
 import type { WordItem } from '../types'
+import { SlowButton } from '../components/SlowButton'
 
 const STATUS_LABEL: Record<ChapterStatus, string> = { new: 'Neu', known: 'Bekannt', learning: 'In Arbeit', passed: 'Gelernt' }
 
@@ -419,10 +420,10 @@ function Session({
   const [done, setDone] = useState<Answered[]>([])
   const [translations, setTranslations] = useState<TranslationAnswer[]>([])
   const finished = useRef(false)
-  // Sätze der Runde schon mit der Gemini-Stimme vorbereiten (spielen dann ohne Wartezeit natürlich)
+  // Aktuelle und die nächsten 3 Sätze schon mit der Gemini-Stimme vorbereiten (spielen dann ohne Wartezeit natürlich)
   useEffect(() => {
-    prepareSentences(tasks.map((t) => fillSentence(t.sentence.ko)))
-  }, [tasks])
+    prepareSentences(tasks.slice(i, i + 4).map((t) => fillSentence(t.sentence.ko)))
+  }, [tasks, i])
 
   const next = (a: Answered | null, t?: TranslationAnswer) => {
     const nd = a ? [...done, a] : done
@@ -575,9 +576,12 @@ function GapTask({ task, onDone, last, finishLabel }: { task: Task; onDone: (a: 
           <p className={`flex items-center gap-2 font-semibold ${allOk ? 'text-green' : 'text-red'}`}>
             {allOk ? <Check size={18} /> : <X size={18} />} {allOk ? 'Richtig!' : 'Nicht ganz'}
           </p>
-          <button className="flex items-center gap-2 text-left text-xl font-semibold" lang="ko" onClick={() => speak(fillSentence(task.sentence.ko))}>
-            {fillSentence(task.sentence.ko)} <Volume2 size={16} className="shrink-0 text-label-3" />
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button className="flex items-center gap-2 text-left text-xl font-semibold" lang="ko" onClick={() => speak(fillSentence(task.sentence.ko))}>
+              {fillSentence(task.sentence.ko)} <Volume2 size={16} className="shrink-0 text-label-3" />
+            </button>
+            <SlowButton text={fillSentence(task.sentence.ko)} className="btn-soft !min-h-9 !px-2.5 !py-1 text-xs" />
+          </div>
           {!allOk && (
             <ul className="space-y-1 text-sm text-label-2">
               {task.ask.map((gi, k) => okList[k] ? null : <li key={gi}>• {explainGap(parsed.gaps[gi], given[k])}</li>)}

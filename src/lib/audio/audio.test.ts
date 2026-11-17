@@ -5,7 +5,7 @@ import {
 } from './clips'
 import { isWordLike, shortGerman } from '../speech'
 import { collapseRepeat, isVerbatim } from '../lab/liveTts'
-import { attemptsFor } from './clips'
+import { attemptsFor, closeEnough, shouldSyncKey } from './clips'
 
 const RATE = 24000
 /** Ton, der sauber ausklingt (letzte 50 ms Stille) */
@@ -88,6 +88,35 @@ describe('Gegenprüfung und Versuche', () => {
     const r = await produceClip('저는 매일 아침 커피를 마셔요.', g)
     expect(r.clip?.via).toBe('live')
     expect(g.liveCalls).toBe(5)
+  })
+})
+
+describe('Sätze: tolerante Prüfung, nur lokal, Vorrang', () => {
+  it('nimmt kleine Abweichungen bei Sätzen an, aber keine fehlenden Enden und nichts bei Wörtern', () => {
+    // echte Fälle aus dem Testlabor
+    expect(closeEnough('저는 TU 다름슈타트에서 심리학을 공부해요.', '저는 튀다름슈타트에서 심리학을 공부해요.')).toBe(true)
+    expect(closeEnough('선생님이 학생들에게 숙제를 내 주셨어요.', '선생님이 학생들에게 숙제를선생님이 학생들에게 숙제를 내주셨어요.')).toBe(true)
+    expect(closeEnough('저는 매일 아침 커피를 마셔요.', '저는 매일 아침 커피를')).toBe(false)
+    expect(closeEnough('감사합니다', '감사합니')).toBe(false)
+  })
+  it('gleicht nur Wörter ab, Sätze bleiben auf dem Gerät', () => {
+    expect(shouldSyncKey(clipKey('Kore', 'ko', '학교'))).toBe(true)
+    expect(shouldSyncKey(clipKey('Kore~slow', 'ko', '학교에 가요'))).toBe(true)
+    expect(shouldSyncKey(clipKey('Kore', 'ko', '저는 학교에 가요.'))).toBe(false)
+  })
+  it('was gerade abgespielt werden soll, kommt vor allem anderen dran', async () => {
+    const q = new ClipQueue()
+    const order: string[] = []
+    let release!: () => void
+    const gate = new Promise<void>((r) => (release = r))
+    const job = (k: string, wait = false) => async () => { if (wait) await gate; order.push(k); return null }
+    const a = q.add('a', 'background', job('a', true))
+    const b = q.add('b', 'now', job('b'))
+    const c = q.add('c', 'background', job('c'))
+    const d = q.add('d', 'play', job('d'))
+    release()
+    await Promise.all([a, b, c, d])
+    expect(order).toEqual(['a', 'd', 'b', 'c'])
   })
 })
 

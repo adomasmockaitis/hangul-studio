@@ -3,8 +3,9 @@
  * bis dahin – und für Sätze immer – mit der besten bzw. gewählten Systemstimme. Nie mit Wartezeit.
  */
 import type { SpeechMode } from '../types'
-import { pickSystemVoice, voicesFor, type Clip, type ClipLang } from './audio/clips'
-import { cachedClip, configureGeminiVoice, geminiVoiceActive, hotClip, prefetchClips, regenerateClips, requestClip } from './audio/voice'
+import { isWordLikeText, pickSystemVoice, slowVoice, voicesFor, type Clip, type ClipLang } from './audio/clips'
+import { cachedClip, configureGeminiVoice, currentGeminiVoice, geminiVoiceActive, hotClip, prefetchClips, regenerateClips, requestClip } from './audio/voice'
+import { pcmToWav } from './lab/liveTts'
 
 export interface SpeechConfig {
   source: 'gemini' | 'system'
@@ -115,6 +116,8 @@ export function stopSpeech() {
   token++
   try { current?.stop() } catch { /* schon beendet */ }
   current = null
+  currentEl?.pause()
+  currentEl = null
   if (supported()) window.speechSynthesis.cancel()
 }
 
@@ -123,16 +126,36 @@ export const MAX_NATURAL_CHARS = 160
 export const isSpeakable = (text: string) => !!text.trim() && text.trim().length <= MAX_NATURAL_CHARS
 
 /** Wörter und kurze Wendungen (für die Vorbereitung der Wortliste) */
-export function isWordLike(text: string): boolean {
-  const t = text.trim()
-  return !!t && !/[.!?。]$/.test(t) && t.split(/\s+/).length <= 3 && t.length <= 24
-}
+export const isWordLike = isWordLikeText
 
 interface Item {
   text: string
   lang: ClipLang
   rate: number
+  slow?: boolean
 }
+
+/** Normale Aufnahme langsamer abspielen, Tonhöhe bleibt gleich (Zwischenlösung, bis die langsame Aufnahme fertig ist) */
+function playClipStretched(clip: Clip, speed: number, my: number): Promise<void> {
+  if (my !== token) return Promise.resolve()
+  const wav = pcmToWav([clip.pcm], clip.rate)
+  const url = URL.createObjectURL(new Blob([wav.slice()], { type: 'audio/wav' }))
+  return new Promise((resolve) => {
+    const a = new Audio(url)
+    a.preservesPitch = true
+    a.playbackRate = speed
+    const done = () => {
+      URL.revokeObjectURL(url)
+      if (currentEl === a) currentEl = null
+      resolve()
+    }
+    a.onended = done
+    a.onerror = done
+    currentEl = a
+    void a.play().catch(done)
+  })
+}
+let currentEl: HTMLAudioElement | null = null
 
 async function playSequence(items: Item[]) {
   stopSpeech()
@@ -141,19 +164,47 @@ async function playSequence(items: Item[]) {
   for (const it of items) {
     if (my !== token) return
     const natural = geminiVoiceActive() && isSpeakable(it.text)
+    if (it.slow) {
+      await playSlow(it, natural, my)
+      continue
+    }
     let clip = natural ? hotClip(it.text, it.lang) : null
     if (natural && !clip) clip = await cachedClip(it.text, it.lang)
     if (my !== token) return
     if (clip) await playClip(clip, my)
     else {
-      // Sofort die Systemstimme – die natürliche Aufnahme entsteht im Hintergrund für das nächste Mal
-      if (natural) void requestClip(it.text, it.lang, 'now')
+      // Sofort die Systemstimme – die natürliche Aufnahme entsteht mit Vorrang für das nächste Mal
+      if (natural) void requestClip(it.text, it.lang, 'play')
       await playSystem(it.text, it.lang, it.rate, my)
     }
   }
 }
 
+/**
+ * Langsam: die langsame Gemini-Aufnahme, sonst die normale mit 75 % Tempo (Tonhöhe bleibt),
+ * sonst die Systemstimme langsam. Die langsame Aufnahme wird dabei für das nächste Mal erzeugt.
+ */
+async function playSlow(it: Item, natural: boolean, my: number) {
+  if (natural) {
+    const sv = slowVoice(currentGeminiVoice())
+    const slow = hotClip(it.text, it.lang, sv) ?? (await cachedClip(it.text, it.lang, sv))
+    if (my !== token) return
+    if (slow) return playClip(slow, my)
+    void requestClip(it.text, it.lang, 'play', { voice: sv })
+    const normal = hotClip(it.text, it.lang) ?? (await cachedClip(it.text, it.lang))
+    if (my !== token) return
+    if (normal) return playClipStretched(normal, 0.75, my)
+  }
+  return playSystem(it.text, it.lang, it.rate * 0.7, my)
+}
+
 const cleanKo = (t: string) => t.replace(/[[\]]/g, '').trim()
+
+/** Langsam vorlesen (Wort oder Satz, Koreanisch) */
+export function speakSlow(text: string, lang: ClipLang = 'ko') {
+  const t = lang === 'ko' ? cleanKo(text) : text.trim()
+  if (t) void playSequence([{ text: t, lang, rate: lang === 'ko' ? 0.9 : 0.95, slow: true }])
+}
 
 /** Koreanischen Text vorlesen (Gemini-Stimme, sobald die Aufnahme bereit ist) */
 export function speak(text: string) {
@@ -179,9 +230,14 @@ export function speakSystem(text: string, lang: ClipLang = 'ko') {
   void playSystem(text, lang, lang === 'ko' ? 0.9 : 0.95, token)
 }
 
-/** Sätze, die gleich drankommen, schon vorbereiten (z. B. eine Partikel-Runde) */
+/** Sätze, die gleich drankommen, schon vorbereiten (z. B. die nächsten Aufgaben einer Übung) */
 export function prepareSentences(texts: string[], lang: ClipLang = 'ko') {
   if (geminiVoiceActive()) prefetchClips(texts.filter(isSpeakable).map((text) => ({ text: lang === 'ko' ? cleanKo(text) : text.trim(), lang })), 'now')
+}
+
+/** Wörter, die gleich drankommen (Quiz, Lernkarten, Diktat), mit Vorrang vorbereiten */
+export function prepareUpcomingWords(words: { korean: string; german: string }[]) {
+  if (geminiVoiceActive()) prefetchClips(voiceItems(words), 'now')
 }
 
 /** Alle Aufnahmen der Wörter neu erzeugen */

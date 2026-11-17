@@ -6,9 +6,9 @@ import { listAllModels } from '../lab/bench'
 import { getItem, setItem } from '../storage'
 import { AudioSync, forgetSynced, type AudioRemote, type SyncMemory } from './audioSync'
 import { b64ToBytes, bytesToB64, decodeOpus, encodeOpus, opusSupported } from './codec'
-import { LiveSession, speakWithTtsModel, verifyAudioLive } from '../lab/liveTts'
+import { LiveSession, SLOW_INSTRUCTION, speakWithTtsModel, verifyAudioLive } from '../lab/liveTts'
 import {
-  ClipQueue, DEFAULT_GEMINI_VOICE, TTS_DAILY_LIMIT, canUseTts, clipKey, countTts, idbClipStore, pickVoiceModels, produceClip, ttsUsed,
+  ClipQueue, DEFAULT_GEMINI_VOICE, baseVoice, isSlowVoice, shouldSyncKey, TTS_DAILY_LIMIT, canUseTts, clipKey, countTts, idbClipStore, pickVoiceModels, produceClip, ttsUsed,
   type Clip, type ClipLang, type Generator, type Priority, type QuotaState, type VoiceModels,
 } from './clips'
 
@@ -114,7 +114,8 @@ function closeSession() {
 async function liveSession(model: string, voice: string): Promise<LiveSession | null> {
   if (!session || session.voice !== voice) {
     closeSession()
-    const s = new LiveSession(cfg.apiKey, model, voice)
+    // Langsame Variante: gleiche Stimme, Anweisung „langsam und deutlich“
+    const s = new LiveSession(cfg.apiKey, model, baseVoice(voice), isSlowVoice(voice) ? SLOW_INSTRUCTION : undefined)
     session = { s, voice, ready: s.open() }
   }
   try {
@@ -158,7 +159,8 @@ function generator(models: VoiceModels, voice: string, background: boolean): Gen
       if (!models.check) return null
       return verifyAudioLive(cfg.apiKey, models.check, raw.pcm, raw.rate).catch(() => null)
     },
-    tts: models.tts.length
+    // Ersatzmodelle nur für normales Tempo (für langsam spielt die App stattdessen die normale Aufnahme gedehnt ab)
+    tts: models.tts.length && !isSlowVoice(voice)
       ? async (text) => {
           // bestes Modell zuerst, jedes mit eigenem Tageskontingent
           for (const model of models.tts) {
@@ -333,6 +335,8 @@ export function setAudioRemote(slot: 'account' | 'drive', remote: AudioRemote | 
       codec,
       load: () => getItem<SyncMemory>(memKey, { known: {}, synced: [] }),
       save: (m) => setItem(memKey, m),
+      // Sätze bleiben auf dem Gerät (werden bei Bedarf neu erzeugt), Wörter werden abgeglichen
+      filter: shouldSyncKey,
     }),
   }
   syncInfo = { active: true, lastSync: null, error: '', where: slots.account ? 'account' : 'drive' }

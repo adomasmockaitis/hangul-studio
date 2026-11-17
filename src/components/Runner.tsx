@@ -8,6 +8,7 @@ import { currentStreak } from '../lib/srs'
 import { gradeFrom, type Dir } from '../lib/fsrs'
 import { useApp } from '../store'
 import { QuestionAside } from './questionAside'
+import { prepareUpcomingWords } from '../lib/speech'
 
 export interface QResult {
   correct: boolean
@@ -55,10 +56,17 @@ interface Props {
 }
 
 export function Runner({ questions, onDashboard, onBack, backLabel }: Props) {
-  const { recordReview, reviseReview, activity } = useApp()
+  const { recordReview, reviseReview, activity, words } = useApp()
   const [qs, setQs] = useState(questions)
   const [round, setRound] = useState(0)
   const [i, setI] = useState(0)
+  // Die App weiß, was als Nächstes kommt: aktuelle und die nächsten 3 Wörter schon mit der Gemini-Stimme vorbereiten
+  useEffect(() => {
+    const next = qs.slice(i, i + 4).map((q) => words.find((w) => w.id === q.wordId)).filter((w): w is NonNullable<typeof w> => !!w)
+    prepareUpcomingWords(next)
+    // nur beim Weiterblättern
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [i, qs])
   const [done, setDone] = useState<Done[]>([])
   /** Übersprungene Fragen (kommen am Ende noch einmal) */
   const [skipped, setSkipped] = useState<Set<string>>(new Set())

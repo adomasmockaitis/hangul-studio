@@ -6,6 +6,7 @@ import { CONJUGATION_LABELS, WORD_TYPE_LABELS, type ConjugationKey, type WordIte
 import { HangulCanvas } from './HangulCanvas'
 import { WordExtras } from './WordExtras'
 import { VoiceStatus } from './VoiceStatus'
+import { SlowButton } from './SlowButton'
 
 interface Props {
   word: WordItem
@@ -56,6 +57,7 @@ export function WordCard({ word, mode, onResult, onRevise, onNext, nextLabel }: 
 
         <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
           <button className="btn-soft" onClick={() => speakWord(word, settings.speechMode)}><Volume2 size={16} /> Anhören</button>
+          <SlowButton text={word.korean} />
           <VoiceStatus word={word} />
           {word.pronunciation && (
             <button className="btn-soft" onClick={() => setShowPron((s) => !s)}>

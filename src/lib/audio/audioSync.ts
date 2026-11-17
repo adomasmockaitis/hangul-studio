@@ -67,8 +67,10 @@ export class AudioSync {
   private readonly load: () => SyncMemory
   private readonly save: (m: SyncMemory) => void
   private readonly now: () => number
+  private readonly filter: (key: string) => boolean
 
-  constructor(opts: { remote: AudioRemote; store: ClipStore; codec: Codec; load: () => SyncMemory; save: (m: SyncMemory) => void; now?: () => number }) {
+  constructor(opts: { remote: AudioRemote; store: ClipStore; codec: Codec; load: () => SyncMemory; save: (m: SyncMemory) => void; now?: () => number; filter?: (key: string) => boolean }) {
+    this.filter = opts.filter ?? (() => true)
     this.remote = opts.remote
     this.store = opts.store
     this.codec = opts.codec
@@ -113,7 +115,7 @@ export class AudioSync {
   async push(): Promise<number> {
     const mem = this.load()
     const synced = new Set(mem.synced)
-    const todo = (await this.store.keys()).filter((k) => !synced.has(k))
+    const todo = (await this.store.keys()).filter((k) => !synced.has(k) && this.filter(k))
     if (!todo.length) return 0
     const byPack = new Map<string, string[]>()
     for (const k of todo) byPack.set(packOf(k), [...(byPack.get(packOf(k)) ?? []), k])

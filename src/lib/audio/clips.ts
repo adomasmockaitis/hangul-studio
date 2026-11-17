@@ -6,7 +6,7 @@
  *   Live API erzeugt → Endprüfung (endet das Audio in Stille?) → Gegenprüfung (hört ein Transcribe-Modell den Text?)
  *   → bis zu 3 Versuche → sonst TTS-Modell (10/Tag) → sonst Systemstimme.
  */
-import { isVerbatim, tailCheck, withFinalStop } from '../lab/liveTts'
+import { collapseRepeat, isVerbatim, tailCheck, withFinalStop } from '../lab/liveTts'
 
 export type ClipLang = 'ko' | 'de'
 
@@ -33,6 +33,54 @@ export type GeminiVoice = (typeof GEMINI_VOICES)[number]['id']
 export const DEFAULT_GEMINI_VOICE: GeminiVoice = 'Kore'
 
 export const normText = (t: string) => t.normalize('NFC').replace(/\s+/g, ' ').trim()
+
+/** Langsame Variante einer Stimme (eigene Aufnahmen mit der Anweisung „langsam und deutlich“) */
+export const SLOW_SUFFIX = '~slow'
+export const slowVoice = (voice: string) => (voice.endsWith(SLOW_SUFFIX) ? voice : voice + SLOW_SUFFIX)
+export const isSlowVoice = (voice: string) => voice.endsWith(SLOW_SUFFIX)
+export const baseVoice = (voice: string) => voice.replace(SLOW_SUFFIX, '')
+
+/** Wort oder kurze Wendung (bis 3 Wörter, kein Satzzeichen am Ende) */
+export function isWordLikeText(text: string): boolean {
+  const t = text.trim()
+  return !!t && !/[.!?。]$/.test(t) && t.split(/\s+/).length <= 3 && t.length <= 24
+}
+/** Text aus einem Schlüssel „gemini|Stimme|Sprache|Text“ */
+export const textOfKey = (key: string) => key.split('|').slice(3).join('|')
+/** Abgeglichen werden nur Wörter; Sätze bleiben auf dem Gerät und werden bei Bedarf neu erzeugt */
+export const shouldSyncKey = (key: string) => isWordLikeText(textOfKey(key))
+
+/** Ähnlichkeit zweier Texte (0–1), Leerzeichen und Satzzeichen zählen nicht */
+export function similarity(a: string, b: string): number {
+  const n = (s: string) => s.normalize('NFC').replace(/[\s.,!?·'"„“…~-]/g, '').toLowerCase()
+  const x = n(a)
+  const y = n(b)
+  if (!x.length && !y.length) return 1
+  const prev = Array.from({ length: y.length + 1 }, (_, j) => j)
+  for (let i = 1; i <= x.length; i++) {
+    let diag = prev[0]
+    prev[0] = i
+    for (let j = 1; j <= y.length; j++) {
+      const tmp = prev[j]
+      prev[j] = Math.min(prev[j] + 1, prev[j - 1] + 1, diag + (x[i - 1] === y[j - 1] ? 0 : 1))
+      diag = tmp
+    }
+  }
+  return 1 - prev[y.length] / Math.max(x.length, y.length)
+}
+
+/**
+ * Bei Sätzen weicht die Mitschrift der Gegenprüfung oft in Kleinigkeiten ab (z. B. „TU“ → „튀“, „내 주셨어요“ → „내주셨어요“),
+ * obwohl alles richtig gesprochen wurde. Angenommen wird ein Satz, wenn er zu mindestens 85 % passt und das Ende stimmt –
+ * fehlende Wortenden fängt außerdem die Endprüfung ab.
+ */
+export function closeEnough(text: string, heard: string): boolean {
+  if (isWordLikeText(text)) return false
+  const n = (s: string) => s.normalize('NFC').replace(/[\s.,!?·'"„“…~-]/g, '').toLowerCase()
+  const t = n(text)
+  const h = n(collapseRepeat(heard))
+  return t.length >= 6 && h.endsWith(t.slice(-2)) && similarity(t, h) >= 0.85
+}
 export const clipKey = (voice: string, lang: ClipLang, text: string) => `gemini|${voice}|${lang}|${normText(text)}`
 
 // ---------- Erzeugungs-Kette ----------
@@ -92,7 +140,7 @@ export async function produceClip(text: string, gen: Generator, opts: { attempts
       continue
     }
     const heard = await gen.heard(r)
-    if (heard !== null && !isVerbatim(text, heard)) {
+    if (heard !== null && !isVerbatim(text, heard) && !closeEnough(text, heard)) {
       rejected.push(`gehört: ${heard || '(nichts)'}`)
       continue
     }
@@ -271,7 +319,9 @@ export function idbClipStore(): ClipStore {
 
 // ---------- Warteschlange ----------
 
-export type Priority = 'now' | 'background'
+/** play = wird gerade angefordert (vor allem anderen), now = gleich gebraucht, background = Vorrat */
+export type Priority = 'play' | 'now' | 'background'
+const RANK: Record<Priority, number> = { play: 3, now: 2, background: 1 }
 
 /**
  * Erzeugt Aufnahmen nacheinander (eine Live-Verbindung), dringende zuerst; doppelte Anfragen werden zusammengelegt.
@@ -293,7 +343,7 @@ export class ClipQueue {
     return new Promise((resolve) => {
       const ex = this.items.find((x) => x.key === key)
       if (ex) {
-        if (prio === 'now') ex.prio = 'now'
+        if (RANK[prio] > RANK[ex.prio]) ex.prio = prio
         ex.waiters.push(resolve)
       } else this.items.push({ key, prio, run, waiters: [resolve] })
       void this.pump()
@@ -309,7 +359,8 @@ export class ClipQueue {
     try {
       while (this.items.length) {
         // dringende zuerst, sonst in Reihenfolge
-        const idx = Math.max(0, this.items.findIndex((x) => x.prio === 'now'))
+        let idx = 0
+        for (let j = 1; j < this.items.length; j++) if (RANK[this.items[j].prio] > RANK[this.items[idx].prio]) idx = j
         const [it] = this.items.splice(idx, 1)
         this.items.unshift(it) // bleibt sichtbar als „läuft“
         let clip: Clip | null = null

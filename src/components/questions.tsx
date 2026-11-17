@@ -43,9 +43,12 @@ export function WriteQuestion({
       <div className="card fade-up p-6 text-center">
         {prompt}
         {audioPrompt && (
-          <button className="btn-primary mx-auto mt-3 !rounded-full !px-6 !py-3" onClick={() => speak(audioPrompt)}>
-            <Volume2 size={20} /> Nochmal anhören
-          </button>
+          <div className="mt-3 flex flex-wrap justify-center gap-2">
+            <button className="btn-primary !rounded-full !px-6 !py-3" onClick={() => speak(audioPrompt)}>
+              <Volume2 size={20} /> Nochmal anhören
+            </button>
+            <SlowButton text={audioPrompt} className="btn-soft !rounded-full !px-4 !py-3" />
+          </div>
         )}
         {done && (
           <div className="fade-up mt-4 border-t border-separator pt-4">
@@ -72,6 +75,7 @@ export function WriteQuestion({
 
 export { matchesGerman } from '../lib/german'
 import { matchesGerman } from '../lib/german'
+import { SlowButton } from './SlowButton'
 
 function KoreanPrompt({ word }: { word: WordItem }) {
   const { settings } = useApp()
@@ -85,7 +89,10 @@ function KoreanPrompt({ word }: { word: WordItem }) {
     <>
       <p className="label mb-1">Was bedeutet das?</p>
       <h2 className="text-6xl font-bold tracking-tight">{word.korean}</h2>
-      <button className="btn-soft mx-auto mt-3" onClick={() => speak(word.korean)}><Volume2 size={16} /> Anhören</button>
+      <div className="mt-3 flex flex-wrap justify-center gap-2">
+        <button className="btn-soft" onClick={() => speak(word.korean)}><Volume2 size={16} /> Anhören</button>
+        <SlowButton text={word.korean} />
+      </div>
     </>
   )
 }
@@ -152,9 +159,12 @@ export function ListenTypeQuestion({ word, onResult, onNext, nextLabel }: Common
     <div className="card fade-up p-6 text-center">
       <p className="label mb-1">Hör-Diktat</p>
       <p className="text-xl font-semibold">Was bedeutet das Gehörte?</p>
-      <button className="btn-primary mx-auto mt-3 !px-6 !py-3" onClick={() => speak(word.korean)}>
-        <Volume2 size={20} /> Nochmal anhören
-      </button>
+      <div className="mt-3 flex flex-wrap justify-center gap-2">
+        <button className="btn-primary !px-6 !py-3" onClick={() => speak(word.korean)}>
+          <Volume2 size={20} /> Nochmal anhören
+        </button>
+        <SlowButton text={word.korean} className="btn-soft !px-4 !py-3" />
+      </div>
       <input
         autoFocus
         className="input mt-5 !py-3.5 text-center !text-xl"

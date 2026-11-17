@@ -24,6 +24,14 @@ export interface Release {
 }
 export const RELEASES: Release[] = [
   {
+    id: '2026-11-slow-voice',
+    size: 'minor',
+    title: 'Neu in Hangul Studio',
+    subtitle: 'Langsam anhören',
+    summary: 'Mit dem Schnecken-Knopf hörst du Wörter und Sätze langsam und deutlich – als eigene ruhige Gemini-Aufnahme, bis dahin die normale mit 75 % Tempo. Übungen bereiten die nächsten Aufgaben schon vor, Sätze bleiben auf dem Gerät und nur Wörter werden abgeglichen.',
+    features: [],
+  },
+  {
     id: '2026-11-voice-check-fix',
     size: 'minor',
     title: 'Neu in Hangul Studio',

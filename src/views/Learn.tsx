@@ -1,4 +1,4 @@
-﻿import { useMemo, useState } from 'react'
+﻿import { useEffect, useMemo, useState } from 'react'
 import { ArrowLeft, ArrowRight, SlidersHorizontal } from 'lucide-react'
 import { DoneCard } from '../components/DoneCard'
 import { SelectionPicker } from '../components/SelectionPicker'
@@ -7,6 +7,7 @@ import { WordCard } from '../components/WordCard'
 import { describeSelection, resolveSelection, smartPick, SMART, takePendingLearn, type Selection } from '../lib/selection'
 import { useApp } from '../store'
 import type { Folder, WordItem } from '../types'
+import { prepareSentences, prepareUpcomingWords } from '../lib/speech'
 
 type Sort = 'old' | 'new'
 
@@ -49,6 +50,13 @@ export function Browse({ onDashboard }: { onDashboard: () => void }) {
 
   const i = Math.min(idx, Math.max(0, list.length - 1))
   const word = list[i]
+  useEffect(() => {
+    const next = list.slice(i, i + 4)
+    prepareUpcomingWords(next)
+    prepareSentences(next.flatMap((w) => (w.examples ?? []).map((e) => e.ko)))
+    // nur beim Weiterblättern
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [i, list.length])
 
   return (
     <div className="space-y-5">
