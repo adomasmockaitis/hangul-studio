@@ -1,5 +1,6 @@
 import type { Activity, Folder, Settings, WordItem } from '../types'
 import { newerCard } from './fsrs'
+import { emptyParticleState, mergeParticleStates, sanitizeParticleState, type ParticleState } from './particles/engine'
 
 /** Einstellungen, die nur auf dem jeweiligen Gerät bleiben und nie synchronisiert werden */
 export const LOCAL_ONLY_SETTINGS = ['googleClientId', 'syncApiKey'] as const
@@ -20,6 +21,8 @@ export interface SyncPayload {
   folders?: Folder[]
   /** Gelöschte Ordner (Schlüssel = Ordner-ID, Wert = Zeitpunkt) */
   deletedFolders?: Record<string, number>
+  /** Partikel-Trainer (ab Etappe 5) */
+  particles?: ParticleState
 }
 
 const DAY = 86_400_000
@@ -126,6 +129,7 @@ export function mergePayloads(local: SyncPayload, remote: SyncPayload, now = Dat
     updatedAt: Math.max(local.updatedAt, remote.updatedAt),
     folders,
     deletedFolders,
+    particles: local.particles || remote.particles ? mergeParticleStates(local.particles ?? emptyParticleState(), remote.particles ?? emptyParticleState()) : undefined,
     words: [...map.values()].sort((x, y) => x.createdAt - y.createdAt || x.korean.localeCompare(y.korean)),
     deleted,
     activity,
@@ -145,7 +149,13 @@ export function fingerprint(p: SyncPayload): string {
     t: p.settingsUpdatedAt,
     f: [...(p.folders ?? [])].sort((a, b) => a.id.localeCompare(b.id)),
     fd: sortKeys(p.deletedFolders ?? {}),
+    pa: p.particles ? particleFingerprint(p.particles) : null,
   })
+}
+
+function particleFingerprint(s: ParticleState) {
+  const sort = <T,>(o: Record<string, T>) => Object.fromEntries(Object.entries(o).sort(([a], [b]) => a.localeCompare(b)))
+  return { ...s, progress: sort(s.progress as Record<string, unknown>), stats: sort(s.stats), ai: s.ai.map((x) => x.id).sort() }
 }
 
 /** Größter Zeitstempel in einem Stand (für die logische Uhr) */
@@ -178,5 +188,6 @@ export function parsePayload(raw: unknown): SyncPayload | null {
     updatedAt: typeof r.updatedAt === 'number' ? r.updatedAt : 0,
     folders: Array.isArray(r.folders) ? (r.folders as Folder[]).filter((f) => f && typeof f.id === 'string' && typeof f.name === 'string') : [],
     deletedFolders: r.deletedFolders && typeof r.deletedFolders === 'object' ? r.deletedFolders : {},
+    particles: r.particles ? sanitizeParticleState(r.particles) : undefined,
   }
 }

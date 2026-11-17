@@ -1,10 +1,10 @@
-import { ArrowLeft, Bell, CheckCircle2, Clock, Cloud, Ear, Folder, Gauge, Layers, MousePointerClick, Pin, ShieldCheck, Sparkles, type LucideIcon } from 'lucide-react'
+import { ArrowLeft, Bell, CheckCircle2, Clock, Cloud, Ear, Folder, Gauge, Layers, MousePointerClick, Pin, Puzzle, ShieldCheck, Sparkles, type LucideIcon } from 'lucide-react'
 import { LATEST_RELEASE, markReleaseSeen, releasePopup, type ReleaseIcon } from '../lib/releases'
 import { playSound } from '../lib/sounds'
 import { useSync } from '../sync'
 
 const ICONS: Record<ReleaseIcon, LucideIcon> = {
-  cloud: Cloud, shield: ShieldCheck, bell: Bell, clock: Clock, pin: Pin, check: CheckCircle2, pointer: MousePointerClick, sparkles: Sparkles, layers: Layers, back: ArrowLeft, folder: Folder, gauge: Gauge, ear: Ear,
+  cloud: Cloud, shield: ShieldCheck, bell: Bell, clock: Clock, pin: Pin, check: CheckCircle2, pointer: MousePointerClick, sparkles: Sparkles, layers: Layers, back: ArrowLeft, folder: Folder, gauge: Gauge, ear: Ear, puzzle: Puzzle,
 }
 
 /**

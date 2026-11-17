@@ -27,7 +27,7 @@ const NAV: { id: Tab; label: string; icon: LucideIcon }[] = [
 
 function Shell() {
   const { settings } = useApp()
-  const { tab, sub } = useRoute()
+  const { tab, sub, rest } = useRoute()
   const [onboarding, setOnboarding] = useState(() => !isOnboarded())
   // Update-Fenster: nur für bestehende Nutzer, einmal pro neuem Release
   const [whatsNew, setWhatsNew] = useState(() => isOnboarded() && releasePopup() !== null)
@@ -89,7 +89,7 @@ function Shell() {
         <div key={`${tab}-${navKey}`} className="page-in">
           {tab === 'start' && <Dashboard />}
           {tab === 'woerter' && <Dictionary />}
-          {tab === 'ueben' && <Practice sub={sub} />}
+          {tab === 'ueben' && <Practice sub={sub} rest={rest} />}
           {tab === 'labor' && <Lab />}
           {tab === 'einstellungen' && <SettingsView sub={sub} onRestartOnboarding={() => setOnboarding(true)} onShowWhatsNew={() => setWhatsNew(true)} />}
         </div>

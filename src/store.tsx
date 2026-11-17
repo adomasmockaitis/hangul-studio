@@ -7,6 +7,7 @@ import { applyReview, dateKey } from './lib/srs'
 import { LOCAL_ONLY_SETTINGS, maxStamp, type SyncPayload } from './lib/merge'
 import { canAddSubfolder, descendantIds, planChapterConversion } from './lib/folders'
 import { getItem, setItem } from './lib/storage'
+import { mergeParticleStates, sanitizeParticleState, type ParticleState } from './lib/particles/engine'
 import { cardOf, personalRetention, retrievability, schedule, type Dir, type Grade4, type ReviewLogEntry, type SrsCard } from './lib/fsrs'
 import { MAX_EXAMPLES, type Activity, type BackupFile, type CheckMethod, type CheckStep, type Folder, type Settings, type WordItem, type WordType } from './types'
 
@@ -16,6 +17,7 @@ const K_SETTINGS = 'hangul-studio:settings'
 const K_ACTIVITY = 'hangul-studio:activity'
 const K_FOLDERS = 'hangul-studio:folders'
 const K_DELETED_FOLDERS = 'hangul-studio:deleted-folders'
+const K_PARTICLES = 'hangul-studio:particles'
 /** Protokoll der Antworten (nur auf diesem Gerät) für Lernstand und persönliche Anpassung */
 const K_REVIEW_LOG = 'hangul-studio:review-log'
 const MAX_LOG = 5000
@@ -51,6 +53,7 @@ export const DEFAULT_SETTINGS: Settings = {
   autoSpeak: false,
   speechMode: 'both',
   autoExamples: true,
+  particleNewWords: true,
   contribute: false,
   soundEffects: true,
   soundVolume: 0.5,
@@ -127,6 +130,9 @@ interface Ctx {
   addTagToWords: (ids: string[], tag: string) => void
   /** Kapitel-Tags (#Kapitel1 …) in Ordner umwandeln; liefert die Zahl der verschobenen Wörter */
   convertChapterTags: () => number
+  /** Partikel-Trainer: Fortschritt, Stufe, KI-Sätze (synchronisiert) */
+  particles: ParticleState
+  updateParticles: (fn: (s: ParticleState) => ParticleState) => void
   /** Übernimmt einen zusammengeführten Stand aus der Synchronisation */
   applySyncPayload: (p: SyncPayload) => void
   updateSettings: (patch: Partial<Settings>) => void
@@ -188,6 +194,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   /** Letzter Zustand vor einer Bewertung, damit ein Widerspruch sie korrigieren kann */
   const lastReview = useRef(new Map<string, { dir: Dir; prev: SrsCard | undefined; t: number }>())
   const [deletedFolders, setDeletedFolders] = useState<Record<string, number>>(() => load<Record<string, number>>(K_DELETED_FOLDERS, {}))
+  const [particles, setParticles] = useState<ParticleState>(() => sanitizeParticleState(load<unknown>(K_PARTICLES, null)))
+  useEffect(() => save(K_PARTICLES, particles), [particles])
+  const updateParticles = useCallback((fn: (s: ParticleState) => ParticleState) => setParticles((s) => fn(s)), [])
 
   // Beim Start: bereits gespeicherte Zeitstempel in die logische Uhr übernehmen
   useEffect(() => {
@@ -449,6 +458,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setDeleted(p.deleted)
     setFolders(p.folders ?? [])
     setDeletedFolders(p.deletedFolders ?? {})
+    if (p.particles) setParticles(p.particles)
     setActivity(p.activity)
     setSettings((s) => {
       const incoming: Partial<Settings> = { ...p.settings }
@@ -475,6 +485,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         settings: includeApiKey ? { ...rest, geminiApiKey } : rest,
         activity,
         folders,
+        particles,
       }
       const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' })
       const url = URL.createObjectURL(blob)
@@ -486,7 +497,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       a.remove()
       setTimeout(() => URL.revokeObjectURL(url), 1000)
     },
-    [settings, words, activity, folders],
+    [settings, words, activity, folders, particles],
   )
 
   const importBackup: Ctx['importBackup'] = useCallback((json, mode) => {
@@ -563,6 +574,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         settingsUpdatedAt: now,
       }))
     }
+    if (data.particles) {
+      const inP = sanitizeParticleState(data.particles)
+      setParticles((cur) => (mode === 'replace' ? inP : mergeParticleStates(cur, inP)))
+    }
     return { words: incoming.length }
   }, [])
 
@@ -571,8 +586,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       words, settings, activity, deleted, applySyncPayload, updateSettings, addWord, addWords, updateWord, deleteWord,
       recordReview, reviseReview, resetStats, restoreDemo, clearAll, exportBackup, importBackup,
       folders, deletedFolders, addFolder, renameFolder, deleteFolder, moveWords, addTagToWords, convertChapterTags, reviewLog, retention,
+      particles, updateParticles,
     }),
-    [reviewLog, retention, folders, deletedFolders, addFolder, renameFolder, deleteFolder, moveWords, addTagToWords, convertChapterTags, words, settings, activity, deleted, applySyncPayload, updateSettings, addWord, addWords, updateWord, deleteWord, recordReview, reviseReview, resetStats, restoreDemo, clearAll, exportBackup, importBackup],
+    [particles, updateParticles, reviewLog, retention, folders, deletedFolders, addFolder, renameFolder, deleteFolder, moveWords, addTagToWords, convertChapterTags, words, settings, activity, deleted, applySyncPayload, updateSettings, addWord, addWords, updateWord, deleteWord, recordReview, reviseReview, resetStats, restoreDemo, clearAll, exportBackup, importBackup],
   )
 
   return <AppCtx.Provider value={value}>{children}</AppCtx.Provider>

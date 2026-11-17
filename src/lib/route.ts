@@ -15,12 +15,12 @@ function subscribe(cb: () => void) {
   return () => window.removeEventListener('hashchange', cb)
 }
 
-/** Aktueller Pfad, zerlegt: { tab: 'ueben', sub: 'quiz' } */
-export function useRoute(): { tab: Tab; sub: string } {
+/** Aktueller Pfad, zerlegt: { tab: 'ueben', sub: 'partikel', rest: 'ga' } */
+export function useRoute(): { tab: Tab; sub: string; rest: string } {
   const path = useSyncExternalStore(subscribe, read)
-  const [first = '', sub = ''] = path.split('/')
+  const [first = '', sub = '', ...more] = path.split('/')
   const tab = (TABS as string[]).includes(first) ? (first as Tab) : 'start'
-  return { tab, sub }
+  return { tab, sub, rest: more.join('/') }
 }
 
 /** navigate('/ueben/quiz') – mit replace wird kein neuer Verlaufseintrag angelegt */

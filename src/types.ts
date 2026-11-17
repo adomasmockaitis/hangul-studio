@@ -94,6 +94,8 @@ export interface Settings {
   speechMode: SpeechMode
   /** Fehlende Beispielsätze beim Lernen automatisch von Gemini erzeugen lassen (nur mit API-Key) */
   autoExamples: boolean
+  /** Partikel-Trainer: KI darf neue Wörter in Übungssätze einbauen */
+  particleNewWords: boolean
   /** „App mitverbessern“: Fehlerfälle der Erkennung ohne Nutzerbezug senden (nur mit Konto) */
   contribute: boolean
   /** Dezente Klänge bei richtig/falsch usw. */
@@ -121,6 +123,8 @@ export interface BackupFile {
   activity: Activity
   /** Ab Version 2 der App: Ordner (ältere Sicherungen haben keine) */
   folders?: Folder[]
+  /** Partikel-Trainer: Fortschritt und KI-Sätze */
+  particles?: unknown
 }
 
 

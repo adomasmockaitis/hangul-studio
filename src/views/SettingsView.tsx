@@ -304,6 +304,9 @@ export function SettingsView({ sub = '', onRestartOnboarding, onShowWhatsNew }: 
         <Row title="Beispielsätze automatisch erzeugen" desc="Fehlen einem Wort Beispielsätze, schreibt Gemini beim Lernen selbst zwei passend zu deinem Lernstand – einmal pro Wort, danach gespeichert. Aus: nur auf Knopfdruck.">
           <Toggle checked={settings.autoExamples} onChange={(autoExamples) => updateSettings({ autoExamples })} label="Beispielsätze automatisch erzeugen" />
         </Row>
+        <Row title="Partikel-Trainer: neue Wörter einbauen" desc="Gemini baut Übungssätze vor allem aus deinen Wörtern. Ist das an, dürfen auch ein paar neue Wörter vorkommen – je nach Lernstand wenige (Stufe 1–3 höchstens 3 pro Runde) bis mehr. Sie stehen mit Übersetzung im Satz und lassen sich am Ende übernehmen.">
+          <Toggle checked={settings.particleNewWords} onChange={(particleNewWords) => updateSettings({ particleNewWords })} label="Neue Wörter im Partikel-Trainer" />
+        </Row>
         <Row title="Gemini-Zeitlimit" desc="Antwortet Gemini (inklusive Modellwechsel) in dieser Zeit nicht, springt die App zur nächsten Methode. Bei längeren Wörtern kommt automatisch Zeit dazu (ab 3 Zeichen +0,5 s je Zeichen, höchstens +2 s). Sind die Schreib-Tipps an, gilt die Basiszeit x1,5, weil Gemini dann länger braucht.">
           <div className="flex items-center gap-3">
             <input type="range" min={2} max={15} value={settings.geminiTimeoutSec} onChange={(e) => updateSettings({ geminiTimeoutSec: +e.target.value })} className="w-36 accent-blue" />

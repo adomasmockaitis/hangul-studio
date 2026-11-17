@@ -73,7 +73,7 @@ export function Segmented<T extends string>({
             if (o.value !== value) playSound('tap')
             onChange(o.value)
           }}
-          className={`relative flex min-h-9 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors duration-200 active:opacity-60 ${
+          className={`relative flex min-h-9 items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[13px] font-medium sm:px-3.5 sm:text-sm transition-colors duration-200 active:opacity-60 ${
             value === o.value ? 'text-label' : 'text-label-2'
           }`}
         >

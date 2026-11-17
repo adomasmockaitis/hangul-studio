@@ -402,6 +402,13 @@ export function Onboarding({ onClose }: { onClose: () => void }) {
               </div>
               <Toggle checked={settings.autoExamples} onChange={(autoExamples) => updateSettings({ autoExamples })} label="Beispielsätze automatisch erzeugen" />
             </div>
+            <div className="card flex items-center justify-between gap-3 p-4">
+              <div>
+                <p className="font-medium">Partikel-Trainer: neue Wörter einbauen</p>
+                <p className="text-sm text-label-2">Übungssätze entstehen aus deinen Wörtern. An: Gemini darf auch ein paar neue Wörter einbauen – anfangs nur wenige, mit Übersetzung.</p>
+              </div>
+              <Toggle checked={settings.particleNewWords} onChange={(particleNewWords) => updateSettings({ particleNewWords })} label="Neue Wörter im Partikel-Trainer" />
+            </div>
             {settings.writingTips && (
               <div className="card p-4">
                 <p className="mb-2 font-medium">Wie streng soll Gemini sein?</p>

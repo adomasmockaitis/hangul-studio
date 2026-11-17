@@ -1,4 +1,4 @@
-﻿/**
+/**
  * „Das ist neu“-Fenster.
  *
  * Neues Update = neuer Eintrag ganz OBEN in RELEASES.
@@ -7,7 +7,7 @@
  *                    aber als Zeile unter „Außerdem“, sobald ein großes Update angezeigt wird.
  * Das Fenster erscheint höchstens einmal pro Besuch: ein Fenster, bis zu 3 große Updates untereinander.
  */
-export type ReleaseIcon = 'cloud' | 'shield' | 'bell' | 'clock' | 'pin' | 'check' | 'pointer' | 'sparkles' | 'layers' | 'back' | 'folder' | 'gauge' | 'ear'
+export type ReleaseIcon = 'cloud' | 'shield' | 'bell' | 'clock' | 'pin' | 'check' | 'pointer' | 'sparkles' | 'layers' | 'back' | 'folder' | 'gauge' | 'ear' | 'puzzle'
 
 export interface Release {
   /** Eindeutige Kennung */
@@ -23,6 +23,32 @@ export interface Release {
   cta?: 'sync'
 }
 export const RELEASES: Release[] = [
+  {
+    id: '2026-11-particles',
+    size: 'major',
+    title: 'Neu in Hangul Studio',
+    subtitle: 'Der Partikel-Trainer',
+    features: [
+      {
+        icon: 'puzzle',
+        color: '#bf5af2',
+        title: '10 Partikeln, Schritt für Schritt',
+        text: 'Unter Üben → Partikel: 이/가 bis 에서 als Kapitel. Kennst du eine schon, reicht ein kurzer Check – sonst Erklärung, Aufwärmen und Mini-Test.',
+      },
+      {
+        icon: 'gauge',
+        color: '#ff9f0a',
+        title: 'Fünf Stufen oder Auto',
+        text: 'Von Einsteiger bis Profi: Lücke wählen, von Hand schreiben, ganze Sätze übersetzen. Auto passt die Stufe an deine Trefferquote an.',
+      },
+      {
+        icon: 'sparkles',
+        color: '#0a84ff',
+        title: 'Sätze aus deinen Wörtern',
+        text: 'Mit Gemini-Key entstehen Übungssätze aus deinem Wortschatz; neue Wörter übernimmst du am Ende per Häkchen. Ohne Key: 500 eingebaute Sätze.',
+      },
+    ],
+  },
   {
     id: '2026-11-skip-button-live-fix',
     size: 'minor',
