@@ -14,8 +14,9 @@ export interface SpeechConfig {
   systemVoiceKo: string
   systemVoiceDe: string
   speechMode: SpeechMode
+  slowMode: 'gemini' | 'stretch'
 }
-let cfg: SpeechConfig = { source: 'system', apiKey: '', geminiVoice: 'Kore', systemVoiceKo: '', systemVoiceDe: '', speechMode: 'both' }
+let cfg: SpeechConfig = { source: 'system', apiKey: '', geminiVoice: 'Kore', systemVoiceKo: '', systemVoiceDe: '', speechMode: 'both', slowMode: 'gemini' }
 
 export function configureSpeech(c: SpeechConfig) {
   cfg = c
@@ -185,7 +186,13 @@ async function playSequence(items: Item[]) {
  * sonst die Systemstimme langsam. Die langsame Aufnahme wird dabei für das nächste Mal erzeugt.
  */
 async function playSlow(it: Item, natural: boolean, my: number) {
-  if (natural) {
+  if (natural && cfg.slowMode === 'stretch') {
+    // Gewählt: immer die normale Aufnahme mit 75 % Tempo (keine eigenen langsamen Aufnahmen)
+    const normal = hotClip(it.text, it.lang) ?? (await cachedClip(it.text, it.lang))
+    if (my !== token) return
+    if (normal) return playClipStretched(normal, 0.75, my)
+    void requestClip(it.text, it.lang, 'play')
+  } else if (natural) {
     const sv = slowVoice(currentGeminiVoice())
     const slow = hotClip(it.text, it.lang, sv) ?? (await cachedClip(it.text, it.lang, sv))
     if (my !== token) return
@@ -240,6 +247,7 @@ export function prepareUpcomingWords(words: { korean: string; german: string }[]
   if (!geminiVoiceActive()) return
   prefetchClips(voiceItems(words), 'now')
   // Langsame Fassung (nur Koreanisch, nur auf diesem Gerät) für die nächsten paar Wörter – nach den normalen
+  if (cfg.slowMode !== 'gemini') return
   const ko = voiceItems(words.slice(0, 3)).filter((it) => it.lang === 'ko')
   prefetchClips(ko, 'background', slowVoice(currentGeminiVoice()))
 }

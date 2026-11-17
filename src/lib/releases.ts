@@ -24,6 +24,14 @@ export interface Release {
 }
 export const RELEASES: Release[] = [
   {
+    id: '2026-11-slow-choice',
+    size: 'minor',
+    title: 'Neu in Hangul Studio',
+    subtitle: 'Langsam: Gemini oder 0,75×',
+    summary: 'Du wählst, wie „Langsam“ klingt: eigene ruhige Gemini-Aufnahme oder die normale mit 0,75×. Die Kennzeichen (KO, DE, Schnecke für langsam) sitzen jetzt oben rechts auf der Karte und werden unter Audio & Lernen erklärt.',
+    features: [],
+  },
+  {
     id: '2026-11-slow-voice',
     size: 'minor',
     title: 'Neu in Hangul Studio',

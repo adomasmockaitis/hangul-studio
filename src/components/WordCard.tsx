@@ -37,7 +37,8 @@ export function WordCard({ word, mode, onResult, onRevise, onNext, nextLabel }: 
 
   return (
     <div className="space-y-5">
-      <div className="card fade-up p-6 text-center">
+      <div className="card fade-up relative p-6 text-center">
+        <VoiceStatus word={word} slow className="absolute right-3 top-3" />
         <div className="mb-3 flex items-center justify-center gap-2 text-xs text-label-2">
           <span className="rounded-full bg-fill-3 px-2.5 py-0.5 font-medium">{WORD_TYPE_LABELS[word.wordType]}</span>
           {word.tags.slice(0, 3).map((t) => <span key={t}>{t}</span>)}
@@ -58,7 +59,6 @@ export function WordCard({ word, mode, onResult, onRevise, onNext, nextLabel }: 
         <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
           <button className="btn-soft" onClick={() => speakWord(word, settings.speechMode)}><Volume2 size={16} /> Anhören</button>
           <SlowButton text={word.korean} />
-          <VoiceStatus word={word} />
           {word.pronunciation && (
             <button className="btn-soft" onClick={() => setShowPron((s) => !s)}>
               {showPron ? 'Aussprachehilfe ausblenden' : 'Aussprachehilfe einblenden'}

@@ -7,8 +7,8 @@ import { Check, KeyRound, Loader2, Play, RefreshCw, Trash2 } from 'lucide-react'
 import { GEMINI_VOICES, type ClipLang } from '../lib/audio/clips'
 import { audioSyncInfo, clearClips, clipQueueSize, clipStats, coverage, retryFailed, ttsOverview } from '../lib/audio/voice'
 import { navigate } from '../lib/route'
-import { onVoicesChanged, prepareWords, previewGeminiVoice, previewSystemVoice, regenerateWords, systemVoices, voiceItems } from '../lib/speech'
-import { useClipsVersion } from './VoiceStatus'
+import { SAMPLE_KO, onVoicesChanged, prepareWords, speakSlow, previewGeminiVoice, previewSystemVoice, regenerateWords, systemVoices, voiceItems } from '../lib/speech'
+import { VoiceLegend, useClipsVersion } from './VoiceStatus'
 import { useApp } from '../store'
 import { Segmented, useConfirm } from './ui'
 
@@ -75,9 +75,42 @@ export function VoicePicker({ compact = false }: { compact?: boolean }) {
         )
       )}
 
+      {settings.voiceSource === 'gemini' && hasKey && (
+        <div className="space-y-2">
+          <p className="text-sm font-medium">Langsam anhören <span className="font-normal text-label-3">(Schnecken-Knopf)</span></p>
+          <Segmented<'gemini' | 'stretch'>
+            label="Langsam anhören"
+            value={settings.slowMode}
+            onChange={(slowMode) => updateSettings({ slowMode })}
+            options={[{ value: 'gemini', label: 'Gemini spricht langsam' }, { value: 'stretch', label: 'Original mit 0,75×' }]}
+          />
+          <p className="text-xs text-label-2">
+            {settings.slowMode === 'gemini'
+              ? 'Klingt am natürlichsten: eigene ruhige Aufnahme mit kleinen Pausen (nur auf diesem Gerät). Bis sie fertig ist, spielt die normale mit 75 % Tempo.'
+              : 'Spielt die normale Aufnahme mit 75 % Tempo ab – sofort und ohne zusätzliche Aufnahmen, klingt aber etwas künstlicher.'}
+          </p>
+          <SlowSample />
+        </div>
+      )}
+      {settings.voiceSource === 'gemini' && hasKey && (
+        <details className="rounded-2xl bg-fill-4 p-3" open={compact}>
+          <summary className="cursor-pointer text-sm font-medium">Was bedeuten die kleinen Kennzeichen an den Wörtern?</summary>
+          <div className="mt-2"><VoiceLegend /></div>
+        </details>
+      )}
+
       <SystemVoices compact={compact} />
       {!compact && hasKey && settings.voiceSource === 'gemini' && <CacheInfo />}
     </div>
+  )
+}
+
+/** Hörprobe für die gewählte Langsam-Variante */
+function SlowSample() {
+  return (
+    <button className="btn-soft !min-h-9 !py-1 text-xs" onClick={() => speakSlow(SAMPLE_KO)}>
+      <Play size={14} /> Probe: „{SAMPLE_KO}“ langsam
+    </button>
   )
 }
 

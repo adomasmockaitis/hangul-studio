@@ -55,6 +55,7 @@ export const DEFAULT_SETTINGS: Settings = {
   speechMode: 'both',
   voiceSource: 'gemini',
   geminiVoice: 'Kore',
+  slowMode: 'gemini',
   systemVoiceKo: '',
   systemVoiceDe: '',
   autoExamples: true,
@@ -238,9 +239,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     configureSpeech({
       source: settings.voiceSource, apiKey: settings.geminiApiKey, geminiVoice: settings.geminiVoice,
-      systemVoiceKo: settings.systemVoiceKo, systemVoiceDe: settings.systemVoiceDe, speechMode: settings.speechMode,
+      systemVoiceKo: settings.systemVoiceKo, systemVoiceDe: settings.systemVoiceDe, speechMode: settings.speechMode, slowMode: settings.slowMode,
     })
-  }, [settings.voiceSource, settings.geminiApiKey, settings.geminiVoice, settings.systemVoiceKo, settings.systemVoiceDe, settings.speechMode])
+  }, [settings.voiceSource, settings.geminiApiKey, settings.geminiVoice, settings.systemVoiceKo, settings.systemVoiceDe, settings.speechMode, settings.slowMode])
 
   // Fehlende Gemini-Aufnahmen (Koreanisch und Deutsch) im Hintergrund erzeugen: beim Start, bei neuer Stimme
   // und wenn Wörter dazukommen (auch von anderen Geräten)

@@ -95,6 +95,8 @@ export interface Settings {
   /** Stimme für Wörter: natürliche Gemini-Stimme (mit Key) oder Systemstimme */
   voiceSource: 'gemini' | 'system'
   geminiVoice: string
+  /** Langsam anhören: eigene langsame Gemini-Aufnahme oder die normale mit 75 % Tempo */
+  slowMode: 'gemini' | 'stretch'
   /** Gewählte Systemstimmen (Name; leer = automatisch die beste). Nur auf diesem Gerät. */
   systemVoiceKo: string
   systemVoiceDe: string
