@@ -3,6 +3,7 @@ import { createDemoWords, newStats } from './data/demo'
 import { DEFAULT_MODEL, OBSOLETE_MODELS } from './lib/gemini'
 import { observe, stamp } from './lib/clock'
 import { configureSounds } from './lib/sounds'
+import { configureSpeech, prepareWords } from './lib/speech'
 import { applyReview, dateKey } from './lib/srs'
 import { LOCAL_ONLY_SETTINGS, maxStamp, type SyncPayload } from './lib/merge'
 import { canAddSubfolder, descendantIds, planChapterConversion } from './lib/folders'
@@ -52,6 +53,10 @@ export const DEFAULT_SETTINGS: Settings = {
   strokeOrderStyle: 'numbers',
   autoSpeak: false,
   speechMode: 'both',
+  voiceSource: 'gemini',
+  geminiVoice: 'Kore',
+  systemVoiceKo: '',
+  systemVoiceDe: '',
   autoExamples: true,
   particleNewWords: true,
   contribute: false,
@@ -230,6 +235,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     configureSounds({ enabled: settings.soundEffects, volume: settings.soundVolume })
   }, [settings.soundEffects, settings.soundVolume])
 
+  useEffect(() => {
+    configureSpeech({
+      source: settings.voiceSource, apiKey: settings.geminiApiKey, geminiVoice: settings.geminiVoice,
+      systemVoiceKo: settings.systemVoiceKo, systemVoiceDe: settings.systemVoiceDe, speechMode: settings.speechMode,
+    })
+  }, [settings.voiceSource, settings.geminiApiKey, settings.geminiVoice, settings.systemVoiceKo, settings.systemVoiceDe, settings.speechMode])
+
   const updateSettings = useCallback((patch: Partial<Settings>) => {
     // Nur-Gerät-Einstellungen (Client-ID, Key-Sync) zählen nicht als „geänderte Einstellungen“ für den Abgleich
     const syncRelevant = Object.keys(patch).some((k) => !(LOCAL_ONLY_SETTINGS as readonly string[]).includes(k) && k !== 'geminiApiKey')
@@ -259,6 +271,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (fresh.length) {
         setWords((ws) => [...ws, ...fresh])
         clearTombstones(fresh.map((w) => w.korean))
+        // Neue Wörter im Hintergrund für die natürliche Stimme vorbereiten
+        prepareWords(fresh)
       }
       return fresh.length
     },

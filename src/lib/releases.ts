@@ -7,7 +7,7 @@
  *                    aber als Zeile unter „Außerdem“, sobald ein großes Update angezeigt wird.
  * Das Fenster erscheint höchstens einmal pro Besuch: ein Fenster, bis zu 3 große Updates untereinander.
  */
-export type ReleaseIcon = 'cloud' | 'shield' | 'bell' | 'clock' | 'pin' | 'check' | 'pointer' | 'sparkles' | 'layers' | 'back' | 'folder' | 'gauge' | 'ear' | 'puzzle'
+export type ReleaseIcon = 'cloud' | 'shield' | 'bell' | 'clock' | 'pin' | 'check' | 'pointer' | 'sparkles' | 'layers' | 'back' | 'folder' | 'gauge' | 'ear' | 'puzzle' | 'volume'
 
 export interface Release {
   /** Eindeutige Kennung */
@@ -23,6 +23,32 @@ export interface Release {
   cta?: 'sync'
 }
 export const RELEASES: Release[] = [
+  {
+    id: '2026-11-voices',
+    size: 'major',
+    title: 'Neu in Hangul Studio',
+    subtitle: 'Natürliche Aussprache',
+    features: [
+      {
+        icon: 'volume',
+        color: '#ff3b30',
+        title: 'Gemini-Stimme für Wörter',
+        text: 'Mit Key klingen Wörter jetzt natürlich: einmal aufgenommen, doppelt geprüft (nichts abgeschnitten) und gespeichert – danach sofort und ohne Anfrage.',
+      },
+      {
+        icon: 'sparkles',
+        color: '#bf5af2',
+        title: 'Vier Stimmen zur Wahl',
+        text: 'Zwei weibliche, zwei männliche – mit Hörprobe unter Einstellungen → Audio & Lernen. Neue Wörter werden nach dem Import im Hintergrund vorbereitet.',
+      },
+      {
+        icon: 'check',
+        color: '#34c759',
+        title: 'Beste Systemstimme',
+        text: 'Ohne Key oder bis zur fertigen Aufnahme spricht automatisch die natürlichste installierte Stimme – oder die, die du auswählst.',
+      },
+    ],
+  },
   {
     id: '2026-11-particles',
     size: 'major',

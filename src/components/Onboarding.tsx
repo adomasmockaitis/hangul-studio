@@ -17,6 +17,7 @@ import {
 import { HangulCanvas } from './HangulCanvas'
 import { StrokeOrder } from './StrokeOrder'
 import { Toggle } from './ui'
+import { VoicePicker } from './VoicePicker'
 
 export const ONBOARDING_KEY = 'hangul-studio:onboarded'
 
@@ -430,6 +431,10 @@ export function Onboarding({ onClose }: { onClose: () => void }) {
       case 'audio':
         return (
           <Page icon={Volume2} color="#ff3b30" title="Ton" text="Aussprache zum Mitsprechen und kleine Klänge als Rückmeldung – dezent und leise.">
+            <div className="card p-4">
+              <p className="mb-3 font-medium">Welche Stimme?</p>
+              <VoicePicker compact />
+            </div>
             <div className="card divide-y divide-separator">
               <div className="flex items-center justify-between gap-3 p-4">
                 <div>

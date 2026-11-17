@@ -195,7 +195,8 @@ Alle bisherigen Funktionen (Zeichenfeld, Strichreihenfolge, Beugungs-Trainer, On
   - Erzeugung im Hintergrund über eine Warteschlange nach Dringlichkeit, gefüllt beim Import.
 - Aufnahmen werden pro Quelle, Stimme und Text in IndexedDB gespeichert; bis dahin spricht die Systemstimme. Sätze in Übungen immer Systemstimme.
 - Systemstimme: automatische Wahl der besten installierten Stimme (Natural, Google, Premium), freie Auswahl mit Hörprobe.
-- Vier Gemini-Stimmen (2 weiblich, 2 männlich) nach Hörtest; Hörproben einmalig vorab erzeugt und als Dateien mitgeliefert.
+- Vier Gemini-Stimmen (2 weiblich, 2 männlich): Kore, Aoede, Charon, Puck. **Umgesetzt (Etappe 6):** Hörproben entstehen beim ersten Antippen mit dem eigenen Key (gleiche Prüfkette) und werden gespeichert – mitgelieferte Dateien hätten den Key des Entwicklers gebraucht.
+- Modell-IDs werden aus der Modellliste der API gewählt (Live 3.8, Transcribe 3.5, Flash-Lite-TTS) und 7 Tage zwischengespeichert. Das TTS-Ersatzmodell nutzt im Hintergrund höchstens 5 der 10 Tagesanfragen.
 - Supertonic 3 (lokales Modell) nur nach separatem Test von Größe, Ladezeit und Klang.
 
 ### Import

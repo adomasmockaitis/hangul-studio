@@ -3,7 +3,7 @@ import { newerCard } from './fsrs'
 import { emptyParticleState, mergeParticleStates, sanitizeParticleState, type ParticleState } from './particles/engine'
 
 /** Einstellungen, die nur auf dem jeweiligen Gerät bleiben und nie synchronisiert werden */
-export const LOCAL_ONLY_SETTINGS = ['googleClientId', 'syncApiKey'] as const
+export const LOCAL_ONLY_SETTINGS = ['googleClientId', 'syncApiKey', 'systemVoiceKo', 'systemVoiceDe'] as const
 
 /** Inhalt der Sync-Datei in Google Drive */
 export interface SyncPayload {

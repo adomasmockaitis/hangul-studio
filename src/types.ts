@@ -92,6 +92,12 @@ export interface Settings {
   autoSpeak: boolean
   /** Vorlesen: Koreanisch + Deutsch, nur Koreanisch oder nur Deutsch */
   speechMode: SpeechMode
+  /** Stimme für Wörter: natürliche Gemini-Stimme (mit Key) oder Systemstimme */
+  voiceSource: 'gemini' | 'system'
+  geminiVoice: string
+  /** Gewählte Systemstimmen (Name; leer = automatisch die beste). Nur auf diesem Gerät. */
+  systemVoiceKo: string
+  systemVoiceDe: string
   /** Fehlende Beispielsätze beim Lernen automatisch von Gemini erzeugen lassen (nur mit API-Key) */
   autoExamples: boolean
   /** Partikel-Trainer: KI darf neue Wörter in Übungssätze einbauen */

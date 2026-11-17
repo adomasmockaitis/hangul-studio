@@ -15,6 +15,7 @@ import { StorageChooser } from '../components/StorageChooser'
 import { useStorageMode } from '../account'
 import { accountsAvailable, loadContributions } from '../lib/firebase'
 import { CONJUGATION_KEYS, CONJUGATION_LABELS, type CanvasBackground, type CheckMethod, type SpeechMode, type StrokeStyleMode, type ThemeMode } from '../types'
+import { VoicePicker } from '../components/VoicePicker'
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -367,6 +368,12 @@ export function SettingsView({ sub = '', onRestartOnboarding, onShowWhatsNew }: 
         )}
         <Row title="Standard-Strichdicke">
           <input type="range" min={2} max={16} value={settings.strokeWidth} onChange={(e) => updateSettings({ strokeWidth: +e.target.value })} className="w-40 accent-blue" />
+        </Row>
+      </Section>}
+
+      {page === 'audio' && <Section title="Stimme">
+        <Row title="Aussprache" desc="Natürliche Gemini-Stimme für Wörter (mit Key) oder die Stimme deines Geräts." stack>
+          <VoicePicker />
         </Row>
       </Section>}
 
