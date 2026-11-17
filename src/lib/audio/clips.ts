@@ -69,8 +69,14 @@ const join = (chunks: Int16Array[]) => {
   return out
 }
 
+/** Sätze sind komplexer und dürfen öfter neu erzeugt werden */
+export function attemptsFor(text: string): number {
+  const t = text.trim()
+  return t.split(/\s+/).length > 3 || /[.!?。]$/.test(t) ? 5 : 3
+}
+
 export async function produceClip(text: string, gen: Generator, opts: { attempts?: number; now?: number } = {}): Promise<ProduceResult> {
-  const attempts = opts.attempts ?? 3
+  const attempts = opts.attempts ?? attemptsFor(text)
   const rejected: string[] = []
   const now = opts.now ?? Date.now()
   let tries = 0

@@ -24,6 +24,14 @@ export interface Release {
 }
 export const RELEASES: Release[] = [
   {
+    id: '2026-11-voice-check-fix',
+    size: 'minor',
+    title: 'Neu in Hangul Studio',
+    subtitle: 'Zuverlässigere Prüfung der Aufnahmen',
+    summary: 'Die Prüfung der Gemini-Aufnahmen verwirft richtige Sätze nicht mehr, wenn das Prüfmodell den Anfang doppelt hört. Sätze bekommen bis zu 5 Versuche, Wörter 3.',
+    features: [],
+  },
+  {
     id: '2026-11-voices-sync-sentences',
     size: 'minor',
     title: 'Neu in Hangul Studio',

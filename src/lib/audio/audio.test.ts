@@ -4,6 +4,8 @@ import {
   produceClip, type Clip, type Generator, type Raw,
 } from './clips'
 import { isWordLike, shortGerman } from '../speech'
+import { collapseRepeat, isVerbatim } from '../lab/liveTts'
+import { attemptsFor } from './clips'
 
 const RATE = 24000
 /** Ton, der sauber ausklingt (letzte 50 ms Stille) */
@@ -62,6 +64,30 @@ describe('Erzeugungs-Kette', () => {
     const none = await produceClip('감사합니다', fake([null, null, null], [], null))
     expect(none.clip).toBeNull()
     expect(none.rejected.at(-1)).toBe('TTS-Modell nicht verfügbar')
+  })
+})
+
+describe('Gegenprüfung und Versuche', () => {
+  it('entfernt den doppelten Satzanfang nach Pausen (echte Fälle aus dem Testlabor)', () => {
+    expect(collapseRepeat('언니는 영어를 잘하지만언니는 영어를 잘하지만 저는 못해요.')).toBe('언니는 영어를 잘하지만 저는 못해요.')
+    expect(collapseRepeat('어제 친구랑 같이어제 친구랑 같이 한국 식당에 가서 비빔밥을 먹었는데 정말 맛있었어요.')).toBe('어제 친구랑 같이 한국 식당에 가서 비빔밥을 먹었는데 정말 맛있었어요.')
+    expect(collapseRepeat('Morgen fahre ich mit meinerMorgen fahre ich mit meiner Familie ans Meer.')).toBe('Morgen fahre ich mit meiner Familie ans Meer.')
+    // echte Wiederholungen im Satz bleiben
+    expect(collapseRepeat('감사합니다')).toBe('감사합니다')
+    expect(collapseRepeat('하하 웃어요.')).toBe('하하 웃어요.')
+    // Prüfung: Satz mit echter Wiederholung bleibt richtig, doppelter Anfang wird toleriert
+    expect(isVerbatim('좋아요 좋아요.', '좋아요 좋아요.')).toBe(true)
+    expect(isVerbatim('언니는 영어를 잘하지만 저는 못해요.', '언니는 영어를 잘하지만언니는 영어를 잘하지만 저는 못해요.')).toBe(true)
+    expect(isVerbatim('언니는 영어를 잘하지만 저는 못해요.', '언니는 영어를')).toBe(false)
+  })
+  it('Sätze bekommen 5 Versuche, Wörter 3', async () => {
+    expect(attemptsFor('학교')).toBe(3)
+    expect(attemptsFor('학교에 가요')).toBe(3)
+    expect(attemptsFor('저는 학교에 가요.')).toBe(5)
+    const g = fake([cut(), cut(), cut(), cut(), clean()], [])
+    const r = await produceClip('저는 매일 아침 커피를 마셔요.', g)
+    expect(r.clip?.via).toBe('live')
+    expect(g.liveCalls).toBe(5)
   })
 })
 

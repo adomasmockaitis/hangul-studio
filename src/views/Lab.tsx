@@ -13,10 +13,10 @@ import { useApp } from '../store'
 import { POOL } from '../lib/particles/pool'
 import { fillSentence } from '../lib/particles/forms'
 import { speakSystem } from '../lib/speech'
+import { attemptsFor } from '../lib/audio/clips'
 
 type Section = 'hand' | 'saetze' | 'stimme'
 
-const MAX_ATTEMPTS = 3
 /** Sätze von kurz bis lang (aus dem Partikel-Pool, Stufe 1–5) und deutsche Sätze – für den Test „Live API liest Sätze“ */
 const SENTENCE_SET = [
   ...[1, 2, 3, 4, 5].flatMap((lvl) => POOL.filter((x) => x.level === lvl && x.particle === (['ga', 'e', 'eseo', 'neun', 'reul'] as const)[lvl - 1]).slice(0, 2)).map((x) => fillSentence(x.ko)),
@@ -359,7 +359,7 @@ function VoiceBench({ apiKey, allModels }: { apiKey: string; allModels: { id: st
       for (const l of lines) {
         // Bis zu 3 Erzeugungen: angenommen wird ein Ergebnis, das sauber endet und (falls geprüft) richtig gehört wurde
         let r: SpeakResult | null = null
-        for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        for (let attempt = 1, max = attemptsFor(l); attempt <= max; attempt++) {
           const cand = await s.speak(withFinalStop(l))
           cand.text = l
           cand.attempts = attempt

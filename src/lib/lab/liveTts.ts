@@ -237,7 +237,33 @@ export async function verifyAudio(apiKey: string, model: string, chunks: Int16Ar
 }
 
 const normalize = (s: string) => s.normalize('NFC').replace(/[\s.,!?·'"„“…~-]/g, '').toLowerCase()
-export const isVerbatim = (text: string, transcript: string) => !!transcript && normalize(text) === normalize(transcript)
+/** Wörtlich gesprochen? Auch, wenn die Gegenprüfung den Satzanfang nach einer Pause doppelt geliefert hat */
+export const isVerbatim = (text: string, transcript: string) =>
+  !!transcript && (normalize(text) === normalize(transcript) || normalize(text) === normalize(collapseRepeat(transcript)))
+
+/**
+ * Die Gegenprüfung schickt bei Pausen (z. B. langsames Sprechen) den bisherigen Text nach der Pause oft
+ * noch einmal komplett – dann steht der Anfang doppelt: „A B“ wird zu „AA B“. Wiederholten Anfang entfernen.
+ */
+export function collapseRepeat(s: string): string {
+  let t = s
+  for (let guard = 0; guard < 5; guard++) {
+    const compact = t.replace(/\s+/g, ' ')
+    let cut = -1
+    // längsten Anfang suchen, der direkt danach noch einmal beginnt
+    for (let k = Math.floor(compact.length / 2); k >= 2; k--) {
+      const head = compact.slice(0, k).trim()
+      const rest = compact.slice(k).trimStart()
+      if (head.length >= 2 && rest.startsWith(head)) {
+        cut = k
+        break
+      }
+    }
+    if (cut < 0) return t
+    t = compact.slice(cut).trimStart()
+  }
+  return t
+}
 
 function b64ToBytes(b64: string): Uint8Array {
   const bin = atob(b64)
