@@ -237,7 +237,11 @@ export function prepareSentences(texts: string[], lang: ClipLang = 'ko') {
 
 /** Wörter, die gleich drankommen (Quiz, Lernkarten, Diktat), mit Vorrang vorbereiten */
 export function prepareUpcomingWords(words: { korean: string; german: string }[]) {
-  if (geminiVoiceActive()) prefetchClips(voiceItems(words), 'now')
+  if (!geminiVoiceActive()) return
+  prefetchClips(voiceItems(words), 'now')
+  // Langsame Fassung (nur Koreanisch, nur auf diesem Gerät) für die nächsten paar Wörter – nach den normalen
+  const ko = voiceItems(words.slice(0, 3)).filter((it) => it.lang === 'ko')
+  prefetchClips(ko, 'background', slowVoice(currentGeminiVoice()))
 }
 
 /** Alle Aufnahmen der Wörter neu erzeugen */

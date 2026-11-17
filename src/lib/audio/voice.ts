@@ -59,9 +59,9 @@ function loadReady(): Promise<void> {
 
 export type ClipStatus = 'ready' | 'pending' | 'failed' | 'missing' | 'off'
 
-export function clipStatus(text: string, lang: ClipLang): ClipStatus {
+export function clipStatus(text: string, lang: ClipLang, voice = cfg.voice): ClipStatus {
   if (!geminiVoiceActive()) return 'off'
-  const k = clipKey(cfg.voice, lang, text)
+  const k = clipKey(voice, lang, text)
   if (ready.has(k)) return 'ready'
   if (queue.pending(k)) return 'pending'
   if (Date.now() - (failed.get(k) ?? 0) < RETRY_AFTER) return 'failed'
@@ -249,11 +249,11 @@ export async function requestClip(text: string, lang: ClipLang, prio: Priority, 
   return clip
 }
 
-export function prefetchClips(items: { text: string; lang: ClipLang }[], prio: Priority = 'background') {
+export function prefetchClips(items: { text: string; lang: ClipLang }[], prio: Priority = 'background', voice = cfg.voice) {
   if (!geminiVoiceActive()) return
   void loadReady().then(() => {
     for (const it of items) {
-      if (clipStatus(it.text, it.lang) === 'missing') void requestClip(it.text, it.lang, prio)
+      if (clipStatus(it.text, it.lang, voice) === 'missing') void requestClip(it.text, it.lang, prio, { voice })
     }
   })
 }

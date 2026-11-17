@@ -99,9 +99,9 @@ describe('Sätze: tolerante Prüfung, nur lokal, Vorrang', () => {
     expect(closeEnough('저는 매일 아침 커피를 마셔요.', '저는 매일 아침 커피를')).toBe(false)
     expect(closeEnough('감사합니다', '감사합니')).toBe(false)
   })
-  it('gleicht nur Wörter ab, Sätze bleiben auf dem Gerät', () => {
+  it('gleicht nur normale Wörter ab, Sätze und langsame Aufnahmen bleiben auf dem Gerät', () => {
     expect(shouldSyncKey(clipKey('Kore', 'ko', '학교'))).toBe(true)
-    expect(shouldSyncKey(clipKey('Kore~slow', 'ko', '학교에 가요'))).toBe(true)
+    expect(shouldSyncKey(clipKey('Kore~slow', 'ko', '학교에 가요'))).toBe(false) // langsame Aufnahmen bleiben lokal
     expect(shouldSyncKey(clipKey('Kore', 'ko', '저는 학교에 가요.'))).toBe(false)
   })
   it('was gerade abgespielt werden soll, kommt vor allem anderen dran', async () => {

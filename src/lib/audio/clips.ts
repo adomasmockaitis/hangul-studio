@@ -47,8 +47,10 @@ export function isWordLikeText(text: string): boolean {
 }
 /** Text aus einem Schlüssel „gemini|Stimme|Sprache|Text“ */
 export const textOfKey = (key: string) => key.split('|').slice(3).join('|')
-/** Abgeglichen werden nur Wörter; Sätze bleiben auf dem Gerät und werden bei Bedarf neu erzeugt */
-export const shouldSyncKey = (key: string) => isWordLikeText(textOfKey(key))
+/** Stimme aus einem Schlüssel „gemini|Stimme|Sprache|Text“ */
+export const voiceOfKey = (key: string) => key.split('|')[1] ?? ''
+/** Abgeglichen werden nur normale Wort-Aufnahmen; Sätze und langsame Aufnahmen bleiben auf dem Gerät (bei Bedarf neu erzeugt) */
+export const shouldSyncKey = (key: string) => !isSlowVoice(voiceOfKey(key)) && isWordLikeText(textOfKey(key))
 
 /** Ähnlichkeit zweier Texte (0–1), Leerzeichen und Satzzeichen zählen nicht */
 export function similarity(a: string, b: string): number {

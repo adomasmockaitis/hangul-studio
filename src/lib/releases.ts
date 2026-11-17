@@ -28,7 +28,7 @@ export const RELEASES: Release[] = [
     size: 'minor',
     title: 'Neu in Hangul Studio',
     subtitle: 'Langsam anhören',
-    summary: 'Mit dem Schnecken-Knopf hörst du Wörter und Sätze langsam und deutlich – als eigene ruhige Gemini-Aufnahme, bis dahin die normale mit 75 % Tempo. Übungen bereiten die nächsten Aufgaben schon vor, Sätze bleiben auf dem Gerät und nur Wörter werden abgeglichen.',
+    summary: 'Mit dem Schnecken-Knopf hörst du Wörter und Sätze langsam und deutlich – als eigene ruhige Gemini-Aufnahme, bis dahin die normale mit 75 % Tempo. Übungen bereiten die nächsten Aufgaben (auch langsam) schon vor. Abgeglichen werden nur normale Wort-Aufnahmen; Sätze und langsame Aufnahmen bleiben auf dem Gerät.',
     features: [],
   },
   {
