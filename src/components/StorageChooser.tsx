@@ -83,7 +83,8 @@ export function StorageChooser({ compact = false }: { compact?: boolean }) {
     <div className="space-y-3">
       <div className="card divide-y divide-separator overflow-hidden" role="radiogroup" aria-label="Speicherart">
         {OPTIONS.map((o) => {
-          const on = o.id === mode || (o.id === 'account' && wantAccount && mode !== 'account')
+          // Während der Anmeldung zum Konto ist nur „Konto“ markiert
+          const on = wantAccount && mode !== 'account' ? o.id === 'account' : o.id === mode
           const disabled = o.id === 'account' && !acc.available
           return (
             <button

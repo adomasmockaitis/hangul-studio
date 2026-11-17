@@ -23,8 +23,19 @@ export interface FirebaseConfig {
   messagingSenderId?: string
 }
 
-/** Öffentliche Konfiguration des Hangul-Studio-Projekts (per Build-Variable überschreibbar) */
-const BUILT_IN: FirebaseConfig | null = null
+/**
+ * Öffentliche Konfiguration des Hangul-Studio-Projekts (per Build-Variable überschreibbar).
+ * Der apiKey ist bei Firebase kein Geheimnis: er identifiziert nur das Projekt. Geschützt werden die Daten
+ * durch die Sicherheitsregeln (firestore.rules) und die autorisierten Domains der Anmeldung.
+ */
+const BUILT_IN: FirebaseConfig | null = {
+  apiKey: 'AIzaSyAhfBG3WigcGPiw4-tZ40_P9cKwHscKmKU',
+  authDomain: 'hangul-studio-7e5e7.firebaseapp.com',
+  projectId: 'hangul-studio-7e5e7',
+  storageBucket: 'hangul-studio-7e5e7.firebasestorage.app',
+  messagingSenderId: '32034176093',
+  appId: '1:32034176093:web:ea4f9af9a20d55a359e1b4',
+}
 
 function readConfig(): FirebaseConfig | null {
   const raw = import.meta.env.VITE_FIREBASE_CONFIG as string | undefined

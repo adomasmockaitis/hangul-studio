@@ -24,6 +24,38 @@ export interface Release {
 }
 export const RELEASES: Release[] = [
   {
+    id: '2026-11-accounts',
+    size: 'major',
+    title: 'Neu in Hangul Studio',
+    subtitle: 'Hangul-Studio-Konto',
+    features: [
+      {
+        icon: 'cloud',
+        color: '#0a84ff',
+        title: 'Anmelden statt Drive',
+        text: 'Melde dich mit Google oder E-Mail an – dein Lernstand ist dann auf allen Geräten gleich und du bleibst angemeldet.',
+      },
+      {
+        icon: 'shield',
+        color: '#34c759',
+        title: 'In Frankfurt gespeichert',
+        text: 'Nur du kannst deine Daten lesen. Konto und Daten löschst du mit einem Klick – auf Wunsch mit Sicherung vorher.',
+      },
+      {
+        icon: 'layers',
+        color: '#ff9500',
+        title: 'Du entscheidest',
+        text: 'Nur auf diesem Gerät, Google Drive oder Konto: Wähle unter Einstellungen → Sync & Backup. Es ist immer nur eins aktiv.',
+      },
+      {
+        icon: 'sparkles',
+        color: '#af52de',
+        title: 'App mitverbessern',
+        text: 'Freiwillig: Fehler der Handschrift-Erkennung ohne Bezug zu dir teilen, damit die Erkennung besser wird.',
+      },
+    ],
+  },
+  {
     id: '2026-11-storage-choice',
     size: 'minor',
     title: 'Neu in Hangul Studio',
