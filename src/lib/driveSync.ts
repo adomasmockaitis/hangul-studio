@@ -229,11 +229,65 @@ export async function syncOnce(opts: {
   return syncWithRemote({ remote: driveRemote(accessToken), includeApiKey: opts.includeApiKey, getLocal: opts.getLocal, applyLocal: opts.applyLocal })
 }
 
-/** Die Sync-Datei in Google Drive löschen („Meine Daten in Google Drive löschen“) */
+const AUDIO_PREFIX = 'hangul-audio-'
+
+/** Gemini-Aufnahmen in Drive: je Paket eine Datei „hangul-audio-{name}.json“ im versteckten App-Ordner */
+export function driveAudioRemote(token: () => Promise<string>): import('./audio/audioSync').AudioRemote {
+  let ids: Map<string, string> | null = null
+  const list = async (t: string) => {
+    if (ids) return ids
+    const m = new Map<string, string>()
+    let page = ''
+    do {
+      const q = encodeURIComponent(`name contains '${AUDIO_PREFIX}' and trashed=false`)
+      const res = await drive(`${DRIVE}/files?spaces=appDataFolder&q=${q}&fields=nextPageToken,files(id,name)&pageSize=200${page ? `&pageToken=${page}` : ''}`, t)
+      const j = (await res.json()) as { files?: { id: string; name: string }[]; nextPageToken?: string }
+      for (const f of j.files ?? []) m.set(f.name, f.id)
+      page = j.nextPageToken ?? ''
+    } while (page)
+    ids = m
+    return m
+  }
+  return {
+    id: 'drive',
+    async get(name) {
+      const t = await token()
+      const id = (await list(t)).get(`${AUDIO_PREFIX}${name}.json`)
+      if (!id) return null
+      const res = await drive(`${DRIVE}/files/${id}?alt=media`, t)
+      return res.json().catch(() => null)
+    },
+    async put(name, data) {
+      const t = await token()
+      const file = `${AUDIO_PREFIX}${name}.json`
+      const m = await list(t)
+      const id = m.get(file)
+      if (id) {
+        await drive(`${UPLOAD}/files/${id}?uploadType=media`, t, { method: 'PATCH', headers: { 'Content-Type': 'application/json; charset=UTF-8' }, body: JSON.stringify(data) })
+        return
+      }
+      const boundary = 'hangulstudio' + Math.random().toString(16).slice(2)
+      const meta = JSON.stringify({ name: file, parents: ['appDataFolder'], mimeType: 'application/json' })
+      const body = `--${boundary}
+Content-Type: application/json; charset=UTF-8
+
+${meta}
+--${boundary}
+Content-Type: application/json; charset=UTF-8
+
+${JSON.stringify(data)}
+--${boundary}--`
+      const res = await drive(`${UPLOAD}/files?uploadType=multipart&fields=id`, t, { method: 'POST', headers: { 'Content-Type': `multipart/related; boundary=${boundary}` }, body })
+      m.set(file, ((await res.json()) as { id: string }).id)
+    },
+  }
+}
+
+/** Die Sync-Datei und die Aufnahmen in Google Drive löschen („Meine Daten in Google Drive löschen“) */
 export async function deleteDriveData(clientId: string): Promise<boolean> {
   const accessToken = await getToken(clientId, true)
-  const q = encodeURIComponent(`name='${FILE_NAME}' and trashed=false`)
-  const res = await drive(`${DRIVE}/files?spaces=appDataFolder&q=${q}&fields=files(id)&pageSize=50`, accessToken)
+  const q = encodeURIComponent(`(name='${FILE_NAME}' or name contains '${AUDIO_PREFIX}') and trashed=false`)
+  const res = await drive(`${DRIVE}/files?spaces=appDataFolder&q=${q}&fields=files(id)&pageSize=200`, accessToken)
   const files = ((await res.json()) as { files?: { id: string }[] }).files ?? []
   for (const f of files) await drive(`${DRIVE}/files/${f.id}`, accessToken, { method: 'DELETE' })
   return files.length > 0

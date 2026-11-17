@@ -6,11 +6,12 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { useToast } from './components/Toasts'
 import { setContributionSink } from './lib/contribute'
 import {
-  accountRemote, accountsAvailable, authMessage, deleteAccountAndData, reauthenticate, resetPassword, sendContribution, signInEmail, signInGoogle,
+  accountRemote, accountsAvailable, firestoreAudioRemote, authMessage, deleteAccountAndData, reauthenticate, resetPassword, sendContribution, signInEmail, signInGoogle,
   signOutAccount, watchAuth, watchRemote,
 } from './lib/firebase'
 import { fingerprint, LOCAL_ONLY_SETTINGS, type SyncPayload } from './lib/merge'
 import { syncWithRemote } from './lib/remoteSync'
+import { setAudioRemote } from './lib/audio/voice'
 import { useApp } from './store'
 import { useSync } from './sync'
 
@@ -242,6 +243,16 @@ export function AccountProvider({ children }: { children: ReactNode }) {
       clearInterval(iv)
     }
   }, [enabled, user, run])
+
+  // Gemini-Aufnahmen über das Konto abgleichen
+  useEffect(() => {
+    if (!enabled || !user) {
+      setAudioRemote('account', null)
+      return
+    }
+    setAudioRemote('account', firestoreAudioRemote(user.uid))
+    return () => setAudioRemote('account', null)
+  }, [enabled, user])
 
   // „App mitverbessern“: nur mit Einwilligung und Anmeldung
   useEffect(() => {

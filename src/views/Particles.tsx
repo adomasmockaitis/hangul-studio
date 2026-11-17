@@ -14,7 +14,7 @@ import { newStats } from '../data/demo'
 import { computeLevel } from '../lib/level'
 import { navigate } from '../lib/route'
 import { playSound } from '../lib/sounds'
-import { speak, speakGerman } from '../lib/speech'
+import { prepareSentences, speak, speakGerman } from '../lib/speech'
 import { generateSentences, gradeTranslations, newWordLimits, pickVocab, type TranslationGrade } from '../lib/particles/ai'
 import { CHAPTERS, LEVEL_NAMES, chapterOf, type Level, type ParticleChapter } from '../lib/particles/content'
 import {
@@ -419,6 +419,10 @@ function Session({
   const [done, setDone] = useState<Answered[]>([])
   const [translations, setTranslations] = useState<TranslationAnswer[]>([])
   const finished = useRef(false)
+  // Sätze der Runde schon mit der Gemini-Stimme vorbereiten (spielen dann ohne Wartezeit natürlich)
+  useEffect(() => {
+    prepareSentences(tasks.map((t) => fillSentence(t.sentence.ko)))
+  }, [tasks])
 
   const next = (a: Answered | null, t?: TranslationAnswer) => {
     const nd = a ? [...done, a] : done

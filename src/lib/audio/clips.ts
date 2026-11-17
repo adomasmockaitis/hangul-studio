@@ -135,7 +135,7 @@ export function pickVoiceModels(all: ModelInfo[]): VoiceModels | null {
     tts: all
       .filter((m) => /tts/i.test(m.id) && m.methods.includes('generateContent'))
       .map((m) => m.id)
-      .sort((a, b) => ttsTier(b) - ttsTier(a) || version(b) - version(a) || a.localeCompare(b)),
+      .sort((a, b) => version(b) - version(a) || ttsTier(b) - ttsTier(a) || a.localeCompare(b)),
   }
 }
 

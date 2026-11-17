@@ -24,6 +24,14 @@ export interface Release {
 }
 export const RELEASES: Release[] = [
   {
+    id: '2026-11-voices-sync-sentences',
+    size: 'minor',
+    title: 'Neu in Hangul Studio',
+    subtitle: 'Gemini-Stimme für Sätze, Abgleich der Aufnahmen',
+    summary: 'Auch Sätze (Partikel-Übungen, Beispielsätze) klingen jetzt natürlich mit der Gemini-Stimme. Mit Konto oder Drive werden die Aufnahmen komprimiert zwischen deinen Geräten abgeglichen, und unter Audio & Lernen kannst du alle Stimmen neu erzeugen.',
+    features: [],
+  },
+  {
     id: '2026-11-voices-status',
     size: 'minor',
     title: 'Neu in Hangul Studio',

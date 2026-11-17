@@ -4,7 +4,7 @@
  */
 import type { SpeechMode } from '../types'
 import { pickSystemVoice, voicesFor, type Clip, type ClipLang } from './audio/clips'
-import { cachedClip, configureGeminiVoice, geminiVoiceActive, hotClip, prefetchClips, requestClip } from './audio/voice'
+import { cachedClip, configureGeminiVoice, geminiVoiceActive, hotClip, prefetchClips, regenerateClips, requestClip } from './audio/voice'
 
 export interface SpeechConfig {
   source: 'gemini' | 'system'
@@ -118,7 +118,11 @@ export function stopSpeech() {
   if (supported()) window.speechSynthesis.cancel()
 }
 
-/** Wörter und kurze Wendungen bekommen die Gemini-Stimme; ganze Sätze (Übungen, Beispiele) immer die Systemstimme */
+/** Länge, bis zu der die Gemini-Stimme vorliest (im Testlabor geprüft: auch lange Sätze sauber) */
+export const MAX_NATURAL_CHARS = 160
+export const isSpeakable = (text: string) => !!text.trim() && text.trim().length <= MAX_NATURAL_CHARS
+
+/** Wörter und kurze Wendungen (für die Vorbereitung der Wortliste) */
 export function isWordLike(text: string): boolean {
   const t = text.trim()
   return !!t && !/[.!?。]$/.test(t) && t.split(/\s+/).length <= 3 && t.length <= 24
@@ -136,7 +140,7 @@ async function playSequence(items: Item[]) {
   audioCtx() // im Klick-Handler entsperren
   for (const it of items) {
     if (my !== token) return
-    const natural = geminiVoiceActive() && isWordLike(it.text)
+    const natural = geminiVoiceActive() && isSpeakable(it.text)
     let clip = natural ? hotClip(it.text, it.lang) : null
     if (natural && !clip) clip = await cachedClip(it.text, it.lang)
     if (my !== token) return
@@ -151,7 +155,7 @@ async function playSequence(items: Item[]) {
 
 const cleanKo = (t: string) => t.replace(/[[\]]/g, '').trim()
 
-/** Koreanischen Text vorlesen (Wort: Gemini-Stimme, Satz: Systemstimme) */
+/** Koreanischen Text vorlesen (Gemini-Stimme, sobald die Aufnahme bereit ist) */
 export function speak(text: string) {
   const t = cleanKo(text)
   if (t) void playSequence([{ text: t, lang: 'ko', rate: 0.9 }])
@@ -163,10 +167,26 @@ export function speakGerman(text: string) {
   if (t) void playSequence([{ text: t, lang: 'de', rate: 0.95 }])
 }
 
-/** Ganzen Satz immer mit der Systemstimme vorlesen */
+/** Ganzen Satz vorlesen (Gemini-Stimme, sobald bereit – sonst Systemstimme) */
 export function speakSentence(text: string, lang: ClipLang = 'ko') {
+  const t = lang === 'ko' ? cleanKo(text) : text.trim()
+  if (t) void playSequence([{ text: t, lang, rate: lang === 'ko' ? 0.9 : 0.95 }])
+}
+
+/** Nur die Systemstimme (z. B. Vergleich im Testlabor) */
+export function speakSystem(text: string, lang: ClipLang = 'ko') {
   stopSpeech()
-  void playSystem(lang === 'ko' ? cleanKo(text) : text, lang, lang === 'ko' ? 0.9 : 0.95, token)
+  void playSystem(text, lang, lang === 'ko' ? 0.9 : 0.95, token)
+}
+
+/** Sätze, die gleich drankommen, schon vorbereiten (z. B. eine Partikel-Runde) */
+export function prepareSentences(texts: string[], lang: ClipLang = 'ko') {
+  if (geminiVoiceActive()) prefetchClips(texts.filter(isSpeakable).map((text) => ({ text: lang === 'ko' ? cleanKo(text) : text.trim(), lang })), 'now')
+}
+
+/** Alle Aufnahmen der Wörter neu erzeugen */
+export function regenerateWords(words: { korean: string; german: string }[]) {
+  regenerateClips(voiceItems(words))
 }
 
 /** Wort vorlesen: je nach Einstellung Koreanisch, Deutsch (gekürzt) oder beides nacheinander */

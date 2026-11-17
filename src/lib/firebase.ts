@@ -169,12 +169,36 @@ export async function watchRemote(uid: string, onChange: (updatedAt: number) => 
   }, () => undefined)
 }
 
+/** Gemini-Aufnahmen im Konto: je Paket ein Dokument users/{uid}/audio/{name} mit einem JSON-Text */
+export function firestoreAudioRemote(uid: string): import('./audio/audioSync').AudioRemote {
+  return {
+    id: `account:${uid}`,
+    async get(name) {
+      const { db, fsMod } = await loadFirebase()
+      const snap = await fsMod.getDoc(fsMod.doc(db, 'users', uid, 'audio', name))
+      if (!snap.exists()) return null
+      try {
+        return JSON.parse(String(snap.data().data ?? 'null'))
+      } catch {
+        return null
+      }
+    },
+    async put(name, data) {
+      const { db, fsMod } = await loadFirebase()
+      await fsMod.setDoc(fsMod.doc(db, 'users', uid, 'audio', name), { data: JSON.stringify(data) })
+    },
+  }
+}
+
 /** Alle Daten des Kontos löschen und danach das Konto selbst */
 export async function deleteAccountAndData(): Promise<void> {
   const { auth, db, fsMod, authMod } = await loadFirebase()
   const user = auth.currentUser
   if (!user) throw new Error('Nicht angemeldet')
   const chunks = await fsMod.getDocs(fsMod.collection(db, 'users', user.uid, 'chunks'))
+  // Aufnahmen einzeln löschen (können viele sein; Fehler hier sollen das Löschen nicht aufhalten)
+  const audio = await fsMod.getDocs(fsMod.collection(db, 'users', user.uid, 'audio')).catch(() => null)
+  if (audio) for (const d of audio.docs) await fsMod.deleteDoc(d.ref).catch(() => undefined)
   const batch = fsMod.writeBatch(db)
   chunks.forEach((d) => batch.delete(d.ref))
   batch.delete(fsMod.doc(db, 'users', user.uid))

@@ -78,8 +78,8 @@ describe('Modellwahl', () => {
       { id: 'gemini-3.5-flash-lite-tts', methods: ['generateContent'] },
       { id: 'gemini-3.5-flash-tts', methods: ['generateContent'] },
     ])
-    // alle TTS-Modelle, bestes zuerst: pro vor flash vor flash-lite, neuere Version zuerst
-    expect(m).toEqual({ live: 'gemini-3.8-live', check: 'gemini-3.5-transcribe-live', tts: ['gemini-3.8-pro-tts', 'gemini-3.5-flash-tts', 'gemini-3.8-flash-lite-tts', 'gemini-3.5-flash-lite-tts'] })
+    // alle TTS-Modelle, bestes zuerst: neuere Generation vor älterer, innerhalb einer Generation pro vor flash vor flash-lite
+    expect(m).toEqual({ live: 'gemini-3.8-live', check: 'gemini-3.5-transcribe-live', tts: ['gemini-3.8-pro-tts', 'gemini-3.8-flash-lite-tts', 'gemini-3.5-flash-tts', 'gemini-3.5-flash-lite-tts'] })
     expect(pickVoiceModels([{ id: 'gemini-3.1-flash-lite', methods: ['generateContent'] }])).toBeNull()
   })
 })

@@ -3,14 +3,14 @@
  * je mit Hörprobe; dazu die Systemstimmen für Koreanisch und Deutsch.
  */
 import { useEffect, useState } from 'react'
-import { Check, KeyRound, Loader2, Play, Trash2 } from 'lucide-react'
+import { Check, KeyRound, Loader2, Play, RefreshCw, Trash2 } from 'lucide-react'
 import { GEMINI_VOICES, type ClipLang } from '../lib/audio/clips'
-import { clearClips, clipQueueSize, clipStats, coverage, retryFailed, ttsOverview } from '../lib/audio/voice'
+import { audioSyncInfo, clearClips, clipQueueSize, clipStats, coverage, retryFailed, ttsOverview } from '../lib/audio/voice'
 import { navigate } from '../lib/route'
-import { onVoicesChanged, prepareWords, previewGeminiVoice, previewSystemVoice, systemVoices, voiceItems } from '../lib/speech'
+import { onVoicesChanged, prepareWords, previewGeminiVoice, previewSystemVoice, regenerateWords, systemVoices, voiceItems } from '../lib/speech'
 import { useClipsVersion } from './VoiceStatus'
 import { useApp } from '../store'
-import { Segmented } from './ui'
+import { Segmented, useConfirm } from './ui'
 
 export function VoicePicker({ compact = false }: { compact?: boolean }) {
   const { settings, updateSettings } = useApp()
@@ -39,8 +39,7 @@ export function VoicePicker({ compact = false }: { compact?: boolean }) {
         hasKey ? (
           <div className="space-y-2">
             <p className="text-sm text-label-2">
-              Wörter werden einmal mit Gemini aufgenommen, geprüft und gespeichert – danach spielen sie sofort. Bis dahin spricht die Systemstimme.
-              Ganze Sätze liest immer die Systemstimme.
+              Wörter und Sätze werden einmal mit Gemini aufgenommen, geprüft und gespeichert – danach spielen sie sofort. Bis dahin spricht die Systemstimme.
             </p>
             <div className="grid gap-2 sm:grid-cols-2">
               {GEMINI_VOICES.map((v) => {
@@ -112,8 +111,22 @@ function SystemVoices({ compact }: { compact: boolean }) {
   )
 }
 
+function SyncLine() {
+  useClipsVersion()
+  const s = audioSyncInfo()
+  if (s.unsupported) return <p className="text-xs text-orange">Dieser Browser kann Aufnahmen nicht komprimieren – sie bleiben auf diesem Gerät.</p>
+  if (!s.active) return <p className="text-xs text-label-3">Aufnahmen bleiben auf diesem Gerät. Mit Konto oder Google Drive werden sie komprimiert zwischen deinen Geräten abgeglichen.</p>
+  const where = s.where === 'account' ? 'deinem Konto' : 'Google Drive'
+  return (
+    <p className={`text-xs ${s.error ? 'text-orange' : 'text-label-3'}`}>
+      {s.error ? `Abgleich der Aufnahmen mit ${where} gerade nicht möglich: ${s.error}` : `Aufnahmen werden komprimiert mit ${where} abgeglichen${s.lastSync ? ` · zuletzt ${new Date(s.lastSync).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}` : ' …'}`}
+    </p>
+  )
+}
+
 function CacheInfo() {
   const { words } = useApp()
+  const confirm = useConfirm()
   const v = useClipsVersion()
   const [cov, setCov] = useState<Awaited<ReturnType<typeof coverage>> | null>(null)
   const [stats, setStats] = useState<{ count: number; bytes: number } | null>(null)
@@ -150,19 +163,37 @@ function CacheInfo() {
       {line('de', 'Deutsch')}
       <p className="text-xs text-label-2">
         {queue > 0 ? `${queue} Aufnahmen in Arbeit – läuft im Hintergrund, solange die App offen ist. ` : missing ? 'Fehlende werden beim nächsten Start oder per Knopf erstellt. ' : 'Alles bereit. '}
-        {stats && `${stats.count} Aufnahmen gespeichert (${(stats.bytes / 1_048_576).toFixed(1)} MB, nur auf diesem Gerät).`}
+        {stats && `${stats.count} Aufnahmen gespeichert (${(stats.bytes / 1_048_576).toFixed(1)} MB).`}
       </p>
       {tts.length > 0 && (
-        <p className="text-xs text-label-3">
-          Ersatzmodelle (bestes zuerst, je {tts[0].limit}/Tag): {tts.map((t) => `${t.model.replace(/^gemini-/, '')} ${t.used}/${t.limit}`).join(' · ')}
+        <p
+          className="w-fit cursor-help text-xs text-label-3 underline decoration-dotted underline-offset-2"
+          title={`Ersatzmodelle, falls die Live API ein Wort dreimal nicht sauber schafft – bestes zuerst, je ${tts[0].limit} pro Tag:\n${tts.map((t) => `${t.model}: ${t.used}/${t.limit}`).join('\n')}`}
+          tabIndex={0}
+        >
+          Ersatzmodelle heute: {tts.reduce((a, t) => a + t.used, 0)} / {tts.reduce((a, t) => a + t.limit, 0)} · {tts.length} Modelle
         </p>
       )}
+      <SyncLine />
       <div className="flex flex-wrap gap-2">
         {missing > 0 && (
           <button className="btn-soft !min-h-9 !py-1 text-xs" onClick={() => { retryFailed(); prepareWords(words) }}>
             <Play size={14} /> Fehlende jetzt erstellen ({missing})
           </button>
         )}
+        <button
+          className="btn-soft !min-h-9 !py-1 text-xs"
+          onClick={async () => {
+            const ok = await confirm({
+              title: 'Alle Stimmen neu erzeugen?',
+              message: 'Jedes Wort wird mit der eingestellten Stimme neu aufgenommen und geprüft. Bis die neue Aufnahme fertig ist, spielt die alte. Mit Abgleich bekommen auch deine anderen Geräte die neuen.',
+              confirmLabel: 'Neu erzeugen',
+            })
+            if (ok) regenerateWords(words)
+          }}
+        >
+          <RefreshCw size={14} /> Alle neu erzeugen
+        </button>
         <button className="btn-soft !min-h-9 !py-1 text-xs" onClick={() => void clearClips()}>
           <Trash2 size={14} /> Aufnahmen löschen
         </button>

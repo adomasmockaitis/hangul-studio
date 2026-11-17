@@ -3,6 +3,9 @@
  * Die Logik dahinter steht in clips.ts; hier werden nur die echten Bausteine eingesetzt.
  */
 import { listAllModels } from '../lab/bench'
+import { getItem, setItem } from '../storage'
+import { AudioSync, forgetSynced, type AudioRemote, type SyncMemory } from './audioSync'
+import { b64ToBytes, bytesToB64, decodeOpus, encodeOpus, opusSupported } from './codec'
 import { LiveSession, speakWithTtsModel, verifyAudioLive } from '../lab/liveTts'
 import {
   ClipQueue, DEFAULT_GEMINI_VOICE, TTS_DAILY_LIMIT, canUseTts, clipKey, countTts, idbClipStore, pickVoiceModels, produceClip, ttsUsed,
@@ -207,12 +210,14 @@ export async function cachedClip(text: string, lang: ClipLang, voice = cfg.voice
  * Aufnahme holen oder erzeugen lassen; null, wenn Gemini aus ist oder es nicht klappt.
  * `voice` legt die Stimme fest (Standard: die eingestellte), `force` erlaubt Hörproben auch bei „Systemstimme“.
  */
-export async function requestClip(text: string, lang: ClipLang, prio: Priority, opts: { voice?: string; force?: boolean } = {}): Promise<Clip | null> {
+export async function requestClip(text: string, lang: ClipLang, prio: Priority, opts: { voice?: string; force?: boolean; regenerate?: boolean } = {}): Promise<Clip | null> {
   const voice = opts.voice ?? cfg.voice
   if (!cfg.apiKey.trim() || (!opts.force && !cfg.enabled) || !text.trim()) return null
   const k = clipKey(voice, lang, text)
-  const c = await cachedClip(text, lang, voice)
-  if (c) return c
+  if (!opts.regenerate) {
+    const c = await cachedClip(text, lang, voice)
+    if (c) return c
+  }
   if (typeof navigator !== 'undefined' && navigator.onLine === false) return null
   if (prio === 'background' && Date.now() - (failed.get(k) ?? 0) < RETRY_AFTER) return null
   const p = queue.add(k, prio, async () => {
@@ -227,6 +232,11 @@ export async function requestClip(text: string, lang: ClipLang, prio: Priority, 
     remember(k, clip)
     ready.add(k)
     await store.put(k, clip)
+    if (opts.regenerate && syncer) {
+      const memKey = `hangul-studio:audio-sync:${syncer.id}`
+      setItem(memKey, forgetSynced(getItem<SyncMemory>(memKey, { known: {}, synced: [] }), [k]))
+    }
+    scheduleAudioPush()
     clearTimeout(idle)
     idle = setTimeout(() => { if (!queue.size()) closeSession() }, 30_000)
     return clip
@@ -237,13 +247,20 @@ export async function requestClip(text: string, lang: ClipLang, prio: Priority, 
   return clip
 }
 
-export function prefetchClips(items: { text: string; lang: ClipLang }[]) {
+export function prefetchClips(items: { text: string; lang: ClipLang }[], prio: Priority = 'background') {
   if (!geminiVoiceActive()) return
   void loadReady().then(() => {
     for (const it of items) {
-      if (clipStatus(it.text, it.lang) === 'missing') void requestClip(it.text, it.lang, 'background')
+      if (clipStatus(it.text, it.lang) === 'missing') void requestClip(it.text, it.lang, prio)
     }
   })
+}
+
+/** Alle Aufnahmen neu erzeugen; bis die neue fertig ist, spielt die alte */
+export function regenerateClips(items: { text: string; lang: ClipLang }[]) {
+  if (!geminiVoiceActive()) return
+  failed.clear()
+  for (const it of items) void requestClip(it.text, it.lang, 'background', { regenerate: true })
 }
 
 /** Fehlgeschlagene wieder zulassen (Knopf „Fehlende jetzt erstellen“) */
@@ -275,6 +292,86 @@ export async function clearClips() {
   ready.clear()
   await store.clear()
   notify()
+}
+
+// ---------- Abgleich der Aufnahmen zwischen Geräten ----------
+
+const slots: { account: AudioRemote | null; drive: AudioRemote | null } = { account: null, drive: null }
+let syncer: { id: string; s: AudioSync } | null = null
+let syncBusy = false
+let pushTimer: ReturnType<typeof setTimeout> | undefined
+export interface AudioSyncInfo {
+  active: boolean
+  /** Browser kann kein Opus (dann bleiben Aufnahmen auf dem Gerät) */
+  unsupported?: boolean
+  lastSync: number | null
+  error: string
+  where: 'account' | 'drive' | null
+}
+let syncInfo: AudioSyncInfo = { active: false, lastSync: null, error: '', where: null }
+export const audioSyncInfo = () => syncInfo
+
+const codec = { encode: encodeOpus, decode: decodeOpus, toB64: bytesToB64, fromB64: b64ToBytes }
+
+/** Konto oder Drive als Ziel für die Aufnahmen setzen (null = nicht verbunden). Das Konto hat Vorrang. */
+export function setAudioRemote(slot: 'account' | 'drive', remote: AudioRemote | null) {
+  slots[slot] = remote
+  const r = slots.account ?? slots.drive
+  if (!r) {
+    syncer = null
+    syncInfo = { active: false, lastSync: null, error: '', where: null }
+    notify()
+    return
+  }
+  if (syncer?.id === r.id) return
+  const memKey = `hangul-studio:audio-sync:${r.id}`
+  syncer = {
+    id: r.id,
+    s: new AudioSync({
+      remote: r,
+      store,
+      codec,
+      load: () => getItem<SyncMemory>(memKey, { known: {}, synced: [] }),
+      save: (m) => setItem(memKey, m),
+    }),
+  }
+  syncInfo = { active: true, lastSync: null, error: '', where: slots.account ? 'account' : 'drive' }
+  notify()
+  setTimeout(() => void syncAudioNow(), 4000)
+}
+
+/** Holen und hochladen; leise bei Fehlern (die App funktioniert ohne Abgleich weiter) */
+export async function syncAudioNow(): Promise<void> {
+  const cur = syncer
+  if (!cur || syncBusy) return
+  if (!(await opusSupported())) {
+    syncInfo = { ...syncInfo, unsupported: true }
+    notify()
+    return
+  }
+  syncBusy = true
+  try {
+    const added = await cur.s.pull()
+    for (const k of added) ready.add(k)
+    await cur.s.push()
+    if (syncer === cur) syncInfo = { ...syncInfo, lastSync: Date.now(), error: '' }
+  } catch (e) {
+    if (syncer === cur) syncInfo = { ...syncInfo, error: e instanceof Error ? e.message : 'Abgleich fehlgeschlagen' }
+  } finally {
+    syncBusy = false
+    notify()
+  }
+}
+
+function scheduleAudioPush() {
+  if (!syncer) return
+  clearTimeout(pushTimer)
+  pushTimer = setTimeout(() => void syncAudioNow(), 20_000)
+}
+
+if (typeof window !== 'undefined') {
+  setInterval(() => { if (document.visibilityState === 'visible') void syncAudioNow() }, 10 * 60_000)
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && Date.now() - (syncInfo.lastSync ?? 0) > 60_000) void syncAudioNow() })
 }
 
 // Beim Laden der App: vorhandene Aufnahmen kennen

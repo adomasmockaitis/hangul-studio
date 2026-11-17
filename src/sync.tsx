@@ -1,6 +1,7 @@
 ﻿import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useToast } from './components/Toasts'
-import { forgetToken, getToken, hasValidToken, NeedAuthError, revokeToken, syncOnce, tokenExpiresAt, type SyncResult } from './lib/driveSync'
+import { forgetToken, getToken, hasValidToken, NeedAuthError, revokeToken, syncOnce, tokenExpiresAt, driveAudioRemote, type SyncResult } from './lib/driveSync'
+import { setAudioRemote } from './lib/audio/voice'
 import { fingerprint, LOCAL_ONLY_SETTINGS, type SyncPayload } from './lib/merge'
 import { useApp } from './store'
 
@@ -191,6 +192,16 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     persist(false, null)
     toast.show({ kind: 'info', key: 'sync-ok', title: 'Verbindung getrennt', text: 'Deine Daten bleiben lokal auf diesem Gerät. Die Datei in Google Drive bleibt bestehen.' })
   }, [toast])
+
+  // Gemini-Aufnahmen über Drive abgleichen (nur mit gültiger Anmeldung, ohne Nachfrage)
+  useEffect(() => {
+    if (!enabled || !clientId) {
+      setAudioRemote('drive', null)
+      return
+    }
+    setAudioRemote('drive', driveAudioRemote(() => getToken(clientId, false)))
+    return () => setAudioRemote('drive', null)
+  }, [enabled, clientId])
 
   // Beim Start still abgleichen
   useEffect(() => {

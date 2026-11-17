@@ -8,11 +8,11 @@ import {
   HANDWRITING_CANDIDATES, gemmaModels, generateSentences, listAllModels, readOne, samplesFromExport, samplesFromLocal, sleep,
   type HandResult, type HandSample, type LabModel, type SentenceResult,
 } from '../lib/lab/bench'
-import { LIVE_VOICES, LiveSession, isVerbatim, playPcm, speakWithTtsModel, tailCheck, verifyAudio, verifyAudioLive, withFinalStop, type SpeakResult } from '../lib/lab/liveTts'
+import { LIVE_VOICES, LiveSession, SLOW_INSTRUCTION, isVerbatim, playPcm, playPcmAtSpeed, speakWithTtsModel, tailCheck, verifyAudio, verifyAudioLive, withFinalStop, type SpeakResult } from '../lib/lab/liveTts'
 import { useApp } from '../store'
 import { POOL } from '../lib/particles/pool'
 import { fillSentence } from '../lib/particles/forms'
-import { speakSentence } from '../lib/speech'
+import { speakSystem } from '../lib/speech'
 
 type Section = 'hand' | 'saetze' | 'stimme'
 
@@ -333,6 +333,8 @@ function VoiceBench({ apiKey, allModels }: { apiKey: string; allModels: { id: st
     if (!ttsModel && ttsModels.length) setTtsModel(ttsModels.find((m) => /3\.8-flash-lite-tts/.test(m)) ?? ttsModels[0])
   }, [liveModels, ttsModels, liveModel, ttsModel])
   const [voice, setVoice] = useState<string>('Kore')
+  /** Tempo-Test: normale Anweisung oder „langsam und deutlich“ */
+  const [tempo, setTempo] = useState<'normal' | 'langsam'>('normal')
   const [text, setText] = useState(DEFAULT_WORDS)
   const [results, setResults] = useState<(SpeakResult & { source: string })[]>([])
   const [status, setStatus] = useState('')
@@ -349,7 +351,7 @@ function VoiceBench({ apiKey, allModels }: { apiKey: string; allModels: { id: st
   const runLive = async () => {
     setRunning(true)
     setResults([])
-    const s = new LiveSession(apiKey, liveModel, voice)
+    const s = new LiveSession(apiKey, liveModel, voice, tempo === 'langsam' ? SLOW_INSTRUCTION : undefined)
     try {
       setStatus('Verbinde …')
       const connectMs = await s.open()
@@ -381,7 +383,7 @@ function VoiceBench({ apiKey, allModels }: { apiKey: string; allModels: { id: st
           if (good || cand.error?.startsWith('Verbindung')) break
         }
         if (!r) continue
-        setResults((prev) => [...prev, { ...r, source: `${liveModel} · ${voice}` }])
+        setResults((prev) => [...prev, { ...r, source: `${liveModel} · ${voice}${tempo === 'langsam' ? ' · langsam' : ''}` }])
         if (r.error?.startsWith('Verbindung')) break
       }
       setStatus((st) => st + ' · fertig')
@@ -435,6 +437,16 @@ function VoiceBench({ apiKey, allModels }: { apiKey: string; allModels: { id: st
           }
         />
         <ListRow
+          title="Tempo"
+          subtitle={tempo === 'langsam' ? 'Die Live API bekommt die Anweisung, langsam und deutlich mit kleinen Pausen zu sprechen' : 'Normale Vorlese-Anweisung'}
+          right={
+            <select className="input !w-auto" value={tempo} onChange={(e) => setTempo(e.target.value as 'normal' | 'langsam')} aria-label="Tempo">
+              <option value="normal">normal</option>
+              <option value="langsam">langsam (Anweisung)</option>
+            </select>
+          }
+        />
+        <ListRow
           title="Stimme"
           right={
             <select className="input !w-auto" value={voice} onChange={(e) => setVoice(e.target.value)} aria-label="Stimme">
@@ -477,7 +489,8 @@ function VoiceBench({ apiKey, allModels }: { apiKey: string; allModels: { id: st
               right={
                 <span className="flex shrink-0 items-center gap-2">
                   {!r.error && (() => { const ok = (r.heardOk ?? r.verbatim) && !r.tailCut; return <span className={`text-sm font-semibold ${ok ? 'text-green' : 'text-orange'}`}>{ok ? '✓ sauber' : r.tailCut ? '✂ abgeschnitten' : '≠ abweichend'}</span> })()}
-                  <button className="btn-soft !min-h-9 !px-2 !py-1 text-xs" onClick={() => speakSentence(r.text, /[가-힣]/.test(r.text) ? 'ko' : 'de')} title="Zum Vergleich: Systemstimme">System</button>
+                  <button className="btn-soft !min-h-9 !px-2 !py-1 text-xs" disabled={!r.pcm.length} onClick={() => playPcmAtSpeed(r.pcm, r.sampleRate, 0.75)} title="Dieselbe Aufnahme mit 75 % Tempo, Tonhöhe bleibt gleich">0,75×</button>
+                  <button className="btn-soft !min-h-9 !px-2 !py-1 text-xs" onClick={() => speakSystem(r.text, /[가-힣]/.test(r.text) ? 'ko' : 'de')} title="Zum Vergleich: Systemstimme">System</button>
                   <button className="grid h-11 w-11 place-items-center rounded-full text-blue transition hover:bg-fill-3 disabled:opacity-30" disabled={!r.pcm.length} onClick={() => playPcm(r.pcm, r.sampleRate)} aria-label={`${r.text} abspielen`}>
                     <Play size={18} fill="currentColor" />
                   </button>

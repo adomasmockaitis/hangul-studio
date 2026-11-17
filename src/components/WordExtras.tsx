@@ -3,7 +3,7 @@ import { KeyRound, Loader2, NotebookPen, RefreshCw, Sparkles, Volume2 } from 'lu
 import { generateExamples } from '../lib/examples'
 import { computeLevel } from '../lib/level'
 import { navigate } from '../lib/route'
-import { speak } from '../lib/speech'
+import { speak, prepareSentences } from '../lib/speech'
 import { useApp } from '../store'
 import type { WordItem } from '../types'
 
@@ -19,6 +19,11 @@ export function WordExtras({ word }: { word: WordItem }) {
   const [editNote, setEditNote] = useState(false)
   const [note, setNote] = useState(word.note ?? '')
   const examples = word.examples ?? []
+  // Beispielsätze dieser Karte gleich mit der Gemini-Stimme vorbereiten
+  useEffect(() => {
+    if (examples.length) prepareSentences(examples.map((e) => e.ko))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [word.id, examples.length])
 
   const create = async () => {
     if (!key) return

@@ -1,3 +1,5 @@
+> **Update 17.11.2026:** Die Regeln enthalten jetzt zusätzlich `match /audio/{pack}` für die Gemini-Aufnahmen. Bitte den Inhalt von `firestore.rules` erneut in der Konsole einfügen (dabei `ENTWICKLER_UID` wieder durch die eigene UID ersetzen) und veröffentlichen.
+
 # Hangul-Studio-Konten einrichten (Firebase)
 
 Einmalig, etwa 10 Minuten, kostenlos. Du brauchst nur dein Google-Konto. **Keine Zahlungsdaten hinterlegen** – dann können nie Kosten entstehen.

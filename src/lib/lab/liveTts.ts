@@ -13,6 +13,23 @@ export const READ_ALOUD_INSTRUCTION =
   'Koreanischen Text sprichst du mit natürlicher koreanischer Standardaussprache (Seoul), deutschen Text mit natürlicher deutscher Aussprache. ' +
   'Keine Begrüßung, keine Rückfrage, kein Kommentar.'
 
+/** Testlabor: Anweisung für langsames, deutliches Vorlesen (wie die langsame Wiedergabe in Wörterbüchern) */
+export const SLOW_INSTRUCTION =
+  READ_ALOUD_INSTRUCTION +
+  ' Sprich dabei deutlich langsamer als normal und sehr deutlich artikuliert, mit kurzen Pausen zwischen den Wörtern – ' +
+  'wie die langsame Aussprache in einem Wörterbuch für Sprachlernende. Bleib trotzdem natürlich in Betonung und Satzmelodie.'
+
+/** Aufnahme mit anderem Tempo abspielen, Tonhöhe bleibt gleich (Browser-Zeitdehnung) */
+export function playPcmAtSpeed(chunks: Int16Array[], sampleRate: number, speed: number) {
+  const wav = pcmToWav(chunks, sampleRate)
+  const url = URL.createObjectURL(new Blob([wav.slice()], { type: 'audio/wav' }))
+  const a = new Audio(url)
+  a.preservesPitch = true
+  a.playbackRate = speed
+  a.onended = () => URL.revokeObjectURL(url)
+  void a.play()
+}
+
 export interface SpeakResult {
   text: string
   /** Was das Modell laut eigener Mitschrift gesagt hat */
@@ -267,11 +284,13 @@ export class LiveSession {
   private readonly apiKey: string
   private readonly model: string
   private readonly voice: string
+  private readonly instruction: string
 
-  constructor(apiKey: string, model: string, voice: string) {
+  constructor(apiKey: string, model: string, voice: string, instruction = READ_ALOUD_INSTRUCTION) {
     this.apiKey = apiKey
     this.model = model
     this.voice = voice
+    this.instruction = instruction
   }
 
   open(timeoutMs = 10_000): Promise<number> {
@@ -314,7 +333,7 @@ export class LiveSession {
                 responseModalities: ['AUDIO'],
                 speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: this.voice } } },
               },
-              systemInstruction: { parts: [{ text: READ_ALOUD_INSTRUCTION }] },
+              systemInstruction: { parts: [{ text: this.instruction }] },
               outputAudioTranscription: {},
             },
           }),
