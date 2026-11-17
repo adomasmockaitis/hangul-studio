@@ -4,6 +4,8 @@ import { extractVocabulary, type ExtractedWord } from '../lib/gemini'
 import { newStats } from '../data/demo'
 import { sanitizeWord, useApp } from '../store'
 import { CONJUGATION_KEYS, CONJUGATION_LABELS, WORD_TYPE_LABELS, type Conjugations, type WordItem, type WordType } from '../types'
+import { canAddSubfolder, folderPath, sortFolders } from '../lib/folders'
+import type { Folder } from '../types'
 
 interface Row {
   id: string
@@ -52,8 +54,30 @@ function toBase64(file: File): Promise<string> {
 
 const ext = (f: File) => f.name.split('.').pop()?.toLowerCase() ?? ''
 
-export function UploadScanner() {
-  const { words, settings, addWords } = useApp()
+const NEW_FOLDER = '__neu__'
+
+/** Ordner als eingerückte Liste in Baumreihenfolge */
+function folderTree(folders: Folder[]): { f: Folder; depth: number }[] {
+  const out: { f: Folder; depth: number }[] = []
+  const walk = (parent: string | null, depth: number) => {
+    for (const f of sortFolders(folders.filter((x) => x.parentId === parent))) {
+      out.push({ f, depth })
+      walk(f.id, depth + 1)
+    }
+  }
+  walk(null, 0)
+  return out
+}
+
+/** Dateiname ohne Endung, als Vorschlag für einen neuen Ordner */
+const baseName = (name: string) => name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim().slice(0, 60)
+
+export function UploadScanner({ defaultFolderId = null }: { defaultFolderId?: string | null }) {
+  const { words, settings, addWords, folders, addFolder } = useApp()
+  /** Zielordner: '' = ohne Ordner, Ordner-ID oder NEW_FOLDER */
+  const [target, setTarget] = useState<string>(defaultFolderId ?? '')
+  const [newName, setNewName] = useState('')
+  const [newParent, setNewParent] = useState<string>('')
   const [rows, setRows] = useState<Row[]>([])
   const [uploadTags, setUploadTags] = useState('')
   const [paste, setPaste] = useState('')
@@ -81,6 +105,12 @@ export function UploadScanner() {
 
   const handleFiles = async (files: File[]) => {
     setMsg(null)
+    // Vorschlag: neuer Ordner mit dem Dateinamen („Lektion 5.pdf“ → „Lektion 5“), außer man ist schon in einem Ordner
+    if (files[0] && !defaultFolderId && !rows.length) {
+      setTarget(NEW_FOLDER)
+      setNewName(baseName(files[0].name))
+      setNewParent('')
+    }
     setBusy(true)
     const found: ExtractedWord[] = []
     const problems: string[] = []
@@ -157,6 +187,15 @@ export function UploadScanner() {
   const selected = rows.filter((r) => r.selected && r.korean.trim())
 
   const saveAll = () => {
+    let folderId: string | undefined = target && target !== NEW_FOLDER ? target : undefined
+    if (target === NEW_FOLDER) {
+      const id = addFolder(newName.trim() || 'Neuer Ordner', newParent || null)
+      if (!id) {
+        setMsg({ ok: false, text: 'Der Ordner konnte nicht angelegt werden (höchstens 3 Ebenen).' })
+        return
+      }
+      folderId = id
+    }
     const extra = parseTags(uploadTags)
     const items: WordItem[] = selected.map((r, i) => {
       const conj = Object.fromEntries(Object.entries(r.conj).filter(([, v]) => v && v.trim()))
@@ -171,12 +210,16 @@ export function UploadScanner() {
         createdAt: Date.now() + i,
         conjugations: isConj && Object.keys(conj).length ? (conj as Conjugations) : undefined,
         stats: newStats(),
+        folderId,
       }
     })
     const n = addWords(items)
+    const where = target === NEW_FOLDER ? ` im neuen Ordner „${newName.trim() || 'Neuer Ordner'}“` : folderId ? ` in „${folderPath(folders, folderId).map((f) => f.name).join(' › ')}“` : ''
     setRows([])
     setUploadTags('')
-    setMsg({ ok: true, text: `${n} Wörter gespeichert${items.length - n ? ` (${items.length - n} bereits vorhanden, übersprungen)` : ''}.` })
+    setTarget(defaultFolderId ?? '')
+    setNewName('')
+    setMsg({ ok: true, text: `${n} Wörter gespeichert${where}${items.length - n ? ` (${items.length - n} bereits vorhanden, übersprungen)` : ''}.` })
   }
 
   const downloadTemplate = () => {
@@ -289,6 +332,25 @@ export function UploadScanner() {
                 })}
               </tbody>
             </table>
+          </div>
+
+          {/* Zielordner */}
+          <div className="space-y-2 rounded-2xl bg-fill-4 p-3">
+            <label className="label block" htmlFor="scan-target">In Ordner speichern</label>
+            <select id="scan-target" className="input" value={target} onChange={(e) => setTarget(e.target.value)}>
+              <option value="">Ohne Ordner</option>
+              {folderTree(folders).map(({ f, depth }) => <option key={f.id} value={f.id}>{'\u00a0\u00a0'.repeat(depth * 2)}{f.name}</option>)}
+              <option value={NEW_FOLDER}>+ Neuer Ordner …</option>
+            </select>
+            {target === NEW_FOLDER && (
+              <div className="grid gap-2 sm:grid-cols-2">
+                <input className="input" placeholder="Name des neuen Ordners" value={newName} onChange={(e) => setNewName(e.target.value)} aria-label="Name des neuen Ordners" />
+                <select className="input" value={newParent} onChange={(e) => setNewParent(e.target.value)} aria-label="Neuer Ordner liegt in">
+                  <option value="">Oberste Ebene</option>
+                  {folderTree(folders).filter(({ f }) => canAddSubfolder(folders, f.id)).map(({ f, depth }) => <option key={f.id} value={f.id}>{'\u00a0\u00a0'.repeat(depth * 2)}in „{f.name}“</option>)}
+                </select>
+              </div>
+            )}
           </div>
 
           <div className="flex flex-wrap justify-end gap-2">

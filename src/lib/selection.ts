@@ -16,6 +16,18 @@ export type Selection =
 
 export const SMART: Selection = { mode: 'smart' }
 
+/** Vorauswahl für den Lernmodus (z. B. „Falsche im Lernmodus üben“ nach einem Quiz); wird einmal abgeholt */
+let pendingLearn: string[] | null = null
+export const setPendingLearn = (ids: string[]) => {
+  pendingLearn = ids
+}
+export function takePendingLearn(): Selection | null {
+  const ids = pendingLearn
+  // erst kurz danach leeren: React ruft Initialisierer im Entwicklungsmodus doppelt auf
+  if (ids) setTimeout(() => { if (pendingLearn === ids) pendingLearn = null }, 1000)
+  return ids?.length ? { mode: 'words', ids } : null
+}
+
 /** Wörter einer festen Auswahl (Ordner inklusive Unterordner, „ohne“ = ohne Ordner) */
 export function resolveSelection(sel: Selection, words: WordItem[], folders: Folder[]): WordItem[] {
   if (sel.mode === 'smart') return words.filter(askable)

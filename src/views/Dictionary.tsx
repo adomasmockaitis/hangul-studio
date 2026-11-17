@@ -234,7 +234,7 @@ export function Dictionary() {
       />
 
       <Sheet open={scanner} onClose={() => setScanner(false)} title="Datei scannen" wide keepMounted>
-        <UploadScanner />
+        <UploadScanner key={current?.id ?? 'root'} defaultFolderId={current?.id ?? null} />
       </Sheet>
 
       {/* Einmaliges Angebot: Kapitel-Tags in Ordner umwandeln */}

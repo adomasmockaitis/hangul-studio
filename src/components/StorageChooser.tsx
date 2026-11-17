@@ -179,7 +179,7 @@ export function StorageChooser({ compact = false }: { compact?: boolean }) {
       )}
 
       {/* Freiwillig: App mitverbessern */}
-      {acc.available && (mode === 'account' || wantAccount || !compact) && (
+      {acc.available && !compact && (
         <div className="card p-4">
           <div className="flex items-center justify-between gap-3">
             <div>

@@ -1,7 +1,7 @@
 ﻿import { useState, type ReactNode } from 'react'
 import {
   ArrowDown, ArrowUp, Brush, Check, ChevronLeft, Cloud, ExternalLink, KeyRound, Lightbulb, Monitor, Moon, Palette,
-  PenLine, Repeat2, Sun, Timer, Volume2, Waypoints, type LucideIcon,
+  HeartHandshake, PenLine, Repeat2, Sun, Timer, Volume2, Waypoints, type LucideIcon,
 } from 'lucide-react'
 import { dynamicTimeoutMs, TIPS_TIME_FACTOR } from '../lib/gemini'
 import { markReleaseSeen } from '../lib/releases'
@@ -101,7 +101,7 @@ export function Onboarding({ onClose }: { onClose: () => void }) {
   const hasKey = settings.geminiApiKey.trim().length > 0
 
   const STEPS: { id: string; needsKey?: boolean }[] = [
-    { id: 'welcome' }, { id: 'sync' }, { id: 'theme' }, { id: 'key' }, { id: 'timeout', needsKey: true }, { id: 'order' },
+    { id: 'welcome' }, { id: 'sync' }, { id: 'contribute' }, { id: 'theme' }, { id: 'key' }, { id: 'timeout', needsKey: true }, { id: 'order' },
     { id: 'canvas' }, { id: 'strokes' }, { id: 'tips', needsKey: true }, { id: 'audio' }, { id: 'conj' }, { id: 'try' }, { id: 'done' },
   ]
   const visible = (key: boolean) => STEPS.filter((s) => !s.needsKey || key)
@@ -179,6 +179,36 @@ export function Onboarding({ onClose }: { onClose: () => void }) {
                 <button className="btn-soft" onClick={finish}>Einrichtung abkürzen und loslegen</button>
               </div>
             )}
+          </Page>
+        )
+
+      case 'contribute':
+        return (
+          <Page
+            icon={HeartHandshake}
+            color="#ff2d55"
+            title="Hilfst du mit, die Erkennung zu verbessern?"
+            text="Freiwillig und jederzeit in den Einstellungen änderbar. Standardmäßig aus."
+          >
+            <div className="card space-y-3 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-medium">App mitverbessern</p>
+                  <p className="text-sm text-label-2">
+                    Liegt die Handschrift-Erkennung daneben oder widersprichst du Gemini, wird dieser Fall gesendet: das Bild der Schrift, das Zielwort, das Erkannte, das Modell und das Datum.
+                  </p>
+                </div>
+                <Toggle checked={settings.contribute} onChange={(contribute) => updateSettings({ contribute })} label="App mitverbessern" />
+              </div>
+              <ul className="space-y-1 text-sm text-label-2">
+                <li>• <b>Ohne Bezug zu dir:</b> keine Nutzer-ID, keine E-Mail, keine Geräteinfos.</li>
+                <li>• Nur der Entwickler kann die Fälle lesen, sie dienen nur der Verbesserung der Erkennung.</li>
+                <li>• Weil nichts zuordenbar ist, lassen sich gesendete Fälle später nicht einzeln löschen.</li>
+              </ul>
+              {settings.contribute && storageMode !== 'account' && (
+                <p className="text-sm text-orange">Gesendet wird nur, solange du mit einem Hangul-Studio-Konto angemeldet bist.</p>
+              )}
+            </div>
           </Page>
         )
 

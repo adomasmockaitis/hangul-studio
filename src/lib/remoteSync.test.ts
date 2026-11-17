@@ -15,6 +15,8 @@ describe('Gemeinsamer Abgleich (Drive und Konto)', () => {
     let applied = false
     const r = await syncWithRemote({ remote, getLocal: () => payload({ words: [w('가', 1)] }), applyLocal: () => (applied = true) })
     expect(r.uploaded).toBe(true)
+    expect(r.savedAt).toBeGreaterThan(0)
+    expect(remote.data?.updatedAt).toBe(r.savedAt) // eigener Stand erkennbar (Live-Abgleich)
     expect(r.changedLocal).toBe(false)
     expect(applied).toBe(false)
     expect(remote.data?.words.map((x) => x.korean)).toEqual(['가'])
@@ -31,6 +33,7 @@ describe('Gemeinsamer Abgleich (Drive und Konto)', () => {
     const saves = remote.saves
     const r2 = await syncWithRemote({ remote, getLocal: () => local, applyLocal: (m) => (local = m) })
     expect(r2.uploaded).toBe(false)
+    expect(r2.savedAt).toBeUndefined()
     expect(r2.changedLocal).toBe(false)
     expect(remote.saves).toBe(saves)
   })

@@ -7,7 +7,7 @@ import { useToast } from './components/Toasts'
 import { setContributionSink } from './lib/contribute'
 import {
   accountRemote, accountsAvailable, authMessage, deleteAccountAndData, reauthenticate, resetPassword, sendContribution, signInEmail, signInGoogle,
-  signOutAccount, watchAuth,
+  signOutAccount, watchAuth, watchRemote,
 } from './lib/firebase'
 import { fingerprint, LOCAL_ONLY_SETTINGS, type SyncPayload } from './lib/merge'
 import { syncWithRemote } from './lib/remoteSync'
@@ -99,6 +99,9 @@ export function AccountProvider({ children }: { children: ReactNode }) {
   const lastFp = useRef('')
   const lastRun = useRef(0)
   const lastToast = useRef(0)
+  /** Zuletzt bekannter Stand im Konto (eigener Upload oder geladen) */
+  const knownRemote = useRef(0)
+  const rerun = useRef(false)
 
   // Anmeldestatus beobachten – Firebase wird nur geladen, wenn das Konto schon einmal benutzt wurde
   useEffect(() => {
@@ -137,6 +140,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
       try {
         const res = await syncWithRemote({ remote: accountRemote(uid), includeApiKey: live.current.settings.syncApiKey, getLocal, applyLocal: applySyncPayload })
         lastFp.current = fingerprint(res.merged)
+        knownRemote.current = Math.max(knownRemote.current, res.savedAt ?? res.merged.updatedAt ?? 0)
         const now = Date.now()
         setLastSync(now)
         persist(true, now)
@@ -157,10 +161,17 @@ export function AccountProvider({ children }: { children: ReactNode }) {
         if (manual || first) toast.show({ kind: 'error', key: 'acc-error', title: 'Abgleich fehlgeschlagen', text: msg, duration: 7000 })
       } finally {
         busy.current = false
+        if (rerun.current) {
+          rerun.current = false
+          setTimeout(() => void runRef.current(uid), 300)
+        }
       }
     },
     [getLocal, applySyncPayload, toast],
   )
+
+  const runRef = useRef(run)
+  runRef.current = run
 
   // Beim Start und bei Änderungen abgleichen
   useEffect(() => {
@@ -178,6 +189,28 @@ export function AccountProvider({ children }: { children: ReactNode }) {
     }, 4000)
     return () => clearTimeout(id)
   }, [words, deleted, activity, settings, folders, deletedFolders, enabled, user, getLocal, run])
+
+  // Live: speichert ein anderes Gerät, sofort abgleichen (ohne Neuladen)
+  useEffect(() => {
+    if (!enabled || !user) return
+    let off: (() => void) | undefined
+    let alive = true
+    void watchRemote(user.uid, (t) => {
+      if (t > knownRemote.current + 1) {
+        knownRemote.current = t
+        // Läuft gerade ein Abgleich, danach noch einmal (sonst ginge die neue Änderung verloren)
+        if (busy.current) rerun.current = true
+        else void run(user.uid)
+      }
+    }).then((f) => {
+      if (alive) off = f
+      else f()
+    })
+    return () => {
+      alive = false
+      off?.()
+    }
+  }, [enabled, user, run])
 
   useEffect(() => {
     if (!enabled || !user) return

@@ -1,5 +1,8 @@
 ﻿import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { Check, Flame, Home, Repeat, X } from 'lucide-react'
+import { ArrowRight, Check, Flame, GraduationCap, HelpCircle, Home, Repeat, SkipForward, Volume2, X } from 'lucide-react'
+import { navigate } from '../lib/route'
+import { setPendingLearn } from '../lib/selection'
+import { speak, speakGerman } from '../lib/speech'
 import { playSound } from '../lib/sounds'
 import { currentStreak } from '../lib/srs'
 import { gradeFrom, type Dir } from '../lib/fsrs'
@@ -56,11 +59,18 @@ export function Runner({ questions, onDashboard, onBack, backLabel }: Props) {
   const [round, setRound] = useState(0)
   const [i, setI] = useState(0)
   const [done, setDone] = useState<Done[]>([])
+  /** Übersprungene Fragen (kommen am Ende noch einmal) */
+  const [skipped, setSkipped] = useState<Set<string>>(new Set())
+  /** Aktuelle Frage beantwortet bzw. aufgegeben */
+  const [answered, setAnswered] = useState(false)
+  const [gaveUp, setGaveUp] = useState(false)
   // Antwortzeit: ab Erscheinen der Frage
   const shownAt = useRef(Date.now())
   useEffect(() => {
     shownAt.current = Date.now()
-  }, [i, round])
+    setAnswered(false)
+    setGaveUp(false)
+  }, [i, round, qs])
 
   if (i >= qs.length) {
     const ok = done.filter((d) => d.correct).length
@@ -121,10 +131,22 @@ export function Runner({ questions, onDashboard, onBack, backLabel }: Props) {
               setRound((r) => r + 1)
               setI(0)
               setDone([])
+              setSkipped(new Set())
             }}
           >
-            <Repeat size={16} /> Nur falsche Wörter sofort wiederholen
+            <Repeat size={16} /> Falsche sofort nochmal abfragen
           </button>
+          {wrong.length > 0 && (
+            <button
+              className="btn-soft flex-1"
+              onClick={() => {
+                setPendingLearn([...new Set(wrong.map((w) => w.q.wordId))])
+                navigate('/ueben')
+              }}
+            >
+              <GraduationCap size={16} /> Falsche im Lernmodus üben
+            </button>
+          )}
           <button className="btn-soft" onClick={onBack}>{backLabel}</button>
           <button className="btn-soft" onClick={onDashboard}><Home size={16} /> Zur Startseite</button>
         </div>
@@ -133,14 +155,48 @@ export function Runner({ questions, onDashboard, onBack, backLabel }: Props) {
   }
 
   const q = qs[i]
+  const isRetry = skipped.has(q.key)
+  const skip = () => {
+    setSkipped((s) => new Set(s).add(q.key))
+    setQs((list) => [...list.slice(0, i), ...list.slice(i + 1), list[i]])
+  }
+  const giveUp = () => {
+    recordReview(q.wordId, false, q.dir && round === 0 ? { dir: q.dir, grade: 1 } : undefined)
+    setDone((d) => [...d, { correct: false, q }])
+    setAnswered(true)
+    setGaveUp(true)
+    const ko = /[가-힣]/.test(q.solution)
+    if (ko) speak(q.solution)
+    else speakGerman(q.solution)
+  }
   return (
     <div className="space-y-4">
       <div className="h-1.5 overflow-hidden rounded-full bg-fill-2">
         <div className="h-full rounded-full bg-blue transition-all" style={{ width: `${(i / qs.length) * 100}%` }} />
       </div>
-      <p className="text-center text-xs text-label-3">
-        Frage {i + 1} von {qs.length}{round > 0 ? ' · Wiederholung' : ''}
-      </p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs text-label-3">
+          Frage {i + 1} von {qs.length}{round > 0 ? ' · Wiederholung' : ''}{isRetry && !answered ? ' · übersprungen' : ''}
+        </p>
+        {!answered && (
+          isRetry ? (
+            <button className="btn-soft !min-h-9 !py-1 text-xs" onClick={giveUp}><HelpCircle size={14} /> Ich weiß es nicht</button>
+          ) : i < qs.length - 1 ? (
+            <button className="btn-soft !min-h-9 !py-1 text-xs" onClick={skip}><SkipForward size={14} /> Überspringen</button>
+          ) : null
+        )}
+      </div>
+      {gaveUp ? (
+        <div className="card fade-up p-6 text-center">
+          <p className="label mb-1">Lösung</p>
+          <p className="text-sm text-label-2">{q.prompt}</p>
+          <button className="mx-auto mt-2 inline-flex items-center gap-2 text-4xl font-bold" onClick={() => (/[가-힣]/.test(q.solution) ? speak(q.solution) : speakGerman(q.solution))}>
+            {q.solution} <Volume2 size={18} className="text-label-3" />
+          </button>
+          <p className="mt-2 text-xs text-label-2">Zählt als nicht gewusst – das Wort kommt bald wieder.</p>
+          <button className="btn-primary mx-auto mt-5" onClick={() => setI((n) => n + 1)}>{i === qs.length - 1 ? 'Auswertung' : 'Weiter'} <ArrowRight size={16} /></button>
+        </div>
+      ) : (
       <div key={`${round}-${q.key}`}>
         {q.render({
           onResult: (r) => {
@@ -148,6 +204,7 @@ export function Runner({ questions, onDashboard, onBack, backLabel }: Props) {
             // Sofort-Wiederholung falscher Wörter zählt nicht für die Planung (sonst gälten sie zu früh als gelernt)
             recordReview(q.wordId, r.correct, q.dir && round === 0 ? { dir: q.dir, grade } : undefined)
             setDone((d) => [...d, { ...r, q }])
+            setAnswered(true)
           },
           onRevise: (correct) => {
             reviseReview(q.wordId, correct)
@@ -157,6 +214,7 @@ export function Runner({ questions, onDashboard, onBack, backLabel }: Props) {
           nextLabel: i === qs.length - 1 ? 'Auswertung' : 'Weiter',
         })}
       </div>
+      )}
     </div>
   )
 }

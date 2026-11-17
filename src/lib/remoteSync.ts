@@ -16,6 +16,8 @@ export interface SyncResult {
   /** true, wenn lokal etwas übernommen wurde */
   changedLocal: boolean
   merged: SyncPayload
+  /** Zeitstempel des hochgeladenen Stands (um eigene Änderungen beim Live-Abgleich zu erkennen) */
+  savedAt?: number
 }
 
 /**
@@ -38,8 +40,9 @@ export async function syncWithRemote(opts: {
   if (changedLocal) opts.applyLocal(merged)
 
   const uploaded = !remote || fingerprint(merged) !== fingerprint(remote)
-  if (uploaded) await opts.remote.save({ ...merged, updatedAt: Date.now() })
-  return { uploaded, changedLocal, merged }
+  const savedAt = uploaded ? Date.now() : undefined
+  if (savedAt) await opts.remote.save({ ...merged, updatedAt: savedAt })
+  return { uploaded, changedLocal, merged, savedAt }
 }
 
 /** Zum Testen: entfernter Speicher im Arbeitsspeicher */

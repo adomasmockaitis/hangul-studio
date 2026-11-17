@@ -4,7 +4,7 @@ import { DoneCard } from '../components/DoneCard'
 import { SelectionPicker } from '../components/SelectionPicker'
 import { Sheet } from '../components/ui'
 import { WordCard } from '../components/WordCard'
-import { describeSelection, resolveSelection, smartPick, SMART, type Selection } from '../lib/selection'
+import { describeSelection, resolveSelection, smartPick, SMART, takePendingLearn, type Selection } from '../lib/selection'
 import { useApp } from '../store'
 import type { Folder, WordItem } from '../types'
 
@@ -24,11 +24,13 @@ function computeIds(sel: Selection, sort: Sort, words: WordItem[], folders: Fold
  */
 export function Browse({ onDashboard }: { onDashboard: () => void }) {
   const { words, folders, reviseReview, recordReview } = useApp()
-  const [selection, setSelection] = useState<Selection>(SMART)
-  const [draftSel, setDraftSel] = useState<Selection>(SMART)
+  // Vorauswahl aus dem Quiz („Falsche im Lernmodus üben“), sonst Smart
+  const [initialSel] = useState<Selection>(() => takePendingLearn() ?? SMART)
+  const [selection, setSelection] = useState<Selection>(initialSel)
+  const [draftSel, setDraftSel] = useState<Selection>(initialSel)
   const [picker, setPicker] = useState(false)
   const [sort, setSort] = useState<Sort>('old')
-  const [ids, setIds] = useState<string[]>(() => computeIds(SMART, 'old', words, folders))
+  const [ids, setIds] = useState<string[]>(() => computeIds(initialSel, 'old', words, folders))
   const [idx, setIdx] = useState(0)
   const [done, setDone] = useState(false)
 

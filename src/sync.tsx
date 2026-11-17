@@ -260,12 +260,14 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!enabled || !clientId) return
     const tick = () => {
-      if (document.visibilityState === 'visible' && Date.now() - lastRun.current > 60_000) void run(false)
+      if (document.visibilityState === 'visible' && Date.now() - lastRun.current > 15_000) void run(false)
     }
     document.addEventListener('visibilitychange', tick)
-    const iv = setInterval(tick, 5 * 60_000)
+    window.addEventListener('focus', tick)
+    const iv = setInterval(tick, 60_000)
     return () => {
       document.removeEventListener('visibilitychange', tick)
+      window.removeEventListener('focus', tick)
       clearInterval(iv)
     }
   }, [enabled, clientId, run])

@@ -24,6 +24,14 @@ export interface Release {
 }
 export const RELEASES: Release[] = [
   {
+    id: '2026-11-quiz-skip-live-sync',
+    size: 'minor',
+    title: 'Neu in Hangul Studio',
+    subtitle: 'Überspringen, Zielordner, Live-Abgleich',
+    summary: 'Im Quiz kannst du Fragen überspringen (sie kommen am Ende wieder, dann mit „Ich weiß es nicht“) und falsche Wörter direkt im Lernmodus üben. Der Scanner speichert in einen Ordner deiner Wahl. Mit Konto gleichen Geräte jetzt sofort ab, ohne Neuladen.',
+    features: [],
+  },
+  {
     id: '2026-11-accounts',
     size: 'major',
     title: 'Neu in Hangul Studio',

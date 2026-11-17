@@ -156,6 +156,19 @@ export function accountRemote(uid: string): RemoteStore {
   }
 }
 
+/**
+ * Live-Abgleich: meldet, wenn ein anderes Gerät einen neuen Stand gespeichert hat
+ * (beobachtet nur das kleine Metadaten-Dokument, nicht die Daten selbst).
+ */
+export async function watchRemote(uid: string, onChange: (updatedAt: number) => void): Promise<() => void> {
+  const { db, fsMod } = await loadFirebase()
+  return fsMod.onSnapshot(fsMod.doc(db, 'users', uid), (snap) => {
+    if (snap.metadata.hasPendingWrites) return // eigene, noch nicht bestätigte Schreibvorgänge
+    const t = Number(snap.data()?.updatedAt) || 0
+    if (t) onChange(t)
+  }, () => undefined)
+}
+
 /** Alle Daten des Kontos löschen und danach das Konto selbst */
 export async function deleteAccountAndData(): Promise<void> {
   const { auth, db, fsMod, authMod } = await loadFirebase()
