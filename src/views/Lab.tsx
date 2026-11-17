@@ -10,10 +10,20 @@ import {
 } from '../lib/lab/bench'
 import { LIVE_VOICES, LiveSession, isVerbatim, playPcm, speakWithTtsModel, tailCheck, verifyAudio, verifyAudioLive, withFinalStop, type SpeakResult } from '../lib/lab/liveTts'
 import { useApp } from '../store'
+import { POOL } from '../lib/particles/pool'
+import { fillSentence } from '../lib/particles/forms'
+import { speakSentence } from '../lib/speech'
 
 type Section = 'hand' | 'saetze' | 'stimme'
 
 const MAX_ATTEMPTS = 3
+/** Sätze von kurz bis lang (aus dem Partikel-Pool, Stufe 1–5) und deutsche Sätze – für den Test „Live API liest Sätze“ */
+const SENTENCE_SET = [
+  ...[1, 2, 3, 4, 5].flatMap((lvl) => POOL.filter((x) => x.level === lvl && x.particle === (['ga', 'e', 'eseo', 'neun', 'reul'] as const)[lvl - 1]).slice(0, 2)).map((x) => fillSentence(x.ko)),
+  '어제 친구랑 같이 한국 식당에 가서 비빔밥을 먹었는데 정말 맛있었어요.',
+  'Ich lerne seit einem Jahr Koreanisch.',
+  'Morgen fahre ich mit meiner Familie ans Meer.',
+].join(String.fromCharCode(10))
 const DEFAULT_WORDS = '학생\n감사합니다\n먹다\n읽다\n한국어\n괜찮아요\n학교에 가요\n물을 마셔요\nSchüler\nDanke\nessen\nKoreanisch'
 
 /** Verstecktes Testlabor (#/labor): Modelle für Handschrift und Sätze vergleichen, Vorlesen testen. */
@@ -394,6 +404,10 @@ function VoiceBench({ apiKey, allModels }: { apiKey: string; allModels: { id: st
 
   const live = results.filter((r) => !r.source.includes('tts') && !r.error)
   const verbatimRate = live.length ? Math.round((live.filter((r) => r.verbatim).length / live.length) * 100) : null
+  const clean = live.filter((r) => (r.heardOk ?? r.verbatim) && !r.tailCut)
+  const cleanRate = live.length ? Math.round((clean.length / live.length) * 100) : null
+  const avgTries = live.length ? (live.reduce((a, r) => a + (r.attempts ?? 1), 0) / live.length).toFixed(1) : null
+  const avgFirst = live.length ? Math.round(live.reduce((a, r) => a + (r.firstAudioMs ?? 0), 0) / live.length) : null
   const checked = live.filter((r) => r.heardOk !== undefined)
   const heardRate = checked.length ? Math.round((checked.filter((r) => r.heardOk).length / checked.length) * 100) : null
 
@@ -430,7 +444,13 @@ function VoiceBench({ apiKey, allModels }: { apiKey: string; allModels: { id: st
         />
       </List>
       <section className="mb-6">
-        <h2 className="mb-1.5 px-4 text-xs font-medium text-label-2">Texte (eine Zeile pro Text)</h2>
+        <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2 px-4">
+          <h2 className="text-xs font-medium text-label-2">Texte (eine Zeile pro Text)</h2>
+          <span className="flex gap-1.5">
+            <button className="btn-soft !min-h-8 !px-2.5 !py-0.5 text-xs" onClick={() => setText(DEFAULT_WORDS)}>Wörter</button>
+            <button className="btn-soft !min-h-8 !px-2.5 !py-0.5 text-xs" onClick={() => setText(SENTENCE_SET)}>Sätze (kurz bis lang)</button>
+          </span>
+        </div>
         <textarea className="input min-h-40 font-medium" lang="ko" value={text} onChange={(e) => setText(e.target.value)} />
       </section>
       <div className="mb-3 flex flex-wrap gap-2">
@@ -441,12 +461,12 @@ function VoiceBench({ apiKey, allModels }: { apiKey: string; allModels: { id: st
           Vergleich: TTS-Modell (2 Wörter)
         </button>
         {results.length > 0 && (
-          <button className="btn-soft" onClick={() => download(`hangul-labor-stimme-${new Date().toISOString().slice(0, 10)}.json`, { kind: 'voice', verbatimRate, heardRate, results: results.map(({ pcm: _pcm, ...r }) => r) })}>
+          <button className="btn-soft" onClick={() => download(`hangul-labor-stimme-${new Date().toISOString().slice(0, 10)}.json`, { kind: 'voice', verbatimRate, heardRate, cleanRate, avgTries, avgFirst, results: results.map(({ pcm: _pcm, ...r }) => r) })}>
             <Download size={16} /> Ergebnis speichern
           </button>
         )}
       </div>
-      {status && <p className="mb-4 px-4 text-sm text-label-2">{status}{verbatimRate !== null && ` · Selbst-Mitschrift wörtlich: ${verbatimRate} %`}{heardRate !== null && ` · Gegenprüfung wörtlich: ${heardRate} %`}</p>}
+      {status && <p className="mb-4 px-4 text-sm text-label-2">{status}{verbatimRate !== null && ` · Selbst-Mitschrift wörtlich: ${verbatimRate} %`}{heardRate !== null && ` · Gegenprüfung wörtlich: ${heardRate} %`}{cleanRate !== null && ` · am Ende sauber angenommen: ${cleanRate} % · Ø ${avgTries} Versuche · Ø ${avgFirst} ms bis Ton`}</p>}
       {results.length > 0 && (
         <List title="Ergebnis">
           {results.map((r, i) => (
@@ -457,6 +477,7 @@ function VoiceBench({ apiKey, allModels }: { apiKey: string; allModels: { id: st
               right={
                 <span className="flex shrink-0 items-center gap-2">
                   {!r.error && (() => { const ok = (r.heardOk ?? r.verbatim) && !r.tailCut; return <span className={`text-sm font-semibold ${ok ? 'text-green' : 'text-orange'}`}>{ok ? '✓ sauber' : r.tailCut ? '✂ abgeschnitten' : '≠ abweichend'}</span> })()}
+                  <button className="btn-soft !min-h-9 !px-2 !py-1 text-xs" onClick={() => speakSentence(r.text, /[가-힣]/.test(r.text) ? 'ko' : 'de')} title="Zum Vergleich: Systemstimme">System</button>
                   <button className="grid h-11 w-11 place-items-center rounded-full text-blue transition hover:bg-fill-3 disabled:opacity-30" disabled={!r.pcm.length} onClick={() => playPcm(r.pcm, r.sampleRate)} aria-label={`${r.text} abspielen`}>
                     <Play size={18} fill="currentColor" />
                   </button>

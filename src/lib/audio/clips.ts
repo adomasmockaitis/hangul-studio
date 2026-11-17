@@ -15,6 +15,10 @@ export interface Clip {
   rate: number
   /** Womit erzeugt */
   via: 'live' | 'tts'
+  /** Stimme, mit der die Aufnahme erzeugt wurde */
+  voice?: string
+  /** Modell (beim TTS-Ersatz wichtig, klingt leicht anders als die Live API) */
+  model?: string
   createdAt: number
 }
 
@@ -43,8 +47,11 @@ export interface Generator {
   live(text: string): Promise<Raw | null>
   /** Gegenprüfung: was ein zweites Modell hört; null = Prüfung nicht möglich (dann zählt nur die Endprüfung) */
   heard(raw: Raw): Promise<string | null>
-  /** Ersatz: TTS-Modell (stark begrenzt); fehlt oder null = nicht verfügbar */
-  tts?(text: string): Promise<Raw | null>
+  /** Ersatz: TTS-Modelle (stark begrenzt); fehlt oder null = nicht verfügbar */
+  tts?(text: string): Promise<(Raw & { model?: string }) | null>
+  /** Name des Live-Modells (wird an der Aufnahme vermerkt) */
+  liveModel?: string
+  voice?: string
 }
 
 export interface ProduceResult {
@@ -83,11 +90,11 @@ export async function produceClip(text: string, gen: Generator, opts: { attempts
       rejected.push(`gehört: ${heard || '(nichts)'}`)
       continue
     }
-    return { clip: { pcm: join(r.pcm), rate: r.rate, via: 'live', createdAt: now }, tries, rejected }
+    return { clip: { pcm: join(r.pcm), rate: r.rate, via: 'live', voice: gen.voice, model: gen.liveModel, createdAt: now }, tries, rejected }
   }
   if (gen.tts) {
     const r = await gen.tts(text)
-    if (r && r.pcm.some((c) => c.length)) return { clip: { pcm: join(r.pcm), rate: r.rate, via: 'tts', createdAt: now }, tries, rejected }
+    if (r && r.pcm.some((c) => c.length)) return { clip: { pcm: join(r.pcm), rate: r.rate, via: 'tts', voice: gen.voice, model: r.model, createdAt: now }, tries, rejected }
     rejected.push('TTS-Modell nicht verfügbar')
   }
   return { clip: null, tries, rejected }
@@ -102,7 +109,16 @@ export interface ModelInfo {
 export interface VoiceModels {
   live: string
   check: string | null
-  tts: string | null
+  /** Alle TTS-Modelle, bestes zuerst (jedes hat sein eigenes Tageskontingent) */
+  tts: string[]
+}
+
+/** Qualitätsstufe eines TTS-Modells: pro > flash > flash-lite */
+export function ttsTier(id: string): number {
+  if (/pro/i.test(id)) return 3
+  if (/flash-lite|lite/i.test(id)) return 1
+  if (/flash/i.test(id)) return 2
+  return 0
 }
 
 /** Neueste passende Modelle aus der Modellliste der API (Namen ändern sich gelegentlich, z. B. „-preview“) */
@@ -116,29 +132,38 @@ export function pickVoiceModels(all: ModelInfo[]): VoiceModels | null {
   return {
     live,
     check: best(bidi.filter((m) => /transcribe/i.test(m.id)), /3\.5-transcribe-live/),
-    tts: best(all.filter((m) => /tts/i.test(m.id) && m.methods.includes('generateContent')), /flash-lite-tts/),
+    tts: all
+      .filter((m) => /tts/i.test(m.id) && m.methods.includes('generateContent'))
+      .map((m) => m.id)
+      .sort((a, b) => ttsTier(b) - ttsTier(a) || version(b) - version(a) || a.localeCompare(b)),
   }
 }
 
 // ---------- Tageszähler für das TTS-Modell ----------
 
+/** Je TTS-Modell und Tag (kostenloses Kontingent) */
 export const TTS_DAILY_LIMIT = 10
-/** Hintergrund-Erzeugung lässt Reserve für Wörter, die man gerade anhören will */
+/** Hintergrund-Erzeugung lässt je Modell Reserve für Wörter, die man gerade anhören will */
 export const TTS_BACKGROUND_LIMIT = 5
 
 export interface QuotaState {
   day: string
-  used: number
+  /** Verbrauch je Modell */
+  used: Record<string, number>
 }
 export const today = (now = Date.now()) => new Date(now).toISOString().slice(0, 10)
 
-export function canUseTts(q: QuotaState | null, background: boolean, now = Date.now()): boolean {
-  const used = q && q.day === today(now) ? q.used : 0
-  return used < (background ? TTS_BACKGROUND_LIMIT : TTS_DAILY_LIMIT)
+export function ttsUsed(q: QuotaState | null, model: string, now = Date.now()): number {
+  return q && q.day === today(now) && q.used && typeof q.used === 'object' ? q.used[model] ?? 0 : 0
 }
-export function countTts(q: QuotaState | null, now = Date.now()): QuotaState {
+export function canUseTts(q: QuotaState | null, model: string, background: boolean, now = Date.now()): boolean {
+  return ttsUsed(q, model, now) < (background ? TTS_BACKGROUND_LIMIT : TTS_DAILY_LIMIT)
+}
+export function countTts(q: QuotaState | null, model: string, now = Date.now()): QuotaState {
   const d = today(now)
-  return { day: d, used: (q && q.day === d ? q.used : 0) + 1 }
+  const used = q && q.day === d && q.used && typeof q.used === 'object' ? { ...q.used } : {}
+  used[model] = (used[model] ?? 0) + 1
+  return { day: d, used }
 }
 
 // ---------- Systemstimme ----------
@@ -180,6 +205,7 @@ export interface ClipStore {
   put(key: string, clip: Clip): Promise<void>
   clear(): Promise<void>
   stats(): Promise<{ count: number; bytes: number }>
+  keys(): Promise<string[]>
 }
 
 export function memoryClipStore(): ClipStore {
@@ -189,6 +215,7 @@ export function memoryClipStore(): ClipStore {
     async put(k, c) { m.set(k, c) },
     async clear() { m.clear() },
     async stats() { return { count: m.size, bytes: [...m.values()].reduce((a, c) => a + c.pcm.byteLength, 0) } },
+    async keys() { return [...m.keys()] },
   }
 }
 
@@ -216,12 +243,12 @@ export function idbClipStore(): ClipStore {
   }
   return {
     async get(k) {
-      const v = (await tx('readonly', (s) => s.get(k)).catch(() => null)) as { pcm: ArrayBuffer; rate: number; via: Clip['via']; createdAt: number } | null
-      return v ? { pcm: new Int16Array(v.pcm), rate: v.rate, via: v.via, createdAt: v.createdAt } : null
+      const v = (await tx('readonly', (s) => s.get(k)).catch(() => null)) as (Omit<Clip, 'pcm'> & { pcm: ArrayBuffer }) | null
+      return v ? { ...v, pcm: new Int16Array(v.pcm) } : null
     },
     async put(k, c) {
       const buf = c.pcm.buffer.slice(c.pcm.byteOffset, c.pcm.byteOffset + c.pcm.byteLength)
-      await tx('readwrite', (s) => s.put({ pcm: buf, rate: c.rate, via: c.via, createdAt: c.createdAt }, k)).catch(() => undefined)
+      await tx('readwrite', (s) => s.put({ pcm: buf, rate: c.rate, via: c.via, voice: c.voice, model: c.model, createdAt: c.createdAt }, k)).catch(() => undefined)
     },
     async clear() {
       await tx('readwrite', (s) => s.clear()).catch(() => undefined)
@@ -229,6 +256,9 @@ export function idbClipStore(): ClipStore {
     async stats() {
       const all = ((await tx('readonly', (s) => s.getAll()).catch(() => [])) ?? []) as { pcm: ArrayBuffer }[]
       return { count: all.length, bytes: all.reduce((a, v) => a + (v.pcm?.byteLength ?? 0), 0) }
+    },
+    async keys() {
+      return (((await tx('readonly', (s) => s.getAllKeys()).catch(() => [])) ?? []) as IDBValidKey[]).map(String)
     },
   }
 }
@@ -249,6 +279,9 @@ export class ClipQueue {
   }
   size() {
     return this.items.length
+  }
+  keys(): string[] {
+    return this.items.map((x) => x.key)
   }
   add(key: string, prio: Priority, run: () => Promise<Clip | null>): Promise<Clip | null> {
     return new Promise((resolve) => {

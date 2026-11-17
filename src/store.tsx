@@ -242,6 +242,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     })
   }, [settings.voiceSource, settings.geminiApiKey, settings.geminiVoice, settings.systemVoiceKo, settings.systemVoiceDe, settings.speechMode])
 
+  // Fehlende Gemini-Aufnahmen (Koreanisch und Deutsch) im Hintergrund erzeugen: beim Start, bei neuer Stimme
+  // und wenn Wörter dazukommen (auch von anderen Geräten)
+  useEffect(() => {
+    const id = setTimeout(() => prepareWords(wordsRef.current), 3000)
+    return () => clearTimeout(id)
+  }, [settings.voiceSource, settings.geminiApiKey, settings.geminiVoice, words.length])
+
   const updateSettings = useCallback((patch: Partial<Settings>) => {
     // Nur-Gerät-Einstellungen (Client-ID, Key-Sync) zählen nicht als „geänderte Einstellungen“ für den Abgleich
     const syncRelevant = Object.keys(patch).some((k) => !(LOCAL_ONLY_SETTINGS as readonly string[]).includes(k) && k !== 'geminiApiKey')

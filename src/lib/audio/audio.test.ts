@@ -21,8 +21,9 @@ const cut = (): Raw => {
   return { pcm: [a], rate: RATE }
 }
 
-function fake(seq: (Raw | null)[], heard: (string | null)[] = [], tts?: Raw | null): Generator & { liveCalls: number; ttsCalls: number } {
+function fake(seq: (Raw | null)[], heard: (string | null)[] = [], tts?: (Raw & { model?: string }) | null): Generator & { liveCalls: number; ttsCalls: number } {
   const g = {
+    voice: 'Charon',
     liveCalls: 0,
     ttsCalls: 0,
     async live() { return seq[g.liveCalls++] ?? null },
@@ -51,10 +52,12 @@ describe('Erzeugungs-Kette', () => {
     const r = await produceClip('물', fake([clean()], [null]))
     expect(r.clip).not.toBeNull()
   })
-  it('nach 3 Fehlversuchen das TTS-Modell, sonst nichts', async () => {
-    const g = fake([cut(), cut(), cut()], [], clean())
+  it('nach 3 Fehlversuchen das TTS-Modell (gleiche Stimme), sonst nichts', async () => {
+    const g = fake([cut(), cut(), cut()], [], { ...clean(), model: 'gemini-3.8-pro-tts' })
     const r = await produceClip('감사합니다', g)
     expect(r.clip?.via).toBe('tts')
+    expect(r.clip?.voice).toBe('Charon')
+    expect(r.clip?.model).toBe('gemini-3.8-pro-tts')
     expect(g.liveCalls).toBe(3)
     const none = await produceClip('감사합니다', fake([null, null, null], [], null))
     expect(none.clip).toBeNull()
@@ -72,22 +75,27 @@ describe('Modellwahl', () => {
       { id: 'gemini-3.5-transcribe-live', methods: ['bidiGenerateContent'] },
       { id: 'gemini-3.8-flash-lite-tts', methods: ['generateContent'] },
       { id: 'gemini-3.8-pro-tts', methods: ['generateContent'] },
+      { id: 'gemini-3.5-flash-lite-tts', methods: ['generateContent'] },
+      { id: 'gemini-3.5-flash-tts', methods: ['generateContent'] },
     ])
-    expect(m).toEqual({ live: 'gemini-3.8-live', check: 'gemini-3.5-transcribe-live', tts: 'gemini-3.8-flash-lite-tts' })
+    // alle TTS-Modelle, bestes zuerst: pro vor flash vor flash-lite, neuere Version zuerst
+    expect(m).toEqual({ live: 'gemini-3.8-live', check: 'gemini-3.5-transcribe-live', tts: ['gemini-3.8-pro-tts', 'gemini-3.5-flash-tts', 'gemini-3.8-flash-lite-tts', 'gemini-3.5-flash-lite-tts'] })
     expect(pickVoiceModels([{ id: 'gemini-3.1-flash-lite', methods: ['generateContent'] }])).toBeNull()
   })
 })
 
-describe('Tageszähler TTS-Modell', () => {
-  it('lässt im Hintergrund Reserve und beginnt jeden Tag neu', () => {
+describe('Tageszähler TTS-Modelle', () => {
+  it('zählt je Modell, lässt im Hintergrund Reserve und beginnt jeden Tag neu', () => {
     const day1 = Date.UTC(2026, 10, 17, 10)
+    const A = 'gemini-3.8-pro-tts'
     let q = null as ReturnType<typeof countTts> | null
-    for (let i = 0; i < TTS_BACKGROUND_LIMIT; i++) q = countTts(q, day1)
-    expect(canUseTts(q, true, day1)).toBe(false)
-    expect(canUseTts(q, false, day1)).toBe(true)
-    for (let i = TTS_BACKGROUND_LIMIT; i < TTS_DAILY_LIMIT; i++) q = countTts(q, day1)
-    expect(canUseTts(q, false, day1)).toBe(false)
-    expect(canUseTts(q, false, day1 + 86_400_000)).toBe(true)
+    for (let i = 0; i < TTS_BACKGROUND_LIMIT; i++) q = countTts(q, A, day1)
+    expect(canUseTts(q, A, true, day1)).toBe(false)
+    expect(canUseTts(q, A, false, day1)).toBe(true)
+    expect(canUseTts(q, 'gemini-3.8-flash-tts', true, day1)).toBe(true) // anderes Modell, eigenes Kontingent
+    for (let i = TTS_BACKGROUND_LIMIT; i < TTS_DAILY_LIMIT; i++) q = countTts(q, A, day1)
+    expect(canUseTts(q, A, false, day1)).toBe(false)
+    expect(canUseTts(q, A, false, day1 + 86_400_000)).toBe(true)
   })
 })
 

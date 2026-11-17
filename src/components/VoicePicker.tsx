@@ -4,10 +4,11 @@
  */
 import { useEffect, useState } from 'react'
 import { Check, KeyRound, Loader2, Play, Trash2 } from 'lucide-react'
-import { GEMINI_VOICES, TTS_DAILY_LIMIT, type ClipLang } from '../lib/audio/clips'
-import { clearClips, clipQueueSize, clipStats, ttsUsedToday } from '../lib/audio/voice'
+import { GEMINI_VOICES, type ClipLang } from '../lib/audio/clips'
+import { clearClips, clipQueueSize, clipStats, coverage, retryFailed, ttsOverview } from '../lib/audio/voice'
 import { navigate } from '../lib/route'
-import { onVoicesChanged, previewGeminiVoice, previewSystemVoice, systemVoices } from '../lib/speech'
+import { onVoicesChanged, prepareWords, previewGeminiVoice, previewSystemVoice, systemVoices, voiceItems } from '../lib/speech'
+import { useClipsVersion } from './VoiceStatus'
 import { useApp } from '../store'
 import { Segmented } from './ui'
 
@@ -112,31 +113,60 @@ function SystemVoices({ compact }: { compact: boolean }) {
 }
 
 function CacheInfo() {
+  const { words } = useApp()
+  const v = useClipsVersion()
+  const [cov, setCov] = useState<Awaited<ReturnType<typeof coverage>> | null>(null)
   const [stats, setStats] = useState<{ count: number; bytes: number } | null>(null)
-  const [queue, setQueue] = useState(0)
+  const [tts, setTts] = useState<{ model: string; used: number; limit: number }[]>([])
   useEffect(() => {
     let alive = true
-    const load = () => {
-      void clipStats().then((s) => alive && setStats(s))
-      setQueue(clipQueueSize())
-    }
-    load()
-    const iv = setInterval(load, 4000)
+    const id = setTimeout(() => {
+      void coverage(voiceItems(words)).then((c) => alive && setCov(c))
+      void clipStats().then((x) => alive && setStats(x))
+      void ttsOverview().then((x) => alive && setTts(x))
+    }, 300)
     return () => {
       alive = false
-      clearInterval(iv)
+      clearTimeout(id)
     }
-  }, [])
+  }, [words, v])
+  const queue = clipQueueSize()
+  const line = (lang: 'ko' | 'de', label: string) => {
+    const c = cov?.[lang]
+    if (!c || !c.total) return null
+    const pct = Math.round((c.ready / c.total) * 100)
+    return (
+      <div className="space-y-1">
+        <div className="flex justify-between text-sm"><span>{label}</span><span className="tabular-nums text-label-2">{c.ready} / {c.total} Wörter</span></div>
+        <div className="h-1.5 overflow-hidden rounded-full bg-fill-2"><div className="h-full rounded-full bg-green transition-all" style={{ width: `${pct}%` }} /></div>
+      </div>
+    )
+  }
+  const missing = cov ? cov.ko.total - cov.ko.ready + cov.de.total - cov.de.ready : 0
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-2xl bg-fill-4 p-3 text-sm text-label-2">
-      <span className="flex-1">
-        {stats ? `${stats.count} Aufnahmen gespeichert (${(stats.bytes / 1_048_576).toFixed(1)} MB)` : '…'}
-        {queue > 0 && ` · ${queue} in Arbeit`}
-        {` · Ersatzmodell heute ${ttsUsedToday()}/${TTS_DAILY_LIMIT}`}
-      </span>
-      <button className="btn-soft !min-h-9 !py-1 text-xs" onClick={() => void clearClips().then(() => clipStats().then(setStats))}>
-        <Trash2 size={14} /> Aufnahmen löschen
-      </button>
+    <div className="space-y-3 rounded-2xl bg-fill-4 p-3">
+      <p className="text-sm font-medium">Gemini-Stimme für deine Wörter</p>
+      {line('ko', 'Koreanisch')}
+      {line('de', 'Deutsch')}
+      <p className="text-xs text-label-2">
+        {queue > 0 ? `${queue} Aufnahmen in Arbeit – läuft im Hintergrund, solange die App offen ist. ` : missing ? 'Fehlende werden beim nächsten Start oder per Knopf erstellt. ' : 'Alles bereit. '}
+        {stats && `${stats.count} Aufnahmen gespeichert (${(stats.bytes / 1_048_576).toFixed(1)} MB, nur auf diesem Gerät).`}
+      </p>
+      {tts.length > 0 && (
+        <p className="text-xs text-label-3">
+          Ersatzmodelle (bestes zuerst, je {tts[0].limit}/Tag): {tts.map((t) => `${t.model.replace(/^gemini-/, '')} ${t.used}/${t.limit}`).join(' · ')}
+        </p>
+      )}
+      <div className="flex flex-wrap gap-2">
+        {missing > 0 && (
+          <button className="btn-soft !min-h-9 !py-1 text-xs" onClick={() => { retryFailed(); prepareWords(words) }}>
+            <Play size={14} /> Fehlende jetzt erstellen ({missing})
+          </button>
+        )}
+        <button className="btn-soft !min-h-9 !py-1 text-xs" onClick={() => void clearClips()}>
+          <Trash2 size={14} /> Aufnahmen löschen
+        </button>
+      </div>
     </div>
   )
 }

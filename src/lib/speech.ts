@@ -178,17 +178,26 @@ export function speakWord(word: { korean: string; german: string }, mode: Speech
   if (items.length) void playSequence(items)
 }
 
-/** Neue Wörter im Hintergrund für die Gemini-Stimme vorbereiten (z. B. nach dem Import) */
-export function prepareWords(words: { korean: string; german: string }[]) {
-  if (!geminiVoiceActive()) return
+/** Texte, die für ein Wort mit der Gemini-Stimme aufgenommen werden: Koreanisch und Deutsch (gekürzt) */
+export function voiceTexts(w: { korean: string; german: string }): { ko: string | null; de: string | null } {
+  const ko = cleanKo(w.korean)
+  const de = shortGerman(w.german)
+  return { ko: isWordLike(ko) ? ko : null, de: de && isWordLike(de) ? de : null }
+}
+
+export function voiceItems(words: { korean: string; german: string }[]): { text: string; lang: ClipLang }[] {
   const items: { text: string; lang: ClipLang }[] = []
   for (const w of words) {
-    const ko = cleanKo(w.korean)
-    if (isWordLike(ko)) items.push({ text: ko, lang: 'ko' })
-    const de = shortGerman(w.german)
-    if (cfg.speechMode !== 'ko' && de && isWordLike(de)) items.push({ text: de, lang: 'de' })
+    const t = voiceTexts(w)
+    if (t.ko) items.push({ text: t.ko, lang: 'ko' })
+    if (t.de) items.push({ text: t.de, lang: 'de' })
   }
-  prefetchClips(items)
+  return items
+}
+
+/** Wörter im Hintergrund für die Gemini-Stimme vorbereiten (nach dem Import und beim Start für fehlende) */
+export function prepareWords(words: { korean: string; german: string }[]) {
+  if (geminiVoiceActive()) prefetchClips(voiceItems(words))
 }
 
 // ---------- Hörproben ----------
@@ -206,17 +215,12 @@ export function previewSystemVoice(lang: ClipLang, voiceName: string) {
  * Liefert false, wenn es nicht geklappt hat (dann klingt die Systemstimme).
  */
 export async function previewGeminiVoice(voice: string): Promise<boolean> {
-  const before = { ...cfg }
-  configureGeminiVoice({ enabled: true, apiKey: cfg.apiKey, voice })
-  try {
-    const clip = await requestClip(SAMPLE_KO, 'ko', 'now')
-    stopSpeech()
-    if (clip) await playClip(clip, token)
-    else await playSystem(SAMPLE_KO, 'ko', 0.9, token)
-    return !!clip
-  } finally {
-    configureGeminiVoice({ enabled: before.source === 'gemini', apiKey: before.apiKey, voice: before.geminiVoice })
-  }
+  // Die Stimme gilt nur für diesen einen Auftrag – laufende Aufnahmen behalten ihre Stimme
+  const clip = await requestClip(SAMPLE_KO, 'ko', 'now', { voice, force: true })
+  stopSpeech()
+  if (clip) await playClip(clip, token)
+  else await playSystem(SAMPLE_KO, 'ko', 0.9, token)
+  return !!clip
 }
 
 /**

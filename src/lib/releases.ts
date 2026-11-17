@@ -24,6 +24,14 @@ export interface Release {
 }
 export const RELEASES: Release[] = [
   {
+    id: '2026-11-voices-status',
+    size: 'minor',
+    title: 'Neu in Hangul Studio',
+    subtitle: 'Gemini-Stimme für alle Wörter',
+    summary: 'Jedes Wort zeigt jetzt mit kleinen KO/DE-Kennzeichen, ob die Gemini-Stimme bereit ist oder gerade erstellt wird. Fehlende Aufnahmen (Koreanisch und Deutsch) entstehen automatisch im Hintergrund, alle TTS-Ersatzmodelle werden genutzt (bestes zuerst) und jede Aufnahme behält sicher deine gewählte Stimme.',
+    features: [],
+  },
+  {
     id: '2026-11-voices',
     size: 'major',
     title: 'Neu in Hangul Studio',

@@ -5,6 +5,7 @@ import { useApp } from '../store'
 import { CONJUGATION_LABELS, WORD_TYPE_LABELS, type ConjugationKey, type WordItem } from '../types'
 import { HangulCanvas } from './HangulCanvas'
 import { WordExtras } from './WordExtras'
+import { VoiceStatus } from './VoiceStatus'
 
 interface Props {
   word: WordItem
@@ -55,6 +56,7 @@ export function WordCard({ word, mode, onResult, onRevise, onNext, nextLabel }: 
 
         <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
           <button className="btn-soft" onClick={() => speakWord(word, settings.speechMode)}><Volume2 size={16} /> Anhören</button>
+          <VoiceStatus word={word} />
           {word.pronunciation && (
             <button className="btn-soft" onClick={() => setShowPron((s) => !s)}>
               {showPron ? 'Aussprachehilfe ausblenden' : 'Aussprachehilfe einblenden'}

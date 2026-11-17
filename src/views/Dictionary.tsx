@@ -12,6 +12,7 @@ import { speakWord } from '../lib/speech'
 import { getItem, setItem } from '../lib/storage'
 import { useApp } from '../store'
 import { CONJUGATION_KEYS, CONJUGATION_LABELS, MAX_EXAMPLES, WORD_TYPE_LABELS, type Conjugations, type Example, type Folder, type WordItem, type WordType } from '../types'
+import { VoiceStatus } from '../components/VoiceStatus'
 
 interface Draft {
   korean: string
@@ -337,6 +338,7 @@ export function Dictionary() {
                     {fname && <span className="inline-flex items-center gap-1"><FolderIcon size={11} /> {fname}</span>}
                     {w.tags.map((t) => <span key={t}>{t}</span>)}
                     {rate >= 0 && <span className={rate > 0.4 ? 'font-medium text-red' : ''}>· {Math.round(rate * 100)} % Fehler</span>}
+                    <VoiceStatus word={w} />
                   </span>
                 </span>
                 {!selecting && <ChevronRight size={18} className="shrink-0 text-label-3" />}
