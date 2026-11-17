@@ -6,6 +6,7 @@ import { playSound } from '../lib/sounds'
 import type { WordItem } from '../types'
 import { HangulCanvas } from './HangulCanvas'
 import type { QResult } from './Runner'
+import { useQuestionAside } from './questionAside'
 
 interface Common {
   onResult: (r: QResult) => void
@@ -91,6 +92,7 @@ function KoreanPrompt({ word }: { word: WordItem }) {
 
 /** Koreanisch → Deutsch, Eingabe per Tastatur */
 export function TypeQuestion({ word, onResult, onNext, nextLabel }: Common & { word: WordItem }) {
+  const aside = useQuestionAside()
   const [text, setText] = useState('')
   const [res, setRes] = useState<boolean | null>(null)
   const check = () => {
@@ -118,9 +120,9 @@ export function TypeQuestion({ word, onResult, onNext, nextLabel }: Common & { w
           <span className="text-lg font-semibold">{word.german}</span>
         </div>
       )}
-      <div className="mt-5 flex justify-center">
+      <div className="mt-5 flex flex-wrap justify-center gap-2">
         {res === null ? (
-          <button className="btn-primary" onClick={check} disabled={!text.trim()}><Check size={16} /> Prüfen</button>
+          <>{aside}<button className="btn-primary" onClick={check} disabled={!text.trim()}><Check size={16} /> Prüfen</button></>
         ) : (
           <button className="btn-primary" onClick={onNext}>{nextLabel} <ArrowRight size={16} /></button>
         )}
@@ -131,6 +133,7 @@ export function TypeQuestion({ word, onResult, onNext, nextLabel }: Common & { w
 
 /** Hör-Diktat: Koreanisch hören, deutsche Bedeutung tippen (Hörverstehen) */
 export function ListenTypeQuestion({ word, onResult, onNext, nextLabel }: Common & { word: WordItem }) {
+  const aside = useQuestionAside()
   const [text, setText] = useState('')
   const [res, setRes] = useState<boolean | null>(null)
   useEffect(() => {
@@ -171,9 +174,9 @@ export function ListenTypeQuestion({ word, onResult, onNext, nextLabel }: Common
           <p className="text-lg font-semibold">{word.german}</p>
         </div>
       )}
-      <div className="mt-5 flex justify-center">
+      <div className="mt-5 flex flex-wrap justify-center gap-2">
         {res === null ? (
-          <button className="btn-primary" onClick={check} disabled={!text.trim()}><Check size={16} /> Prüfen</button>
+          <>{aside}<button className="btn-primary" onClick={check} disabled={!text.trim()}><Check size={16} /> Prüfen</button></>
         ) : (
           <button className="btn-primary" onClick={onNext}>{nextLabel} <ArrowRight size={16} /></button>
         )}
@@ -184,6 +187,7 @@ export function ListenTypeQuestion({ word, onResult, onNext, nextLabel }: Common
 
 /** Koreanisch → Deutsch, Multiple Choice */
 export function ChoiceQuestion({ word, options, onResult, onNext, nextLabel }: Common & { word: WordItem; options: string[] }) {
+  const aside = useQuestionAside()
   const [picked, setPicked] = useState<string | null>(null)
   return (
     <div className="card fade-up p-6 text-center">
@@ -216,11 +220,11 @@ export function ChoiceQuestion({ word, options, onResult, onNext, nextLabel }: C
           )
         })}
       </div>
-      {picked !== null && (
+      {picked !== null ? (
         <div className="mt-5 flex justify-center">
           <button className="btn-primary" onClick={onNext}>{nextLabel} <ArrowRight size={16} /></button>
         </div>
-      )}
+      ) : aside && <div className="mt-5 flex justify-center">{aside}</div>}
     </div>
   )
 }

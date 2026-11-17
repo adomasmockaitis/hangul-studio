@@ -24,6 +24,14 @@ export interface Release {
 }
 export const RELEASES: Release[] = [
   {
+    id: '2026-11-skip-button-live-fix',
+    size: 'minor',
+    title: 'Neu in Hangul Studio',
+    subtitle: 'Überspringen neben Prüfen',
+    summary: '„Überspringen“ und „Ich weiß es nicht“ sitzen jetzt direkt neben „Prüfen“. Der Live-Abgleich mit Konto zeigt Änderungen anderer Geräte zuverlässig ohne Neuladen an, auch wenn deren Uhr etwas abweicht.',
+    features: [],
+  },
+  {
     id: '2026-11-quiz-skip-live-sync',
     size: 'minor',
     title: 'Neu in Hangul Studio',

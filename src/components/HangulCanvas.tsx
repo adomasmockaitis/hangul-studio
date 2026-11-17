@@ -11,6 +11,7 @@ import { BATCH_SIZE, enqueuePending, processPending, removePending, updateByPend
 import { normalizeKorean } from '../lib/hangul'
 import { useApp } from '../store'
 import { StrokeOrder } from './StrokeOrder'
+import { useQuestionAside } from './questionAside'
 
 interface P {
   x: number
@@ -94,6 +95,7 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
   const dark = useIsDark()
   const wrapRef = useRef<HTMLDivElement>(null)
   const barRef = useRef<HTMLDivElement>(null)
+  const aside = useQuestionAside()
   // Enter = Hauptaktion (Prüfen / Weiter), solange kein Feld, Knopf oder Dialog den Fokus hat
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -717,7 +719,8 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
                     {firstMethod === 'inputtools' ? 'Prüfung: Input Tools' : firstMethod === 'gemini' ? 'Prüfung: Gemini' : 'Selbst-Check'}
                   </span>
                 )}
-                <button data-primary className="btn-primary ml-auto !py-3" onClick={() => void check()} disabled={phase === 'checking' || (keyboard && !typed.trim())}>
+                {aside && <div className="ml-auto flex">{aside}</div>}
+                <button data-primary className={`btn-primary ${aside ? '' : 'ml-auto'} !py-3`} onClick={() => void check()} disabled={phase === 'checking' || (keyboard && !typed.trim())}>
                   {phase === 'checking' ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
                   {phase === 'checking' ? 'Prüfe…' : 'Prüfen'}
                 </button>

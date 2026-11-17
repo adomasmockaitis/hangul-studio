@@ -7,6 +7,7 @@ import { playSound } from '../lib/sounds'
 import { currentStreak } from '../lib/srs'
 import { gradeFrom, type Dir } from '../lib/fsrs'
 import { useApp } from '../store'
+import { QuestionAside } from './questionAside'
 
 export interface QResult {
   correct: boolean
@@ -174,18 +175,9 @@ export function Runner({ questions, onDashboard, onBack, backLabel }: Props) {
       <div className="h-1.5 overflow-hidden rounded-full bg-fill-2">
         <div className="h-full rounded-full bg-blue transition-all" style={{ width: `${(i / qs.length) * 100}%` }} />
       </div>
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-xs text-label-3">
-          Frage {i + 1} von {qs.length}{round > 0 ? ' · Wiederholung' : ''}{isRetry && !answered ? ' · übersprungen' : ''}
-        </p>
-        {!answered && (
-          isRetry ? (
-            <button className="btn-soft !min-h-9 !py-1 text-xs" onClick={giveUp}><HelpCircle size={14} /> Ich weiß es nicht</button>
-          ) : i < qs.length - 1 ? (
-            <button className="btn-soft !min-h-9 !py-1 text-xs" onClick={skip}><SkipForward size={14} /> Überspringen</button>
-          ) : null
-        )}
-      </div>
+      <p className="text-xs text-label-3">
+        Frage {i + 1} von {qs.length}{round > 0 ? ' · Wiederholung' : ''}{isRetry && !answered ? ' · übersprungen' : ''}
+      </p>
       {gaveUp ? (
         <div className="card fade-up p-6 text-center">
           <p className="label mb-1">Lösung</p>
@@ -198,6 +190,11 @@ export function Runner({ questions, onDashboard, onBack, backLabel }: Props) {
         </div>
       ) : (
       <div key={`${round}-${q.key}`}>
+        <QuestionAside.Provider value={answered ? null : isRetry ? (
+          <button className="btn-soft !py-3" onClick={giveUp}><HelpCircle size={16} /> Ich weiß es nicht</button>
+        ) : i < qs.length - 1 ? (
+          <button className="btn-soft !py-3" onClick={skip}><SkipForward size={16} /> Überspringen</button>
+        ) : null}>
         {q.render({
           onResult: (r) => {
             const grade = gradeFrom({ correct: r.correct, ms: Date.now() - shownAt.current, fastMs: q.fastMs, help: r.help, uncertain: r.uncertain, easyFormat: r.easyFormat })
@@ -213,6 +210,7 @@ export function Runner({ questions, onDashboard, onBack, backLabel }: Props) {
           onNext: () => setI((n) => n + 1),
           nextLabel: i === qs.length - 1 ? 'Auswertung' : 'Weiter',
         })}
+        </QuestionAside.Provider>
       </div>
       )}
     </div>

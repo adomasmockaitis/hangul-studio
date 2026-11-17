@@ -99,8 +99,12 @@ export function AccountProvider({ children }: { children: ReactNode }) {
   const lastFp = useRef('')
   const lastRun = useRef(0)
   const lastToast = useRef(0)
-  /** Zuletzt bekannter Stand im Konto (eigener Upload oder geladen) */
-  const knownRemote = useRef(0)
+  /**
+   * Live-Abgleich ohne Uhrvergleich (Geräteuhren weichen ab): eigene Uploads merken,
+   * jeder andere neue Stand im Konto löst einen Abgleich aus.
+   */
+  const ownSaves = useRef(new Set<number>())
+  const lastSeen = useRef(0)
   const rerun = useRef(false)
 
   // Anmeldestatus beobachten – Firebase wird nur geladen, wenn das Konto schon einmal benutzt wurde
@@ -138,9 +142,18 @@ export function AccountProvider({ children }: { children: ReactNode }) {
       setState('syncing')
       setError('')
       try {
-        const res = await syncWithRemote({ remote: accountRemote(uid), includeApiKey: live.current.settings.syncApiKey, getLocal, applyLocal: applySyncPayload })
+        const base = accountRemote(uid)
+        const remote = {
+          load: base.load,
+          save: (p: SyncPayload) => {
+            ownSaves.current.add(p.updatedAt)
+            if (ownSaves.current.size > 20) ownSaves.current.delete(ownSaves.current.values().next().value as number)
+            return base.save(p)
+          },
+        }
+        const res = await syncWithRemote({ remote, includeApiKey: live.current.settings.syncApiKey, getLocal, applyLocal: applySyncPayload })
         lastFp.current = fingerprint(res.merged)
-        knownRemote.current = Math.max(knownRemote.current, res.savedAt ?? res.merged.updatedAt ?? 0)
+        if (res.savedAt) lastSeen.current = res.savedAt
         const now = Date.now()
         setLastSync(now)
         persist(true, now)
@@ -195,13 +208,16 @@ export function AccountProvider({ children }: { children: ReactNode }) {
     if (!enabled || !user) return
     let off: (() => void) | undefined
     let alive = true
-    void watchRemote(user.uid, (t) => {
-      if (t > knownRemote.current + 1) {
-        knownRemote.current = t
-        // Läuft gerade ein Abgleich, danach noch einmal (sonst ginge die neue Änderung verloren)
-        if (busy.current) rerun.current = true
-        else void run(user.uid)
-      }
+    const uid = user.uid
+    void watchRemote(uid, (t) => {
+      if (t === lastSeen.current || ownSaves.current.has(t)) return
+      const firstSnapshot = lastSeen.current === 0
+      lastSeen.current = t
+      // Der erste Stand beim Verbinden wird ohnehin beim Start abgeglichen
+      if (firstSnapshot && Date.now() - lastRun.current < 10_000) return
+      // Läuft gerade ein Abgleich, danach noch einmal (sonst ginge die neue Änderung verloren)
+      if (busy.current) rerun.current = true
+      else void runRef.current(uid)
     }).then((f) => {
       if (alive) off = f
       else f()
@@ -210,7 +226,9 @@ export function AccountProvider({ children }: { children: ReactNode }) {
       alive = false
       off?.()
     }
-  }, [enabled, user, run])
+    // runRef statt run: sonst würde der Beobachter bei jedem Neuzeichnen neu verbunden
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled, user?.uid])
 
   useEffect(() => {
     if (!enabled || !user) return
