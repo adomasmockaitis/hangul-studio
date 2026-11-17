@@ -8,7 +8,7 @@ import { AudioSync, forgetSynced, type AudioRemote, type SyncMemory } from './au
 import { b64ToBytes, bytesToB64, decodeOpus, encodeOpus, opusSupported } from './codec'
 import { LiveSession, SLOW_INSTRUCTION, speakWithTtsModel, verifyAudioLive } from '../lab/liveTts'
 import {
-  ClipQueue, DEFAULT_GEMINI_VOICE, baseVoice, isSlowVoice, shouldSyncKey, TTS_DAILY_LIMIT, canUseTts, clipKey, countTts, idbClipStore, pickVoiceModels, produceClip, ttsUsed,
+  ClipQueue, DEFAULT_GEMINI_VOICE, baseVoice, isSlowVoice, shouldSyncKey, textOfKey, TTS_DAILY_LIMIT, canUseTts, clipKey, countTts, idbClipStore, pickVoiceModels, produceClip, ttsUsed,
   type Clip, type ClipLang, type Generator, type Priority, type QuotaState, type VoiceModels,
 } from './clips'
 
@@ -299,6 +299,11 @@ export async function clearClips() {
 // ---------- Abgleich der Aufnahmen zwischen Geräten ----------
 
 const slots: { account: AudioRemote | null; drive: AudioRemote | null } = { account: null, drive: null }
+/** Texte der Vokabeln (Koreanisch und gekürztes Deutsch) – nur deren Aufnahmen werden abgeglichen */
+let syncTexts: Set<string> | null = null
+export function setSyncTexts(texts: Set<string>) {
+  syncTexts = texts
+}
 let syncer: { id: string; s: AudioSync } | null = null
 let syncBusy = false
 let pushTimer: ReturnType<typeof setTimeout> | undefined
@@ -335,8 +340,8 @@ export function setAudioRemote(slot: 'account' | 'drive', remote: AudioRemote | 
       codec,
       load: () => getItem<SyncMemory>(memKey, { known: {}, synced: [] }),
       save: (m) => setItem(memKey, m),
-      // Sätze bleiben auf dem Gerät (werden bei Bedarf neu erzeugt), Wörter werden abgeglichen
-      filter: shouldSyncKey,
+      // Abgeglichen werden nur die Vokabeln selbst; Sätze, Beugungsformen und langsame Aufnahmen bleiben auf dem Gerät
+      filter: (k) => shouldSyncKey(k) && (!syncTexts || syncTexts.has(textOfKey(k))),
     }),
   }
   syncInfo = { active: true, lastSync: null, error: '', where: slots.account ? 'account' : 'drive' }

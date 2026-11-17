@@ -3,7 +3,8 @@ import { createDemoWords, newStats } from './data/demo'
 import { DEFAULT_MODEL, OBSOLETE_MODELS } from './lib/gemini'
 import { observe, stamp } from './lib/clock'
 import { configureSounds } from './lib/sounds'
-import { configureSpeech, prepareWords } from './lib/speech'
+import { configureSpeech, prepareWords, voiceTexts } from './lib/speech'
+import { setSyncTexts } from './lib/audio/voice'
 import { applyReview, dateKey } from './lib/srs'
 import { LOCAL_ONLY_SETTINGS, maxStamp, type SyncPayload } from './lib/merge'
 import { canAddSubfolder, descendantIds, planChapterConversion } from './lib/folders'
@@ -242,6 +243,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
       systemVoiceKo: settings.systemVoiceKo, systemVoiceDe: settings.systemVoiceDe, speechMode: settings.speechMode, slowMode: settings.slowMode,
     })
   }, [settings.voiceSource, settings.geminiApiKey, settings.geminiVoice, settings.systemVoiceKo, settings.systemVoiceDe, settings.speechMode, settings.slowMode])
+
+  // Nur die Aufnahmen der Vokabeln selbst werden zwischen Geräten abgeglichen
+  useEffect(() => {
+    const s = new Set<string>()
+    for (const w of words) {
+      const t = voiceTexts(w)
+      if (t.ko) s.add(t.ko)
+      if (t.de) s.add(t.de)
+    }
+    setSyncTexts(s)
+  }, [words])
 
   // Fehlende Gemini-Aufnahmen (Koreanisch und Deutsch) im Hintergrund erzeugen: beim Start, bei neuer Stimme
   // und wenn Wörter dazukommen (auch von anderen Geräten)

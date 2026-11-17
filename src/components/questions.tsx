@@ -17,8 +17,10 @@ interface Common {
 
 /** Antwort wird ins Hangul-Zeichenfeld geschrieben (Deutsch→Koreanisch, Hör-Diktat, Beugung) */
 export function WriteQuestion({
-  prompt, target, solutionNote, audioPrompt, autoPlay, speakPrompt, onResult, onRevise, onNext, nextLabel,
+  prompt, target, solutionNote, audioPrompt, autoPlay, speakPrompt, speakSolution, onResult, onRevise, onNext, nextLabel,
 }: Common & {
+  /** Nach der Antwort die Lösung vorlesen (z. B. die Beugungsform) */
+  speakSolution?: boolean
   /** Deutsche Frage: wird bei „automatisch vorlesen“ auf Deutsch gesprochen (nur die Ausgangssprache) */
   speakPrompt?: string
   prompt: ReactNode
@@ -52,9 +54,12 @@ export function WriteQuestion({
         )}
         {done && (
           <div className="fade-up mt-4 border-t border-separator pt-4">
-            <button className="inline-flex items-center gap-2 text-4xl font-bold" onClick={() => speak(target)}>
-              {target} <Volume2 size={18} className="text-label-3" />
-            </button>
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <button className="inline-flex items-center gap-2 text-4xl font-bold" onClick={() => speak(target)}>
+                {target} <Volume2 size={18} className="text-label-3" />
+              </button>
+              <SlowButton text={target} className="btn-soft !min-h-9 !px-2.5 !py-1 text-xs" />
+            </div>
             {solutionNote && <p className="mt-1 text-label-2">{solutionNote}</p>}
           </div>
         )}
@@ -63,7 +68,7 @@ export function WriteQuestion({
         <HangulCanvas
           target={target}
           testMode
-          onResult={(correct, info) => { setDone(true); onResult({ correct, image: info?.image, read: info?.read, uncertain: info?.uncertain, help: info?.help }) }}
+          onResult={(correct, info) => { setDone(true); if (speakSolution) speak(target); onResult({ correct, image: info?.image, read: info?.read, uncertain: info?.uncertain, help: info?.help }) }}
           onRevise={onRevise}
           onNext={onNext}
           nextLabel={nextLabel}

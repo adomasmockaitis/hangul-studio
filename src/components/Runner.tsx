@@ -8,7 +8,7 @@ import { currentStreak } from '../lib/srs'
 import { gradeFrom, type Dir } from '../lib/fsrs'
 import { useApp } from '../store'
 import { QuestionAside } from './questionAside'
-import { prepareUpcomingWords } from '../lib/speech'
+import { prepareSentences, prepareUpcomingWords } from '../lib/speech'
 
 export interface QResult {
   correct: boolean
@@ -29,6 +29,8 @@ export interface Q {
   prompt: string
   /** Richtige Lösung für die Auswertung */
   solution: string
+  /** Weitere Texte, die vorgelesen werden (z. B. die Beugungsform) – werden vorab erzeugt, nur lokal */
+  audio?: string[]
   /** Abgefragte Richtung für die Wiederholungsplanung */
   dir?: Dir
   /** Unter dieser Antwortzeit (ms) gilt die Antwort als schnell */
@@ -64,6 +66,7 @@ export function Runner({ questions, onDashboard, onBack, backLabel }: Props) {
   useEffect(() => {
     const next = qs.slice(i, i + 4).map((q) => words.find((w) => w.id === q.wordId)).filter((w): w is NonNullable<typeof w> => !!w)
     prepareUpcomingWords(next)
+    prepareSentences(qs.slice(i, i + 4).flatMap((q) => q.audio ?? []))
     // nur beim Weiterblättern
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [i, qs])

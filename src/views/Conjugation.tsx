@@ -5,9 +5,10 @@ import { DoneCard } from '../components/DoneCard'
 import { WriteQuestion } from '../components/questions'
 import { Runner, type Q } from '../components/Runner'
 import { Segmented } from '../components/ui'
-import { speak } from '../lib/speech'
+import { speak, prepareSentences } from '../lib/speech'
 import { useApp } from '../store'
 import { CONJUGATION_KEYS, CONJUGATION_LABELS, type ConjugationKey, type WordItem } from '../types'
+import { SlowButton } from '../components/SlowButton'
 
 type Show = 'de' | 'ko' | 'both'
 type Mode = 'learn' | 'test'
@@ -73,10 +74,12 @@ export function ConjugationTrainer({ onDashboard }: { onDashboard: () => void })
         wordId: p.word.id,
         prompt: `${CONJUGATION_LABELS[p.form].label}: ${p.word.korean} (${p.word.german})`,
         solution: p.answer,
+        audio: [p.answer],
         render: (a) => (
           <WriteQuestion
             {...a}
             target={p.answer}
+            speakSolution
             prompt={
               <>
                 <p className="label mb-2">Bilde die Form</p>
@@ -105,6 +108,8 @@ export function ConjugationTrainer({ onDashboard }: { onDashboard: () => void })
 
   // ---------- Lernmodus ----------
   if (learn) {
+    // aktuelle und die nächsten 3 Formen schon mit der Gemini-Stimme vorbereiten (nur lokal)
+    prepareSentences(learn.slice(idx, idx + 4).map((x) => x.answer))
     const p = learn[Math.min(idx, learn.length - 1)]
     return (
       <div>
@@ -131,6 +136,7 @@ export function ConjugationTrainer({ onDashboard }: { onDashboard: () => void })
             <button className="mx-auto flex items-center gap-2 text-5xl font-bold" onClick={() => speak(p.answer)}>
               {p.answer} <Volume2 size={20} className="text-label-3" />
             </button>
+            <div className="mt-2 flex justify-center"><SlowButton text={p.answer} className="btn-soft !min-h-9 !px-2.5 !py-1 text-xs" /></div>
             <p className="mt-2 text-xs text-label-3">Schreibe die Form unten zum Üben nach.</p>
           </div>
           <div className="card p-4 sm:p-5">

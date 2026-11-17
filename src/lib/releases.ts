@@ -24,6 +24,14 @@ export interface Release {
 }
 export const RELEASES: Release[] = [
   {
+    id: '2026-11-conjugation-voice',
+    size: 'minor',
+    title: 'Neu in Hangul Studio',
+    subtitle: 'Beugungsformen vorlesen',
+    summary: 'Im Beugungs-Trainer wird die richtige Form nach deiner Antwort vorgelesen (auch langsam). Die nächsten Formen werden schon vorbereitet, auch auf den Lernkarten. Diese Aufnahmen bleiben auf dem Gerät, abgeglichen werden nur deine Vokabeln.',
+    features: [],
+  },
+  {
     id: '2026-11-slow-choice',
     size: 'minor',
     title: 'Neu in Hangul Studio',

@@ -24,7 +24,7 @@ function computeIds(sel: Selection, sort: Sort, words: WordItem[], folders: Fold
  * nicht für die Wiederholungsplanung (nur Abfragen tun das), wohl aber für Statistik und Tages-Streak.
  */
 export function Browse({ onDashboard }: { onDashboard: () => void }) {
-  const { words, folders, reviseReview, recordReview } = useApp()
+  const { words, folders, reviseReview, recordReview, settings } = useApp()
   // Vorauswahl aus dem Quiz („Falsche im Lernmodus üben“), sonst Smart
   const [initialSel] = useState<Selection>(() => takePendingLearn() ?? SMART)
   const [selection, setSelection] = useState<Selection>(initialSel)
@@ -53,7 +53,10 @@ export function Browse({ onDashboard }: { onDashboard: () => void }) {
   useEffect(() => {
     const next = list.slice(i, i + 4)
     prepareUpcomingWords(next)
-    prepareSentences(next.flatMap((w) => (w.examples ?? []).map((e) => e.ko)))
+    prepareSentences(next.flatMap((w) => [
+      ...(w.examples ?? []).map((e) => e.ko),
+      ...settings.activeConjugations.map((k) => w.conjugations?.[k]).filter((f): f is string => !!f),
+    ]))
     // nur beim Weiterblättern
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [i, list.length])
