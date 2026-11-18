@@ -1,6 +1,9 @@
 ﻿import { Fragment, useRef, useState } from 'react'
 import { ChevronDown, FileUp, Loader2, Save, Sparkles, Trash2, Download } from 'lucide-react'
-import { extractVocabulary, type ExtractedWord } from '../lib/gemini'
+import { callGeminiWithFallback, extractVocabulary, type ExtractedWord } from '../lib/gemini'
+import { fillTranslations, guessWordType, parseLooseText, translateGoogle } from '../lib/importer'
+import { ocrDataLoaded, ocrImage, pdfToText } from '../lib/ocr'
+import { useConfirm } from './ui'
 import { newStats } from '../data/demo'
 import { sanitizeWord, useApp } from '../store'
 import { CONJUGATION_KEYS, CONJUGATION_LABELS, WORD_TYPE_LABELS, type Conjugations, type WordItem, type WordType } from '../types'
@@ -18,7 +21,11 @@ interface Row {
   conj: Conjugations
   open: boolean
   duplicate: boolean
+  /** Übersetzung automatisch ergänzt – bitte prüfen */
+  review: boolean
 }
+
+type Scanned = ExtractedWord & { review?: boolean }
 
 const MAX_BYTES = 15 * 1024 * 1024
 const IMAGE_TYPES: Record<string, string> = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp' }
@@ -32,12 +39,15 @@ function parseTable(text: string): ExtractedWord[] {
   const lines = text.split(/\r?\n/).filter((l) => l.trim())
   if (!lines.length) return []
   const sep = [';', '\t', ','].sort((a, b) => lines[0].split(b).length - lines[0].split(a).length)[0]
+  // Ohne Trennzeichen ist es keine Tabelle – dann zerlegt parseLooseText die Zeilen (z. B. „학교 Schule“)
+  if (!lines[0].includes(sep)) return []
   const rows = lines.map((l) => l.split(sep).map((c) => c.trim().replace(/^"|"$/g, '')))
   if (/^korean(isch)?$/i.test(rows[0][0].replace(/^﻿/, ''))) rows.shift()
   return rows
-    .filter((r) => r[0] && r[1])
+    .filter((r) => r[0] && (r[1] || r.length === 1 || /[가-힣]/.test(r[0])))
+    .filter((r) => r.length > 1 || r[0].length <= 30)
     .map((r) => ({
-      korean: r[0], german: r[1], pronunciation: r[2], wordType: r[3]?.toLowerCase() || (r[0].endsWith('다') ? 'verb' : 'noun'),
+      korean: r[0], german: r[1] ?? '', pronunciation: r[2], wordType: r[3]?.toLowerCase() || guessWordType(r[0], r[1] ?? ''),
       tags: r[4] ? parseTags(r[4]) : [],
       conjugations: { presentPolite: r[5], presentFormal: r[6], pastPolite: r[7], futurePolite: r[8] },
     }))
@@ -87,17 +97,44 @@ export function UploadScanner({ defaultFolderId = null }: { defaultFolderId?: st
   const [drag, setDrag] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
   const hasKey = !!settings.geminiApiKey.trim()
+  const confirm = useConfirm()
 
-  const toRows = (items: ExtractedWord[]): Row[] => {
+  /** Fehlende Übersetzungen ergänzen: Gemini (mit Key, eine Anfrage), sonst Google Translate */
+  const complete = async (items: Scanned[]) => {
+    if (!items.some((w) => !w.german?.trim() || !w.korean?.trim())) return { items: items.map((w) => ({ ...w, review: !!w.review })), missing: 0 }
+    setStatus('Fehlende Übersetzungen werden ergänzt …')
+    const r = await fillTranslations(items.map((w) => ({ ...w, korean: w.korean ?? '', german: w.german ?? '' })), {
+      gemini: hasKey ? async (prompt) => (await callGeminiWithFallback(settings.geminiApiKey, settings.geminiModel, [{ text: prompt }], undefined, { timeoutMs: 25_000 })).text : undefined,
+      google: (t, from) => translateGoogle(t, from),
+    })
+    return r
+  }
+
+  /** Ohne Key: Bilder und PDFs offline erkennen (beim ersten Mal Hinweis auf die Sprachdaten) */
+  const offlineText = async (f: File, isPdf: boolean): Promise<string | null> => {
+    if (!isPdf && !ocrDataLoaded()) {
+      const ok = await confirm({
+        title: 'Texterkennung ohne Key einrichten?',
+        message: 'Für Bilder lädt die App einmalig ca. 10–15 MB Sprachdaten (Koreanisch und Deutsch) und speichert sie im Browser. Danach geht es auch offline. Am besten klappt es mit sauber gedruckten Listen; handschriftliche oder unordentliche Notizen liest Gemini besser.',
+        confirmLabel: 'Laden und erkennen',
+      })
+      if (!ok) return null
+    }
+    return isPdf ? pdfToText(f, setStatus) : ocrImage(f, setStatus)
+  }
+
+  const toRows = (items: Scanned[]): Row[] => {
     const known = new Set(words.map((w) => w.korean))
     const out: Row[] = []
     for (const it of items) {
       const w = sanitizeWord(it)
       if (!w) continue
       const dup = known.has(w.korean) || out.some((r) => r.korean === w.korean)
+      // Ohne Angabe der Wortart (Offline-Scan, Tabellen) aus Wort und Übersetzung raten
+      const wordType = it.wordType ? w.wordType : guessWordType(w.korean, w.german)
       out.push({
         id: crypto.randomUUID(), selected: !dup, korean: w.korean, german: w.german, pronunciation: w.pronunciation ?? '',
-        wordType: w.wordType, tags: w.tags.join(' '), conj: w.conjugations ?? {}, open: false, duplicate: dup,
+        wordType, tags: w.tags.join(' '), conj: w.conjugations ?? {}, open: false, duplicate: dup, review: !!it.review,
       })
     }
     return out
@@ -112,7 +149,7 @@ export function UploadScanner({ defaultFolderId = null }: { defaultFolderId?: st
       setNewParent('')
     }
     setBusy(true)
-    const found: ExtractedWord[] = []
+    const found: Scanned[] = []
     const problems: string[] = []
     for (const f of files) {
       const e = ext(f)
@@ -130,9 +167,18 @@ export function UploadScanner({ defaultFolderId = null }: { defaultFolderId?: st
             const r = await extractVocabulary(settings.geminiApiKey, settings.geminiModel, { text: t }, setStatus)
             found.push(...r.words)
             if (r.truncated) problems.push(f.name + ': Antwort war zu lang, einige Wörter am Ende fehlen evtl. – Datei in kleinere Teile aufteilen')
-          } else found.push(...parseTable(t))
+          } else {
+            const table = parseTable(t)
+            found.push(...(table.length ? table : parseLooseText(t)))
+          }
+        } else if ((e === 'pdf' || e in IMAGE_TYPES) && !hasKey) {
+          // Ohne Key: Offline-Texterkennung, dann Zeilen in Wortpaare zerlegen
+          const text = await offlineText(f, e === 'pdf')
+          if (text === null) throw new Error('Texterkennung abgebrochen')
+          const loose = parseLooseText(text)
+          if (!loose.length) throw new Error('kein Text erkannt – bei Handschrift oder unordentlichen Notizen hilft ein Gemini-Key')
+          found.push(...loose)
         } else if (e === 'pdf' || e in IMAGE_TYPES) {
-          if (!hasKey) throw new Error('für PDF/Bilder wird ein Gemini API-Key benötigt')
           setStatus(`Analysiere ${f.name} …`)
           const base64 = await toBase64(f)
           const r = await extractVocabulary(settings.geminiApiKey, settings.geminiModel, { mimeType: e === 'pdf' ? 'application/pdf' : IMAGE_TYPES[e], base64 }, setStatus)
@@ -143,15 +189,28 @@ export function UploadScanner({ defaultFolderId = null }: { defaultFolderId?: st
         problems.push(`${f.name}: ${err instanceof Error ? err.message : 'Fehler'}`)
       }
     }
+    const filled = await complete(found).catch(() => ({ items: found.map((w) => ({ ...w, review: false })), missing: 0 }))
     setBusy(false)
     setStatus('')
-    const newRows = toRows(found)
+    const newRows = toRows(filled.items)
     setRows((r) => [...r, ...newRows])
+    const extra = translationNote(filled.items.length - newRows.length, newRows)
     setMsg(
       problems.length
-        ? { ok: false, text: problems.join(' · ') + (newRows.length ? ` — ${newRows.length} Wörter erkannt.` : '') }
-        : { ok: newRows.length > 0, text: newRows.length ? `${newRows.length} Wörter erkannt – bitte unten prüfen.` : 'Keine Vokabeln gefunden.' },
+        ? { ok: false, text: problems.join(' · ') + (newRows.length ? ` — ${newRows.length} Wörter erkannt.${extra}` : '') }
+        : { ok: newRows.length > 0, text: newRows.length ? `${newRows.length} Wörter erkannt – bitte unten prüfen.${extra}` : 'Keine Vokabeln gefunden.' },
     )
+  }
+
+  /** Hinweis zu ergänzten / fehlenden Übersetzungen */
+  const translationNote = (dropped: number, rs: Row[]) => {
+    const review = rs.filter((r) => r.review).length
+    const missing = rs.filter((r) => !r.german.trim()).length
+    return [
+      review ? ` ${review === 1 ? "Eine Übersetzung" : `${review} Übersetzungen`} automatisch ergänzt (gelb: bitte prüfen).` : '',
+      missing ? ` ${missing === 1 ? "Ein Wort" : `${missing} Wörter`} ohne Übersetzung – ${missing === 1 ? "wird" : "werden"} trotzdem gespeichert und später nachgefragt.` : '',
+      dropped > 0 ? ` ${dropped === 1 ? "Ein deutscher Eintrag ließ" : `${dropped} deutsche Einträge ließen`} sich nicht ins Koreanische übersetzen und ${dropped === 1 ? "fehlt" : "fehlen"}.` : '',
+    ].join('')
   }
 
   const handlePaste = async () => {
@@ -160,18 +219,22 @@ export function UploadScanner({ defaultFolderId = null }: { defaultFolderId?: st
     setBusy(true)
     try {
       let truncated = false
-      let items: ExtractedWord[]
+      let items: Scanned[]
       if (hasKey) {
         const r = await extractVocabulary(settings.geminiApiKey, settings.geminiModel, { text: paste }, setStatus)
         items = r.words
         truncated = r.truncated
-      } else items = parseTable(paste)
-      const newRows = toRows(items)
+      } else {
+        const table = parseTable(paste)
+        items = table.length ? table : parseLooseText(paste)
+      }
+      const filled = await complete(items).catch(() => ({ items: items.map((w) => ({ ...w, review: false })), missing: 0 }))
+      const newRows = toRows(filled.items)
       setRows((r) => [...r, ...newRows])
       setMsg({
         ok: newRows.length > 0 && !truncated,
         text: newRows.length
-          ? `${newRows.length} Wörter erkannt – bitte unten prüfen.${truncated ? ' ⚠ Die Antwort war zu lang, einige Wörter am Ende fehlen evtl. – Text in kleinere Teile aufteilen.' : ''}`
+          ? `${newRows.length} Wörter erkannt – bitte unten prüfen.${translationNote(filled.items.length - newRows.length, newRows)}${truncated ? ' ⚠ Die Antwort war zu lang, einige Wörter am Ende fehlen evtl. – Text in kleinere Teile aufteilen.' : ''}`
           : 'Keine Vokabeln gefunden.',
       })
       if (newRows.length) setPaste('')
@@ -206,6 +269,7 @@ export function UploadScanner({ defaultFolderId = null }: { defaultFolderId?: st
         german: r.german.trim(),
         pronunciation: r.pronunciation.trim() || undefined,
         wordType: r.wordType,
+        needsReview: r.review && r.german.trim() ? true : undefined,
         tags: [...new Set([...parseTags(r.tags), ...extra])],
         createdAt: Date.now() + i,
         conjugations: isConj && Object.keys(conj).length ? (conj as Conjugations) : undefined,
@@ -250,7 +314,7 @@ export function UploadScanner({ defaultFolderId = null }: { defaultFolderId?: st
       >
         {busy ? <Loader2 className="animate-spin text-blue" size={28} /> : <FileUp className="text-blue" size={28} />}
         <p className="font-medium">{busy ? status || 'Analysiere …' : 'Dateien hierher ziehen oder klicken'}</p>
-        <p className="text-xs text-label-2">PDF, PNG/JPG, TXT, CSV, JSON {hasKey ? '' : '· PDF/Bilder benötigen einen Gemini API-Key (Einstellungen)'}</p>
+        <p className="text-xs text-label-2">PDF, PNG/JPG, TXT, CSV, JSON {hasKey ? '' : '· ohne Key: PDF/Bilder per Offline-Texterkennung (am besten sauber gedruckt)'}</p>
         <input ref={fileRef} type="file" multiple accept=".pdf,.png,.jpg,.jpeg,.webp,.txt,.csv,.tsv,.json" className="hidden"
           onChange={(e) => { const f = [...(e.target.files ?? [])]; if (f.length) void handleFiles(f); e.target.value = '' }} />
       </div>
@@ -295,7 +359,11 @@ export function UploadScanner({ defaultFolderId = null }: { defaultFolderId?: st
                           <input className={`${cell} text-base font-semibold`} lang="ko" value={r.korean} onChange={(e) => patch(r.id, { korean: e.target.value })} />
                           {r.duplicate && <span className="px-2 text-[10px] font-medium text-orange">bereits vorhanden</span>}
                         </td>
-                        <td className="p-1"><input className={cell} value={r.german} onChange={(e) => patch(r.id, { german: e.target.value })} /></td>
+                        <td className="p-1">
+                          <input className={`${cell} ${r.review ? 'bg-yellow/15' : ''}`} value={r.german} placeholder="Übersetzung fehlt" onChange={(e) => patch(r.id, { german: e.target.value, review: false })} />
+                          {r.review && <span className="px-2 text-[10px] font-medium text-orange">automatisch übersetzt – bitte prüfen</span>}
+                          {!r.german.trim() && <span className="px-2 text-[10px] font-medium text-red">Übersetzung fehlt</span>}
+                        </td>
                         <td className="p-1"><input className={cell} lang="ko" value={r.pronunciation} onChange={(e) => patch(r.id, { pronunciation: e.target.value })} /></td>
                         <td className="p-1">
                           <select className="rounded-lg px-1.5 py-1.5 text-sm" value={r.wordType} onChange={(e) => patch(r.id, { wordType: e.target.value as WordType })}>

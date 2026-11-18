@@ -24,6 +24,32 @@ export interface Release {
 }
 export const RELEASES: Release[] = [
   {
+    id: '2026-11-import-offline',
+    size: 'major',
+    title: 'Neu in Hangul Studio',
+    subtitle: 'Scannen auch ohne Key',
+    features: [
+      {
+        icon: 'layers',
+        color: '#0a84ff',
+        title: 'Texterkennung ohne Key',
+        text: 'Fotos und PDFs von gedruckten Vokabellisten werden jetzt auch ohne Gemini-Key gelesen – direkt im Browser, nach einmaligem Laden auch offline.',
+      },
+      {
+        icon: 'sparkles',
+        color: '#bf5af2',
+        title: 'Fehlende Übersetzungen ergänzt',
+        text: 'Steht nur Koreanisch oder nur Deutsch da, ergänzt die App die andere Sprache (Gemini, sonst Google Übersetzer) und markiert sie gelb mit „bitte prüfen“.',
+      },
+      {
+        icon: 'check',
+        color: '#34c759',
+        title: 'Nichts geht verloren',
+        text: 'Wörter ohne Übersetzung werden trotzdem gespeichert; ein Fenster erinnert dich beim Start daran. Außerdem erkennt die App Wortarten besser – 바다 ist jetzt ein Nomen.',
+      },
+    ],
+  },
+  {
     id: '2026-11-conjugation-voice',
     size: 'minor',
     title: 'Neu in Hangul Studio',

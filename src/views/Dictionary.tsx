@@ -135,6 +135,7 @@ export function Dictionary() {
       conjugations: isConj && Object.keys(conj).length ? (conj as Conjugations) : undefined,
       folderId: draft.folderId || undefined,
       note: draft.note.trim() || undefined,
+      needsReview: undefined,
       examples: (() => {
         const ex = draft.examples.map((e) => ({ ...e, ko: e.ko.trim(), de: e.de.trim() })).filter((e) => e.ko)
         return ex.length ? ex : undefined
@@ -338,6 +339,8 @@ export function Dictionary() {
                     {fname && <span className="inline-flex items-center gap-1"><FolderIcon size={11} /> {fname}</span>}
                     {w.tags.map((t) => <span key={t}>{t}</span>)}
                     {rate >= 0 && <span className={rate > 0.4 ? 'font-medium text-red' : ''}>· {Math.round(rate * 100)} % Fehler</span>}
+                    {!w.german.trim() && <span className="rounded-full bg-red/15 px-1.5 py-px text-[10px] font-semibold text-red">Übersetzung fehlt</span>}
+                    {w.needsReview && w.german.trim() && <span className="rounded-full bg-yellow/20 px-1.5 py-px text-[10px] font-semibold text-orange" title="Automatisch übersetzt – beim Bearbeiten verschwindet die Markierung">bitte prüfen</span>}
                     <VoiceStatus word={w} />
                   </span>
                 </span>

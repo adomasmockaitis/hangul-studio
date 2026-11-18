@@ -104,6 +104,7 @@ export function sanitizeWord(raw: unknown): WordItem | null {
     folderId: str(r.folderId),
     srs: r.srs && typeof r.srs === 'object' ? (r.srs as WordItem['srs']) : undefined,
     note: str(r.note),
+    needsReview: r.needsReview === true ? true : undefined,
     examples: Array.isArray(r.examples)
       ? (r.examples as Record<string, unknown>[])
           .filter((e) => e && typeof e.ko === 'string' && e.ko.trim())

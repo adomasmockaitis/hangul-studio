@@ -206,6 +206,7 @@ Alle bisherigen Funktionen (Zeichenfeld, Strichreihenfolge, Beugungs-Trainer, On
 - Gemini-Scan wie bisher; Offline-Texterkennung mit Tesseract.js, koreanische Sprachdaten erst bei Bedarf geladen und zwischengespeichert.
 - Fehlende Übersetzung: Gemini, sonst inoffizieller Google-Translate-Endpunkt; immer „bitte prüfen“. Scheitert beides, wird das Wort mit „Übersetzung fehlt“ gespeichert und das Hinweisfenster erscheint bei jedem App-Start.
 - Import-Vorschau mit Zielordner (Vorschlag: neuer Ordner nach Dateiname) und KI-Tag-Vorschlägen.
+- **Umgesetzt (Etappe 7, 18.11.2026):** PDFs ohne Key zuerst über den eingebetteten Text (pdf.js), eingescannte Seiten und Bilder per Tesseract.js (kor+deu, Hinweis vor dem ersten Laden). Freie Zeilen („1. 학교 - Schule“, „Meer = 바다“) werden zerlegt. Wortart ohne KI aus der deutschen Übersetzung (groß geschrieben → Nomen, „sein“/Adjektiv → Adjektiv; Ausnahmen wie 바다; Höflichkeitsformen → Ausdruck). Ergänzte Übersetzungen tragen needsReview („bitte prüfen“), das beim Bearbeiten verschwindet.
 
 ### Oberfläche
 - Neuer Bereich „Partikel“ unter „Üben“ (neben Lernen, Quiz/Test, Beugung, Diktat).

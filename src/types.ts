@@ -33,6 +33,8 @@ export interface WordItem {
   folderId?: string
   /** Eigene Notiz (Eselsbrücke o. ä.) */
   note?: string
+  /** Übersetzung automatisch ergänzt – bitte prüfen (verschwindet beim Bearbeiten) */
+  needsReview?: boolean
   /** Bis zu zwei Beispielsätze */
   examples?: Example[]
   /** FSRS-Wiederholungsplanung je Richtung (deko = Deutsch→Koreanisch, kode = Koreanisch→Deutsch) */
