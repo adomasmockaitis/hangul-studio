@@ -38,10 +38,10 @@ export function WordCard({ word, mode, onResult, onRevise, onNext, nextLabel }: 
     : []
 
   return (
-    <div ref={focusRef} className="space-y-5 landscape-phone:grid landscape-phone:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] landscape-phone:items-start landscape-phone:gap-3 landscape-phone:space-y-0 scroll-mt-3">
-      <div className="card fade-up relative p-6 text-center landscape-phone:sticky landscape-phone:top-0 landscape-phone:max-h-[calc(100dvh-1.5rem)] landscape-phone:overflow-y-auto landscape-phone:!p-4">
-        <VoiceStatus word={word} slow className="absolute right-3 top-3" />
-        <div className="mb-3 flex items-center justify-center gap-2 text-xs text-label-2">
+    <div ref={focusRef} className="space-y-5 landscape-phone:grid landscape-phone:grid-cols-[minmax(0,15rem)_minmax(0,1fr)] landscape-phone:items-start landscape-phone:gap-3 landscape-phone:space-y-0 scroll-mt-3">
+      <div className="card fade-up relative p-6 text-center landscape-phone:sticky landscape-phone:top-0 landscape-phone:flex landscape-phone:h-[calc(100dvh-1.5rem)] landscape-phone:flex-col landscape-phone:justify-center landscape-phone:overflow-y-auto landscape-phone:!p-4">
+        <VoiceStatus word={word} slow className="absolute right-3 top-3 landscape-phone:hidden" />
+        <div className="mb-3 flex items-center justify-center gap-2 text-xs text-label-2 landscape-phone:hidden">
           <span className="rounded-full bg-fill-3 px-2.5 py-0.5 font-medium">{WORD_TYPE_LABELS[word.wordType]}</span>
           {word.tags.slice(0, 3).map((t) => <span key={t}>{t}</span>)}
         </div>
@@ -58,21 +58,23 @@ export function WordCard({ word, mode, onResult, onRevise, onNext, nextLabel }: 
           </>
         )}
 
-        <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+        <div className="landscape-compact mt-4 flex flex-wrap items-center justify-center gap-2 landscape-phone:mt-3">
           <button className="btn-soft" onClick={() => speakWord(word, settings.speechMode)}><Volume2 size={16} /> Anhören</button>
           <SlowButton text={word.korean} />
           {word.pronunciation && (
-            <button className="btn-soft" onClick={() => setShowPron((s) => !s)}>
+            <button className="btn-soft landscape-phone:hidden" onClick={() => setShowPron((s) => !s)}>
               {showPron ? 'Aussprachehilfe ausblenden' : 'Aussprachehilfe einblenden'}
             </button>
           )}
         </div>
+        {/* Querformat: Aussprache direkt zeigen statt per Knopf */}
+        {word.pronunciation && !hideKorean && <p className="mt-1 hidden text-lg font-medium text-blue landscape-phone:block">{word.pronunciation}</p>}
         {showPron && word.pronunciation && (
           <p className="fade-up mt-3 text-2xl font-medium text-blue">{word.pronunciation}</p>
         )}
 
         {forms.length > 0 && !hideKorean && (
-          <div className="mt-5 border-t border-separator pt-4">
+          <div className="mt-5 border-t border-separator pt-4 landscape-phone:hidden">
             <div className="flex flex-wrap justify-center gap-2">
               {forms.map((k) => (
                 <button key={k} className={open === k ? 'btn-primary' : 'btn-soft'} onClick={() => setOpen(open === k ? null : k)}>
@@ -91,7 +93,7 @@ export function WordCard({ word, mode, onResult, onRevise, onNext, nextLabel }: 
             )}
           </div>
         )}
-        {!hideKorean && <WordExtras key={word.id} word={word} />}
+        {!hideKorean && <div className="landscape-phone:hidden"><WordExtras key={word.id} word={word} /></div>}
       </div>
 
       <div className="card p-4 sm:p-5 landscape-phone:!p-3">

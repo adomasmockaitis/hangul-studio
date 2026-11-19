@@ -43,11 +43,11 @@ export function WriteQuestion({
   }, [])
 
   return (
-    <div ref={focusRef} className="space-y-5 landscape-phone:grid landscape-phone:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] landscape-phone:items-start landscape-phone:gap-3 landscape-phone:space-y-0 scroll-mt-3">
-      <div className="card fade-up p-6 text-center landscape-phone:sticky landscape-phone:top-0 landscape-phone:max-h-[calc(100dvh-1.5rem)] landscape-phone:overflow-y-auto landscape-phone:!p-4">
+    <div ref={focusRef} className="space-y-5 landscape-phone:grid landscape-phone:grid-cols-[minmax(0,15rem)_minmax(0,1fr)] landscape-phone:items-start landscape-phone:gap-3 landscape-phone:space-y-0 scroll-mt-3">
+      <div className="card fade-up p-6 text-center landscape-phone:sticky landscape-phone:top-0 landscape-phone:flex landscape-phone:h-[calc(100dvh-1.5rem)] landscape-phone:flex-col landscape-phone:justify-center landscape-phone:overflow-y-auto landscape-phone:!p-4">
         {prompt}
         {audioPrompt && (
-          <div className="mt-3 flex flex-wrap justify-center gap-2">
+          <div className="landscape-compact mt-3 flex flex-wrap justify-center gap-2">
             <button className="btn-primary !rounded-full !px-6 !py-3" onClick={() => speak(audioPrompt)}>
               <Volume2 size={20} /> Nochmal anhören
             </button>

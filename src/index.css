@@ -189,12 +189,14 @@ select option, select optgroup { background-color: var(--color-surface); color: 
 @keyframes sheet-up { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: none; } }
 .sheet-up { animation: sheet-up .32s cubic-bezier(.2,.9,.3,1) both; }
 /* Prüfen-Blase: Ergebnis wächst aus der Blase unten rechts heraus */
+/* Die Form wächst aus der Blase (Ausschnitt statt Stauchen, damit nichts verzerrt), der Inhalt blendet danach ein */
 @keyframes bubble-grow {
-  0% { opacity: 0; transform: scale(.18, .3); border-radius: 999px; }
-  55% { opacity: 1; }
-  100% { opacity: 1; transform: none; }
+  0% { clip-path: inset(calc(100% - 3.5rem) 0 0 calc(100% - 9rem) round 999px); }
+  100% { clip-path: inset(0 0 0 0 round 22px); }
 }
-.bubble-grow { transform-origin: 100% 100%; animation: bubble-grow .5s cubic-bezier(.3, 1.25, .45, 1) both; }
+.bubble-grow { animation: bubble-grow .42s cubic-bezier(.25, .9, .3, 1) both; }
+@keyframes bubble-content { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.bubble-grow > * { animation: bubble-content .26s ease-out .2s both; }
 @keyframes bubble-in { 0% { opacity: 0; transform: scale(.6); } 100% { opacity: 1; transform: none; } }
 .bubble-in { transform-origin: 100% 100%; animation: bubble-in .35s cubic-bezier(.3, 1.35, .5, 1) both; }
 /* Während des Zeichnens nichts markieren (iOS) */
@@ -212,4 +214,10 @@ select option, select optgroup { background-color: var(--color-surface); color: 
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* Handy quer: kompakte Knöpfe (Werkzeugleiste, Wortspalte) */
+@media (orientation: landscape) and (max-height: 540px) {
+  .landscape-compact :is(button, label) { min-height: 2.25rem !important; padding-top: 0 !important; padding-bottom: 0 !important; font-size: .875rem; }
+  .landscape-compact button { padding-left: .75rem !important; padding-right: .75rem !important; }
 }

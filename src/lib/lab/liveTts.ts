@@ -16,8 +16,12 @@ export const READ_ALOUD_INSTRUCTION =
 /** Testlabor: Anweisung für langsames, deutliches Vorlesen (wie die langsame Wiedergabe in Wörterbüchern) */
 export const SLOW_INSTRUCTION =
   READ_ALOUD_INSTRUCTION +
-  ' Sprich dabei deutlich langsamer als normal und sehr deutlich artikuliert, mit kurzen Pausen zwischen den Wörtern – ' +
-  'wie die langsame Aussprache in einem Wörterbuch für Sprachlernende. Bleib trotzdem natürlich in Betonung und Satzmelodie.'
+  ' Sprich dabei deutlich langsamer als normal (etwa zwei Drittel des normalen Tempos) und sehr deutlich artikuliert – ' +
+  'wie die langsame Aussprache in einem Wörterbuch für Sprachlernende. ' +
+  'Halte dieses Tempo bei JEDEM Text gleich, egal ob einzelnes Wort oder Satz – nie schneller, nie in normalem Tempo. ' +
+  'Ein einzelnes Wort sprichst du flüssig am Stück (nicht Silbe für Silbe getrennt), mit allen natürlichen Lautregeln (z. B. 한국어 wie [한구거], 감사합니다 wie [감사함니다]). ' +
+  'In Sätzen machst du nur zwischen den Wörtern eine kurze Pause. ' +
+  'Sprich den Text genau einmal: nicht wiederholen, nichts davor oder danach. Bleib natürlich in Betonung und Satzmelodie.'
 
 /** Testlabor: Lern-Tempo – Wörter Silbe für Silbe, Sätze Wort für Wort mit deutlichen Pausen */
 export const SLOW_STEP_INSTRUCTION =

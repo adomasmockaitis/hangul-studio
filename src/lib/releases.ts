@@ -24,6 +24,14 @@ export interface Release {
 }
 export const RELEASES: Release[] = [
   {
+    id: '2026-11-landscape-polish',
+    size: 'minor',
+    title: 'Neu in Hangul Studio',
+    subtitle: 'Querformat aufgeräumt',
+    summary: 'Im Querformat zeigt die linke Spalte nur noch Wort, Bedeutung und Aussprache, die Knöpfe sind kleiner und die Dynamic Island verdeckt nichts mehr – auch in Chrome. Die Prüfen-Blase öffnet sich ruhiger, und die langsame Aussprache hält ihr Tempo gleichmäßiger.',
+    features: [],
+  },
+  {
     id: '2026-11-writing-bubble',
     size: 'major',
     title: 'Neu in Hangul Studio',

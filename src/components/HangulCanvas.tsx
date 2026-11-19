@@ -10,6 +10,7 @@ import { addSample, bumpAgreement, updateSample } from '../lib/inputToolsLog'
 import { BATCH_SIZE, enqueuePending, processPending, removePending, updateByPendingId, type SampleBase } from '../lib/inputToolsQueue'
 import { normalizeKorean } from '../lib/hangul'
 import { useApp } from '../store'
+import { LANDSCAPE_PHONE } from '../lib/useLandscape'
 import { StrokeOrder } from './StrokeOrder'
 import { useQuestionAside } from './questionAside'
 
@@ -128,7 +129,8 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
   const [strokeCount, setStrokeCount] = useState(0)
   const [width, setWidth] = useState(settings.strokeWidth)
   const [template, setTemplate] = useState(settings.showTemplate && !testMode)
-  const [showHelp, setShowHelp] = useState(settings.showStrokeOrder && !testMode)
+  // Im Querformat zählt der Platz fürs Zeichenfeld: Strichreihenfolge erst auf Tipp
+  const [showHelp, setShowHelp] = useState(settings.showStrokeOrder && !testMode && !window.matchMedia(LANDSCAPE_PHONE).matches)
   const [keyboard, setKeyboard] = useState(false)
   const [typed, setTyped] = useState('')
   const [phase, setPhase] = useState<Phase>('idle')
@@ -535,7 +537,7 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
   return (
     <div className="space-y-3">
       {/* Eine Werkzeugzeile: Hilfen, Zeichenwerkzeuge, Eingabeart */}
-      <div className="flex flex-wrap items-center gap-2 landscape-phone:gap-1.5">
+      <div className="landscape-compact flex flex-wrap items-center gap-2 landscape-phone:gap-1.5">
         {!testMode && (
           <button className={showHelp ? 'btn-primary' : 'btn-soft'} onClick={() => setShowHelp((s) => !s)} title="Strichreihenfolge-Hilfe" aria-label="Strichreihenfolge" aria-pressed={showHelp}>
             <ListOrdered size={16} /> <span className="hidden lg:inline">Strichreihenfolge</span>
@@ -600,7 +602,7 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
       ) : (
         <div
           ref={wrapRef}
-          className="no-select relative h-[300px] overflow-hidden rounded-2xl border border-separator shadow-inner sm:h-[320px] landscape-phone:h-[calc(100dvh-6.5rem)]"
+          className="no-select relative h-[300px] overflow-hidden rounded-2xl border border-separator shadow-inner sm:h-[320px] landscape-phone:h-[calc(100dvh-5.75rem)]"
           style={bgStyle}
         >
           {hangulRow && (
@@ -646,17 +648,17 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
       {/* Prüfen-Blase unten rechts; Ergebnis, Musterlösung und Aktionen wachsen als Karte aus ihr heraus */}
       <div
         ref={barRef}
-        className="pointer-events-none fixed inset-x-3 bottom-[calc(var(--tabbar-space)+0.5rem)] z-30 flex justify-end md:sticky md:bottom-3 landscape-phone:fixed landscape-phone:bottom-3 landscape-phone:left-auto landscape-phone:right-3"
+        className="pointer-events-none fixed inset-x-3 bottom-[calc(var(--tabbar-space)+0.5rem)] z-30 flex justify-end md:sticky md:bottom-3 landscape-phone:fixed landscape-phone:bottom-3 landscape-phone:left-auto landscape-phone:right-[max(0.75rem,env(safe-area-inset-right))]"
       >
         {!expanded ? (
           <div className="bubble-in glass pointer-events-auto flex max-w-full items-center gap-1.5 rounded-full p-1.5 shadow-lg">
             {!keyboard && phase === 'idle' && (
-              <span className="truncate pl-2.5 pr-1 text-xs text-label-2">
+              <span className="truncate pl-2.5 pr-1 text-xs text-label-2 landscape-phone:hidden">
                 {firstMethod === 'inputtools' ? 'Input Tools' : firstMethod === 'gemini' ? 'Gemini' : 'Selbst-Check'}
               </span>
             )}
             {aside && <div className="flex">{aside}</div>}
-            <button data-primary className="btn-primary !rounded-full !px-5 !py-3" onClick={() => void check()} disabled={phase === 'checking' || (keyboard && !typed.trim())}>
+            <button data-primary className="btn-primary !rounded-full !px-5 !py-3 landscape-phone:!py-2" onClick={() => void check()} disabled={phase === 'checking' || (keyboard && !typed.trim())}>
               {phase === 'checking' ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
               {phase === 'checking' ? 'Prüfe…' : 'Prüfen'}
             </button>
