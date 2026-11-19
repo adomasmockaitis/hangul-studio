@@ -24,6 +24,14 @@ export interface Release {
 }
 export const RELEASES: Release[] = [
   {
+    id: '2026-11-slow-sync',
+    size: 'minor',
+    title: 'Neu in Hangul Studio',
+    subtitle: 'Langsame Aussprache überall',
+    summary: 'Die langsame Gemini-Aussprache wird jetzt für alle Wörter erstellt und mit deinem Konto bzw. Drive abgeglichen. Löschst du ein Wort, verschwinden auch seine Aufnahmen, auf dem Gerät und im Abgleich.',
+    features: [],
+  },
+  {
     id: '2026-11-voice-progress',
     size: 'minor',
     title: 'Neu in Hangul Studio',

@@ -8,7 +8,7 @@ import {
   HANDWRITING_CANDIDATES, gemmaModels, generateSentences, listAllModels, readOne, samplesFromExport, samplesFromLocal, sleep,
   type HandResult, type HandSample, type LabModel, type SentenceResult,
 } from '../lib/lab/bench'
-import { LIVE_VOICES, LiveSession, SLOW_INSTRUCTION, isVerbatim, playPcm, playPcmAtSpeed, speakWithTtsModel, tailCheck, verifyAudio, verifyAudioLive, withFinalStop, type SpeakResult } from '../lib/lab/liveTts'
+import { LIVE_VOICES, LiveSession, SLOW_INSTRUCTION, SLOW_STEP_INSTRUCTION, isVerbatim, playPcm, playPcmAtSpeed, speakWithTtsModel, tailCheck, verifyAudio, verifyAudioLive, withFinalStop, type SpeakResult } from '../lib/lab/liveTts'
 import { useApp } from '../store'
 import { POOL } from '../lib/particles/pool'
 import { fillSentence } from '../lib/particles/forms'
@@ -334,7 +334,7 @@ function VoiceBench({ apiKey, allModels }: { apiKey: string; allModels: { id: st
   }, [liveModels, ttsModels, liveModel, ttsModel])
   const [voice, setVoice] = useState<string>('Kore')
   /** Tempo-Test: normale Anweisung oder „langsam und deutlich“ */
-  const [tempo, setTempo] = useState<'normal' | 'langsam'>('normal')
+  const [tempo, setTempo] = useState<'normal' | 'langsam' | 'silben'>('normal')
   const [text, setText] = useState(DEFAULT_WORDS)
   const [results, setResults] = useState<(SpeakResult & { source: string })[]>([])
   const [status, setStatus] = useState('')
@@ -351,7 +351,7 @@ function VoiceBench({ apiKey, allModels }: { apiKey: string; allModels: { id: st
   const runLive = async () => {
     setRunning(true)
     setResults([])
-    const s = new LiveSession(apiKey, liveModel, voice, tempo === 'langsam' ? SLOW_INSTRUCTION : undefined)
+    const s = new LiveSession(apiKey, liveModel, voice, tempo === 'langsam' ? SLOW_INSTRUCTION : tempo === 'silben' ? SLOW_STEP_INSTRUCTION : undefined)
     try {
       setStatus('Verbinde …')
       const connectMs = await s.open()
@@ -383,7 +383,7 @@ function VoiceBench({ apiKey, allModels }: { apiKey: string; allModels: { id: st
           if (good || cand.error?.startsWith('Verbindung')) break
         }
         if (!r) continue
-        setResults((prev) => [...prev, { ...r, source: `${liveModel} · ${voice}${tempo === 'langsam' ? ' · langsam' : ''}` }])
+        setResults((prev) => [...prev, { ...r, source: `${liveModel} · ${voice}${tempo === 'langsam' ? ' · langsam' : tempo === 'silben' ? ' · silbenweise' : ''}` }])
         if (r.error?.startsWith('Verbindung')) break
       }
       setStatus((st) => st + ' · fertig')
@@ -438,11 +438,12 @@ function VoiceBench({ apiKey, allModels }: { apiKey: string; allModels: { id: st
         />
         <ListRow
           title="Tempo"
-          subtitle={tempo === 'langsam' ? 'Die Live API bekommt die Anweisung, langsam und deutlich mit kleinen Pausen zu sprechen' : 'Normale Vorlese-Anweisung'}
+          subtitle={tempo === 'langsam' ? 'Die Live API bekommt die Anweisung, langsam und deutlich mit kleinen Pausen zu sprechen' : tempo === 'silben' ? 'Wörter Silbe für Silbe, Sätze Wort für Wort mit Pausen' : 'Normale Vorlese-Anweisung'}
           right={
-            <select className="input !w-auto" value={tempo} onChange={(e) => setTempo(e.target.value as 'normal' | 'langsam')} aria-label="Tempo">
+            <select className="input !w-auto" value={tempo} onChange={(e) => setTempo(e.target.value as 'normal' | 'langsam' | 'silben')} aria-label="Tempo">
               <option value="normal">normal</option>
               <option value="langsam">langsam (Anweisung)</option>
+              <option value="silben">silbenweise / wortweise (neu)</option>
             </select>
           }
         />

@@ -86,7 +86,7 @@ export function VoicePicker({ compact = false }: { compact?: boolean }) {
           />
           <p className="text-xs text-label-2">
             {settings.slowMode === 'gemini'
-              ? 'Klingt am natürlichsten: eigene ruhige Aufnahme mit kleinen Pausen (nur auf diesem Gerät). Bis sie fertig ist, spielt die normale mit 75 % Tempo.'
+              ? 'Klingt am natürlichsten: eigene ruhige Aufnahme mit kleinen Pausen, wird für alle Wörter erstellt und mit abgeglichen. Bis sie fertig ist, spielt die normale mit 75 % Tempo.'
               : 'Spielt die normale Aufnahme mit 75 % Tempo ab – sofort und ohne zusätzliche Aufnahmen, klingt aber etwas künstlicher.'}
           </p>
           <SlowSample />

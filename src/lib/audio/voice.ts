@@ -4,11 +4,11 @@
  */
 import { listAllModels } from '../lab/bench'
 import { getItem, setItem } from '../storage'
-import { AudioSync, forgetSynced, type AudioRemote, type SyncMemory } from './audioSync'
+import { AudioSync, forgetSynced, removeRemote, type AudioRemote, type SyncMemory } from './audioSync'
 import { b64ToBytes, bytesToB64, decodeOpus, encodeOpus, opusSupported } from './codec'
 import { LiveSession, SLOW_INSTRUCTION, speakWithTtsModel, verifyAudioLive } from '../lab/liveTts'
 import {
-  ClipQueue, DEFAULT_GEMINI_VOICE, baseVoice, isSlowVoice, shouldSyncKey, textOfKey, TTS_DAILY_LIMIT, canUseTts, clipKey, countTts, idbClipStore, pickVoiceModels, produceClip, ttsUsed,
+  ClipQueue, DEFAULT_GEMINI_VOICE, baseVoice, isSlowVoice, langOfKey, slowVoice, shouldSyncKey, textOfKey, TTS_DAILY_LIMIT, canUseTts, clipKey, countTts, idbClipStore, pickVoiceModels, produceClip, ttsUsed,
   type Clip, type ClipLang, type Generator, type Priority, type QuotaState, type VoiceModels,
 } from './clips'
 
@@ -342,6 +342,36 @@ export async function coverage(items: { text: string; lang: ClipLang }[]): Promi
   return out
 }
 
+/**
+ * Aufnahmen gelöschter Wörter entfernen – auf dem Gerät (alle Stimmen) und im Abgleich (Konto/Drive).
+ * Liefert die Zahl der gelöschten Aufnahmen auf dem Gerät.
+ */
+export async function forgetClips(items: { text: string; lang: ClipLang }[]): Promise<number> {
+  if (!items.length) return 0
+  const want = new Set(items.map((it) => `${it.lang}|${textOfKey(clipKey('', it.lang, it.text))}`))
+  const local = (await store.keys()).filter((k) => want.has(`${langOfKey(k)}|${textOfKey(k)}`))
+  // im Abgleich auch die Aufnahmen der eingestellten Stimme, die evtl. nur ein anderes Gerät hat
+  const remote = new Set(local)
+  for (const it of items) {
+    remote.add(clipKey(cfg.voice, it.lang, it.text))
+    if (it.lang === 'ko') remote.add(clipKey(slowVoice(cfg.voice), it.lang, it.text))
+  }
+  await store.remove(local)
+  for (const k of local) {
+    ready.delete(k)
+    hot.delete(k)
+    failed.delete(k)
+  }
+  const r = slots.account ?? slots.drive
+  if (syncer && r) {
+    const memKey = `hangul-studio:audio-sync:${syncer.id}`
+    setItem(memKey, forgetSynced(getItem<SyncMemory>(memKey, { known: {}, synced: [] }), [...remote]))
+    void removeRemote(r, [...remote]).catch(() => undefined)
+  }
+  notify()
+  return local.length
+}
+
 export async function clearClips() {
   hot.clear()
   failed.clear()
@@ -394,7 +424,7 @@ export function setAudioRemote(slot: 'account' | 'drive', remote: AudioRemote | 
       codec,
       load: () => getItem<SyncMemory>(memKey, { known: {}, synced: [] }),
       save: (m) => setItem(memKey, m),
-      // Abgeglichen werden nur die Vokabeln selbst; Sätze, Beugungsformen und langsame Aufnahmen bleiben auf dem Gerät
+      // Abgeglichen werden nur die Vokabeln selbst (normal und langsam); Sätze und Beugungsformen bleiben auf dem Gerät
       filter: (k) => shouldSyncKey(k) && (!syncTexts || syncTexts.has(textOfKey(k))),
     }),
   }

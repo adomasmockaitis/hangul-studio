@@ -47,10 +47,12 @@ export function isWordLikeText(text: string): boolean {
 }
 /** Text aus einem Schlüssel „gemini|Stimme|Sprache|Text“ */
 export const textOfKey = (key: string) => key.split('|').slice(3).join('|')
+/** Sprache aus einem Schlüssel „gemini|Stimme|Sprache|Text“ */
+export const langOfKey = (key: string) => key.split('|')[2] ?? ''
 /** Stimme aus einem Schlüssel „gemini|Stimme|Sprache|Text“ */
 export const voiceOfKey = (key: string) => key.split('|')[1] ?? ''
-/** Abgeglichen werden nur normale Wort-Aufnahmen; Sätze und langsame Aufnahmen bleiben auf dem Gerät (bei Bedarf neu erzeugt) */
-export const shouldSyncKey = (key: string) => !isSlowVoice(voiceOfKey(key)) && isWordLikeText(textOfKey(key))
+/** Abgeglichen werden nur Wort-Aufnahmen (normal und langsam); Sätze bleiben auf dem Gerät (bei Bedarf neu erzeugt) */
+export const shouldSyncKey = (key: string) => isWordLikeText(textOfKey(key))
 
 /** Ähnlichkeit zweier Texte (0–1), Leerzeichen und Satzzeichen zählen nicht */
 export function similarity(a: string, b: string): number {
@@ -262,6 +264,7 @@ export interface ClipStore {
   clear(): Promise<void>
   stats(): Promise<{ count: number; bytes: number }>
   keys(): Promise<string[]>
+  remove(keys: string[]): Promise<void>
 }
 
 export function memoryClipStore(): ClipStore {
@@ -272,6 +275,7 @@ export function memoryClipStore(): ClipStore {
     async clear() { m.clear() },
     async stats() { return { count: m.size, bytes: [...m.values()].reduce((a, c) => a + c.pcm.byteLength, 0) } },
     async keys() { return [...m.keys()] },
+    async remove(ks) { ks.forEach((k) => m.delete(k)) },
   }
 }
 
@@ -315,6 +319,9 @@ export function idbClipStore(): ClipStore {
     },
     async keys() {
       return (((await tx('readonly', (s) => s.getAllKeys()).catch(() => [])) ?? []) as IDBValidKey[]).map(String)
+    },
+    async remove(ks) {
+      for (const k of ks) await tx('readwrite', (s) => s.delete(k)).catch(() => undefined)
     },
   }
 }

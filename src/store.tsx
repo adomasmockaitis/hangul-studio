@@ -3,7 +3,7 @@ import { createDemoWords, newStats } from './data/demo'
 import { DEFAULT_MODEL, OBSOLETE_MODELS } from './lib/gemini'
 import { observe, stamp } from './lib/clock'
 import { configureSounds } from './lib/sounds'
-import { configureSpeech, prepareWords, voiceTexts } from './lib/speech'
+import { configureSpeech, forgetWordClips, prepareWords, voiceTexts } from './lib/speech'
 import { setSyncTexts } from './lib/audio/voice'
 import { applyReview, dateKey } from './lib/srs'
 import { LOCAL_ONLY_SETTINGS, maxStamp, type SyncPayload } from './lib/merge'
@@ -305,6 +305,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const deleteWord = useCallback((id: string) => {
+    // Aufnahmen des Worts mit entfernen (Gerät und Abgleich), sofern kein anderes Wort sie nutzt
+    const gone = wordsRef.current.filter((w) => w.id === id)
+    if (gone.length) forgetWordClips(gone, wordsRef.current.filter((w) => w.id !== id))
     setWords((ws) => {
       const gone = ws.find((w) => w.id === id)
       if (gone) setDeleted((d) => ({ ...d, [gone.korean]: stamp() }))
@@ -466,6 +469,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const clearAll = useCallback(() => {
     const now = stamp()
+    forgetWordClips(wordsRef.current, [])
     setWords((cur) => {
       setDeleted((d) => {
         const next = { ...d }

@@ -164,6 +164,34 @@ export class AudioSync {
   }
 }
 
+/** Aufnahmen aus dem entfernten Speicher entfernen (Wort gelöscht); liefert die Anzahl */
+export async function removeRemote(remote: AudioRemote, keys: string[], now = Date.now()): Promise<number> {
+  const byPack = new Map<string, string[]>()
+  for (const k of keys) byPack.set(packOf(k), [...(byPack.get(packOf(k)) ?? []), k])
+  let removed = 0
+  const changed: string[] = []
+  for (const [name, ks] of byPack) {
+    const pack = asPack(await remote.get(name))
+    let dirty = false
+    for (const k of ks) {
+      if (!pack.clips[k]) continue
+      delete pack.clips[k]
+      dirty = true
+      removed++
+    }
+    if (dirty) {
+      await remote.put(name, pack)
+      changed.push(name)
+    }
+  }
+  if (changed.length) {
+    const manifest = asManifest(await remote.get('manifest'))
+    for (const name of changed) manifest.packs[name] = Math.max(now, (manifest.packs[name] ?? 0) + 1)
+    await remote.put('manifest', manifest)
+  }
+  return removed
+}
+
 /** Aufnahmen wieder als „nicht hochgeladen“ markieren (nach dem Neu-Erzeugen) */
 export function forgetSynced(m: SyncMemory, keys: string[]): SyncMemory {
   const drop = new Set(keys)

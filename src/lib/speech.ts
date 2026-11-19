@@ -4,7 +4,7 @@
  */
 import type { SpeechMode } from '../types'
 import { isWordLikeText, pickSystemVoice, slowVoice, voicesFor, type Clip, type ClipLang } from './audio/clips'
-import { cachedClip, configureGeminiVoice, currentGeminiVoice, geminiVoiceActive, hotClip, prefetchClips, regenerateClips, requestClip } from './audio/voice'
+import { cachedClip, configureGeminiVoice, currentGeminiVoice, forgetClips, geminiVoiceActive, hotClip, prefetchClips, regenerateClips, requestClip } from './audio/voice'
 import { pcmToWav } from './lab/liveTts'
 
 export interface SpeechConfig {
@@ -285,7 +285,17 @@ export function voiceItems(words: { korean: string; german: string }[]): { text:
 
 /** Wörter im Hintergrund für die Gemini-Stimme vorbereiten (nach dem Import und beim Start für fehlende) */
 export function prepareWords(words: { korean: string; german: string }[]) {
-  if (geminiVoiceActive()) prefetchClips(voiceItems(words))
+  if (!geminiVoiceActive()) return
+  prefetchClips(voiceItems(words))
+  // Langsame Fassung (Koreanisch) für alle Wörter – nach den normalen, wird mit abgeglichen
+  if (cfg.slowMode === 'gemini') prefetchClips(voiceItems(words).filter((it) => it.lang === 'ko'), 'background', slowVoice(currentGeminiVoice()))
+}
+
+/** Aufnahmen eines gelöschten Worts entfernen, sofern kein anderes Wort denselben Text nutzt */
+export function forgetWordClips(gone: { korean: string; german: string }[], rest: { korean: string; german: string }[]) {
+  const keep = new Set(voiceItems(rest).map((it) => `${it.lang}|${it.text}`))
+  const drop = voiceItems(gone).filter((it) => !keep.has(`${it.lang}|${it.text}`))
+  if (drop.length) void forgetClips(drop)
 }
 
 // ---------- Hörproben ----------

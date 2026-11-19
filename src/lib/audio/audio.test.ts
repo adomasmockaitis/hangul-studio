@@ -6,6 +6,7 @@ import {
 import { isWordLike, shortGerman } from '../speech'
 import { collapseRepeat, isVerbatim } from '../lab/liveTts'
 import { attemptsFor, closeEnough, shouldSyncKey } from './clips'
+import { memoryAudioRemote, packOf, removeRemote } from './audioSync'
 
 const RATE = 24000
 /** Ton, der sauber ausklingt (letzte 50 ms Stille) */
@@ -99,10 +100,23 @@ describe('Sätze: tolerante Prüfung, nur lokal, Vorrang', () => {
     expect(closeEnough('저는 매일 아침 커피를 마셔요.', '저는 매일 아침 커피를')).toBe(false)
     expect(closeEnough('감사합니다', '감사합니')).toBe(false)
   })
-  it('gleicht nur normale Wörter ab, Sätze und langsame Aufnahmen bleiben auf dem Gerät', () => {
+  it('gleicht Wörter ab (normal und langsam), Sätze bleiben auf dem Gerät', () => {
     expect(shouldSyncKey(clipKey('Kore', 'ko', '학교'))).toBe(true)
-    expect(shouldSyncKey(clipKey('Kore~slow', 'ko', '학교에 가요'))).toBe(false) // langsame Aufnahmen bleiben lokal
+    expect(shouldSyncKey(clipKey('Kore~slow', 'ko', '학교'))).toBe(true)
+    expect(shouldSyncKey(clipKey('Kore~slow', 'ko', '저는 학교에 가요.'))).toBe(false)
     expect(shouldSyncKey(clipKey('Kore', 'ko', '저는 학교에 가요.'))).toBe(false)
+  })
+  it('entfernt Aufnahmen gelöschter Wörter auch aus dem Abgleich', async () => {
+    const remote = memoryAudioRemote()
+    const a = clipKey('Kore', 'ko', '학교')
+    const b = clipKey('Kore', 'ko', '바다')
+    remote.data.set(packOf(a), { clips: { [a]: { d: '', r: 24000, v: 'live', t: 1 } } })
+    if (packOf(b) !== packOf(a)) remote.data.set(packOf(b), { clips: { [b]: { d: '', r: 24000, v: 'live', t: 1 } } })
+    else (remote.data.get(packOf(a)) as { clips: Record<string, unknown> }).clips[b] = { d: '', r: 24000, v: 'live', t: 1 }
+    expect(await removeRemote(remote, [a, clipKey('Kore~slow', 'ko', '학교')], 50)).toBe(1)
+    expect(Object.keys((remote.data.get(packOf(a)) as { clips: object }).clips)).not.toContain(a)
+    expect(Object.keys((remote.data.get(packOf(b)) as { clips: object }).clips)).toContain(b)
+    expect((remote.data.get('manifest') as { packs: Record<string, number> }).packs[packOf(a)]).toBe(50)
   })
   it('was gerade abgespielt werden soll, kommt vor allem anderen dran', async () => {
     const q = new ClipQueue()

@@ -19,6 +19,14 @@ export const SLOW_INSTRUCTION =
   ' Sprich dabei deutlich langsamer als normal und sehr deutlich artikuliert, mit kurzen Pausen zwischen den Wörtern – ' +
   'wie die langsame Aussprache in einem Wörterbuch für Sprachlernende. Bleib trotzdem natürlich in Betonung und Satzmelodie.'
 
+/** Testlabor: Lern-Tempo – Wörter Silbe für Silbe, Sätze Wort für Wort mit deutlichen Pausen */
+export const SLOW_STEP_INSTRUCTION =
+  READ_ALOUD_INSTRUCTION +
+  ' Sprich langsam für Sprachlernende. Ist der Text ein einzelnes Wort oder eine kurze Wendung, sprich ihn Silbe für Silbe, ' +
+  'mit einer kleinen, hörbaren Pause zwischen den Silben (z. B. 학교 → „학 … 교“). Sag das Wort danach NICHT noch einmal am Stück. ' +
+  'Ist der Text ein Satz, sprich ihn Wort für Wort mit einer deutlichen Pause nach jedem Wort, aber jedes Wort selbst flüssig und mit natürlicher Aussprache. ' +
+  'Sprich jeden Text genau einmal.'
+
 /** Aufnahme mit anderem Tempo abspielen, Tonhöhe bleibt gleich (Browser-Zeitdehnung) */
 export function playPcmAtSpeed(chunks: Int16Array[], sampleRate: number, speed: number) {
   const wav = pcmToWav(chunks, sampleRate)
