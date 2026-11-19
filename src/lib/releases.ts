@@ -24,6 +24,14 @@ export interface Release {
 }
 export const RELEASES: Release[] = [
   {
+    id: '2026-11-voice-progress',
+    size: 'minor',
+    title: 'Neu in Hangul Studio',
+    subtitle: 'Fortschritt der Stimmen',
+    summary: 'Während Gemini-Stimmen erstellt werden, zeigt eine kleine Anzeige, wie viele noch übrig sind und wie lange es ungefähr dauert; aufgeklappt getrennt nach Koreanisch, Deutsch und langsam. In der Wortliste siehst du jetzt auch, ob die langsame Fassung schon da ist.',
+    features: [],
+  },
+  {
     id: '2026-11-import-offline',
     size: 'major',
     title: 'Neu in Hangul Studio',

@@ -341,7 +341,7 @@ export function Dictionary() {
                     {rate >= 0 && <span className={rate > 0.4 ? 'font-medium text-red' : ''}>· {Math.round(rate * 100)} % Fehler</span>}
                     {!w.german.trim() && <span className="rounded-full bg-red/15 px-1.5 py-px text-[10px] font-semibold text-red">Übersetzung fehlt</span>}
                     {w.needsReview && w.german.trim() && <span className="rounded-full bg-yellow/20 px-1.5 py-px text-[10px] font-semibold text-orange" title="Automatisch übersetzt – beim Bearbeiten verschwindet die Markierung">bitte prüfen</span>}
-                    <VoiceStatus word={w} />
+                    <VoiceStatus word={w} slow />
                   </span>
                 </span>
                 {!selecting && <ChevronRight size={18} className="shrink-0 text-label-3" />}

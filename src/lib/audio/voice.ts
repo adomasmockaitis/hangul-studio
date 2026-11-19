@@ -222,7 +222,29 @@ export async function requestClip(text: string, lang: ClipLang, prio: Priority, 
   }
   if (typeof navigator !== 'undefined' && navigator.onLine === false) return null
   if (prio === 'background' && Date.now() - (failed.get(k) ?? 0) < RETRY_AFTER) return null
+  const kind: ProgressKind = isSlowVoice(voice) ? 'slow' : lang
+  if (!queue.pending(k)) {
+    if (!queue.size()) startBatch()
+    batch.total[kind]++
+  }
   const p = queue.add(k, prio, async () => {
+    const t0 = Date.now()
+    try {
+      return await runJob()
+    } finally {
+      batch.done[kind]++
+      batch.durations.push(Date.now() - t0)
+      if (batch.durations.length > 12) batch.durations.shift()
+      notify()
+    }
+  })
+  notify()
+  const clip = await p
+  if (!queue.size()) batch.finishedAt = Date.now()
+  notify()
+  return clip
+
+  async function runJob(): Promise<Clip | null> {
     const models = await resolveModels()
     if (!models || !cfg.apiKey.trim()) return null
     const { clip } = await produceClip(text, generator(models, voice, prio === 'background'))
@@ -242,11 +264,43 @@ export async function requestClip(text: string, lang: ClipLang, prio: Priority, 
     clearTimeout(idle)
     idle = setTimeout(() => { if (!queue.size()) closeSession() }, 30_000)
     return clip
-  })
-  notify()
-  const clip = await p
-  notify()
-  return clip
+  }
+}
+
+// ---------- Fortschritt (Anzeige „Stimmen werden erstellt“) ----------
+
+export type ProgressKind = ClipLang | 'slow'
+const emptyCounts = (): Record<ProgressKind, number> => ({ ko: 0, de: 0, slow: 0 })
+let batch = { total: emptyCounts(), done: emptyCounts(), startedAt: 0, finishedAt: 0, durations: [] as number[] }
+function startBatch() {
+  batch = { total: emptyCounts(), done: emptyCounts(), startedAt: Date.now(), finishedAt: 0, durations: batch.durations.slice(-6) }
+}
+
+export interface ClipProgress {
+  total: Record<ProgressKind, number>
+  done: Record<ProgressKind, number>
+  remaining: number
+  /** geschätzte Restzeit in ms; null, solange noch nichts gemessen ist */
+  etaMs: number | null
+  running: boolean
+  startedAt: number
+  finishedAt: number
+}
+
+/** Stand der aktuellen Erzeugungs-Runde (seit die Warteschlange zuletzt leer war) */
+export function clipProgress(): ClipProgress {
+  const remaining = queue.size()
+  const d = batch.durations
+  const avg = d.length ? d.reduce((a, b) => a + b, 0) / d.length : null
+  return {
+    total: { ...batch.total },
+    done: { ...batch.done },
+    remaining,
+    etaMs: avg === null ? null : Math.round(avg * remaining),
+    running: remaining > 0,
+    startedAt: batch.startedAt,
+    finishedAt: batch.finishedAt,
+  }
 }
 
 export function prefetchClips(items: { text: string; lang: ClipLang }[], prio: Priority = 'background', voice = cfg.voice) {

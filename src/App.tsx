@@ -4,6 +4,7 @@ import { AiStatusPill } from './components/AiStatusPill'
 import { isOnboarded, Onboarding } from './components/Onboarding'
 import { WhatsNew } from './components/WhatsNew'
 import { MissingTranslations } from './components/MissingTranslations'
+import { VoiceProgress } from './components/VoiceProgress'
 import { releasePopup } from './lib/releases'
 import { playSound } from './lib/sounds'
 import { warmup } from './lib/gemini'
@@ -99,6 +100,7 @@ function Shell() {
       {!onboarding && whatsNew && <WhatsNew onClose={() => setWhatsNew(false)} />}
       {/* Nach Onboarding und Neuigkeiten: Wörter ohne Übersetzung */}
       <MissingTranslations suppressed={onboarding || whatsNew} />
+      {!onboarding && <VoiceProgress />}
       {onboarding && <Onboarding onClose={() => { setOnboarding(false); navigate('/start') }} />}
 
       {/* Tableiste (Handy / Tablet hoch): schwebende Glas-Kapsel */}
