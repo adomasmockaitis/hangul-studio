@@ -204,6 +204,13 @@ select option, select optgroup { background-color: var(--color-surface); color: 
 }
 .bubble-rise { animation: bubble-rise .45s cubic-bezier(.25, .9, .3, 1) both; }
 .bubble-rise > * { animation: bubble-content .26s ease-out .22s both; }
+/* Wie oben, aber das Fenster liegt schon über der Fläche, an deren Ecke die Blase sitzt */
+@keyframes bubble-fill {
+  0% { clip-path: inset(calc(100% - 3.25rem) 0 0 calc(100% - var(--bw, 20rem)) round 999px); }
+  100% { clip-path: inset(0 0 0 0 round 16px); }
+}
+.bubble-fill { animation: bubble-fill .45s cubic-bezier(.25, .9, .3, 1) both; }
+.bubble-fill > * { animation: bubble-content .26s ease-out .22s both; }
 @keyframes bubble-in { 0% { opacity: 0; transform: scale(.6); } 100% { opacity: 1; transform: none; } }
 .bubble-in { transform-origin: 100% 100%; animation: bubble-in .35s cubic-bezier(.3, 1.35, .5, 1) both; }
 /* Während des Zeichnens nichts markieren (iOS) */

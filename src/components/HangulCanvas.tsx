@@ -582,18 +582,7 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
           <span className="hidden text-sm sm:inline landscape-phone:hidden">{keyboard ? 'Zeichnen' : 'Tastatur'}</span>
         </button>
       </div>
-      {showHelp && !landscape && <StrokeOrder text={target} mode={settings.strokeOrderStyle} />}
-      {/* Querformat: Strichreihenfolge als Blase über dem Zeichenfeld, mit X zum Schließen */}
-      {showHelp && landscape && (
-        <div role="dialog" aria-label="Strichreihenfolge" style={{ ['--bw' as string]: `${bubbleW}px` }} className="bubble-rise glass fixed bottom-[4.25rem] right-[max(0.75rem,env(safe-area-inset-right))] z-40 max-h-[calc(100dvh-5.5rem)] w-[min(26rem,calc(100vw-1.5rem))] overflow-y-auto rounded-[22px] p-3 shadow-xl">
-          <div className="relative">
-            <button className="absolute right-0 top-0 z-10 grid h-8 w-8 place-items-center rounded-full bg-fill-3 text-label-2 transition hover:bg-fill-1" onClick={() => setShowHelp(false)} aria-label="Strichreihenfolge schließen">
-              <X size={16} />
-            </button>
-            <div className="pr-9"><StrokeOrder text={target} mode={settings.strokeOrderStyle} /></div>
-          </div>
-        </div>
-      )}
+      {showHelp && (!landscape || keyboard) && <StrokeOrder text={target} mode={settings.strokeOrderStyle} />}
 
       {/* Musterlösung beim Selbst-Check */}
       {phase === 'reveal' && (
@@ -643,6 +632,15 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
           {!hangulRow && template && (
             <div className="pointer-events-none absolute inset-0 grid place-items-center leading-none" style={{ fontSize: tplFont, color: tplColor }}>
               {target}
+            </div>
+          )}
+          {/* Querformat: Strichreihenfolge wächst aus der Prüfen-Blase und füllt die Schreibfläche; X schließt */}
+          {showHelp && landscape && (
+            <div role="dialog" aria-label="Strichreihenfolge" style={{ ['--bw' as string]: `${bubbleW}px` }} className="bubble-fill absolute inset-0 z-10 overflow-y-auto rounded-2xl bg-[var(--color-surface)] p-3 pb-16">
+              <button className="sticky top-0 z-10 float-right grid h-9 w-9 place-items-center rounded-full bg-fill-2 text-label transition hover:bg-fill-1" onClick={() => setShowHelp(false)} aria-label="Strichreihenfolge schließen">
+                <X size={18} />
+              </button>
+              <div className="pr-11"><StrokeOrder text={target} mode={settings.strokeOrderStyle} /></div>
             </div>
           )}
           <canvas
