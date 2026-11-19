@@ -220,4 +220,8 @@ select option, select optgroup { background-color: var(--color-surface); color: 
 @media (orientation: landscape) and (max-height: 540px) {
   .landscape-compact :is(button, label) { min-height: 2.25rem !important; padding-top: 0 !important; padding-bottom: 0 !important; font-size: .875rem; }
   .landscape-compact button { padding-left: .75rem !important; padding-right: .75rem !important; }
+  /* Schreibaufgabe: Frage als schmale Leiste oben */
+  .landscape-strip { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: .25rem 1rem; }
+  .landscape-strip > *, .landscape-strip > * > * { margin-top: 0 !important; margin-bottom: 0 !important; }
+  .landscape-strip :is(h2, .text-4xl, .text-5xl, .text-6xl) { font-size: 1.75rem !important; line-height: 1.15 !important; }
 }

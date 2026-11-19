@@ -38,8 +38,8 @@ export function WordCard({ word, mode, onResult, onRevise, onNext, nextLabel }: 
     : []
 
   return (
-    <div ref={focusRef} className="space-y-5 landscape-phone:grid landscape-phone:grid-cols-[minmax(0,15rem)_minmax(0,1fr)] landscape-phone:items-start landscape-phone:gap-3 landscape-phone:space-y-0 scroll-mt-3">
-      <div className="card fade-up relative p-6 text-center landscape-phone:sticky landscape-phone:top-0 landscape-phone:flex landscape-phone:h-[calc(100dvh-1.5rem)] landscape-phone:flex-col landscape-phone:justify-center landscape-phone:overflow-y-auto landscape-phone:!p-4">
+    <div ref={focusRef} className="scroll-mt-3 space-y-5 landscape-phone:space-y-0">
+      <div className="card fade-up relative p-6 text-center landscape-phone:hidden">
         <VoiceStatus word={word} slow className="absolute right-3 top-3 landscape-phone:hidden" />
         <div className="mb-3 flex items-center justify-center gap-2 text-xs text-label-2 landscape-phone:hidden">
           <span className="rounded-full bg-fill-3 px-2.5 py-0.5 font-medium">{WORD_TYPE_LABELS[word.wordType]}</span>
@@ -106,6 +106,16 @@ export function WordCard({ word, mode, onResult, onRevise, onNext, nextLabel }: 
           <div className="flex shrink-0 items-center gap-2">
             {!hideKorean && <span lang="ko" className="text-3xl font-bold sm:text-4xl">{word.korean}</span>}
             <button className="btn-soft !p-2" onClick={() => speakWord(word, settings.speechMode)} aria-label="Anhören"><Volume2 size={18} /></button>
+          </div>
+        </div>
+        {/* Querformat: eine schmale Leiste oben – Wort, Bedeutung, Aussprache, Anhören */}
+        <div className="glass mb-2 hidden items-center gap-3 rounded-[20px] py-1.5 pl-4 pr-1.5 landscape-phone:flex">
+          {!hideKorean && <span lang="ko" className="shrink-0 text-3xl font-bold leading-none">{word.korean}</span>}
+          <span className={`min-w-0 truncate font-semibold ${hideKorean ? 'text-2xl' : 'text-xl text-label-2'}`}>{word.german}</span>
+          {!hideKorean && word.pronunciation && <span lang="ko" className="shrink-0 text-lg font-medium text-blue">{word.pronunciation}</span>}
+          <div className="landscape-compact ml-auto flex shrink-0 items-center gap-1.5">
+            <button className="btn-soft" onClick={() => speakWord(word, settings.speechMode)} aria-label="Anhören" title="Anhören"><Volume2 size={16} /></button>
+            <SlowButton text={word.korean} label={false} />
           </div>
         </div>
         <HangulCanvas

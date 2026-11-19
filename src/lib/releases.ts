@@ -24,6 +24,14 @@ export interface Release {
 }
 export const RELEASES: Release[] = [
   {
+    id: '2026-11-landscape-strip',
+    size: 'minor',
+    title: 'Neu in Hangul Studio',
+    subtitle: 'Querformat: maximal Platz zum Schreiben',
+    summary: 'Quer gehalten steht das Wort mit Bedeutung und Aussprache in einer schmalen Leiste oben, darunter füllt das Zeichenfeld den ganzen Bildschirm. Löschen, Rückgängig, Vorlage, Tastatur und Strichreihenfolge sitzen als kleine Knöpfe neben „Prüfen“ – die Strichreihenfolge öffnet sich als Blase mit X.',
+    features: [],
+  },
+  {
     id: '2026-11-landscape-polish',
     size: 'minor',
     title: 'Neu in Hangul Studio',

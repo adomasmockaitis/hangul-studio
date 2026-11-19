@@ -10,7 +10,7 @@ import { addSample, bumpAgreement, updateSample } from '../lib/inputToolsLog'
 import { BATCH_SIZE, enqueuePending, processPending, removePending, updateByPendingId, type SampleBase } from '../lib/inputToolsQueue'
 import { normalizeKorean } from '../lib/hangul'
 import { useApp } from '../store'
-import { LANDSCAPE_PHONE } from '../lib/useLandscape'
+import { LANDSCAPE_PHONE, useLandscapePhone } from '../lib/useLandscape'
 import { StrokeOrder } from './StrokeOrder'
 import { useQuestionAside } from './questionAside'
 
@@ -97,6 +97,7 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
   const wrapRef = useRef<HTMLDivElement>(null)
   const barRef = useRef<HTMLDivElement>(null)
   const aside = useQuestionAside()
+  const landscape = useLandscapePhone()
   // Enter = Hauptaktion (Prüfen / Weiter), solange kein Feld, Knopf oder Dialog den Fokus hat
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -537,7 +538,7 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
   return (
     <div className="space-y-3">
       {/* Eine Werkzeugzeile: Hilfen, Zeichenwerkzeuge, Eingabeart */}
-      <div className="landscape-compact flex flex-wrap items-center gap-2 landscape-phone:gap-1.5">
+      <div className="flex flex-wrap items-center gap-2 landscape-phone:hidden">
         {!testMode && (
           <button className={showHelp ? 'btn-primary' : 'btn-soft'} onClick={() => setShowHelp((s) => !s)} title="Strichreihenfolge-Hilfe" aria-label="Strichreihenfolge" aria-pressed={showHelp}>
             <ListOrdered size={16} /> <span className="hidden lg:inline">Strichreihenfolge</span>
@@ -575,7 +576,18 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
           <span className="hidden text-sm sm:inline landscape-phone:hidden">{keyboard ? 'Zeichnen' : 'Tastatur'}</span>
         </button>
       </div>
-      {showHelp && <StrokeOrder text={target} mode={settings.strokeOrderStyle} />}
+      {showHelp && !landscape && <StrokeOrder text={target} mode={settings.strokeOrderStyle} />}
+      {/* Querformat: Strichreihenfolge als Blase über dem Zeichenfeld, mit X zum Schließen */}
+      {showHelp && landscape && (
+        <div role="dialog" aria-label="Strichreihenfolge" className="bubble-grow glass fixed bottom-[4.25rem] right-[max(0.75rem,env(safe-area-inset-right))] z-40 max-h-[calc(100dvh-5.5rem)] w-[min(26rem,calc(100vw-1.5rem))] overflow-y-auto rounded-[22px] p-3 shadow-xl">
+          <div className="relative">
+            <button className="absolute right-0 top-0 z-10 grid h-8 w-8 place-items-center rounded-full bg-fill-3 text-label-2 transition hover:bg-fill-1" onClick={() => setShowHelp(false)} aria-label="Strichreihenfolge schließen">
+              <X size={16} />
+            </button>
+            <div className="pr-9"><StrokeOrder text={target} mode={settings.strokeOrderStyle} /></div>
+          </div>
+        </div>
+      )}
 
       {/* Musterlösung beim Selbst-Check */}
       {phase === 'reveal' && (
@@ -602,7 +614,7 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
       ) : (
         <div
           ref={wrapRef}
-          className="no-select relative h-[300px] overflow-hidden rounded-2xl border border-separator shadow-inner sm:h-[320px] landscape-phone:h-[calc(100dvh-5.75rem)]"
+          className="no-select relative h-[300px] overflow-hidden rounded-2xl border border-separator shadow-inner sm:h-[320px] landscape-phone:h-[calc(100dvh-6.75rem)]"
           style={bgStyle}
         >
           {hangulRow && (
@@ -656,6 +668,26 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
               <span className="truncate pl-2.5 pr-1 text-xs text-label-2 landscape-phone:hidden">
                 {firstMethod === 'inputtools' ? 'Input Tools' : firstMethod === 'gemini' ? 'Gemini' : 'Selbst-Check'}
               </span>
+            )}
+            {/* Querformat: Werkzeuge als kleine runde Knöpfe direkt neben „Prüfen“ */}
+            {landscape && phase === 'idle' && (
+              <div className="flex items-center gap-1">
+                {!testMode && (
+                  <ToolDot on={showHelp} onClick={() => setShowHelp((s) => !s)} label="Strichreihenfolge"><ListOrdered size={16} /></ToolDot>
+                )}
+                {!keyboard && (
+                  <>
+                    <ToolDot onClick={undo} disabled={!strokeCount} label="Letzten Strich rückgängig"><Undo2 size={16} /></ToolDot>
+                    <ToolDot onClick={clear} disabled={!strokeCount} label="Zeichnung löschen"><Eraser size={16} /></ToolDot>
+                    {!testMode && (
+                      <ToolDot on={template} onClick={() => setTemplate((t) => !t)} label="Blasse Vorlage">{template ? <Eye size={16} /> : <EyeOff size={16} />}</ToolDot>
+                    )}
+                  </>
+                )}
+                <ToolDot onClick={() => { setKeyboard((k) => !k); retry() }} label={keyboard ? 'Zeichnen' : 'Tastatur statt Zeichnen'}>
+                  {keyboard ? <PenLine size={16} /> : <Keyboard size={16} />}
+                </ToolDot>
+              </div>
             )}
             {aside && <div className="flex">{aside}</div>}
             <button data-primary className="btn-primary !rounded-full !px-5 !py-3 landscape-phone:!py-2" onClick={() => void check()} disabled={phase === 'checking' || (keyboard && !typed.trim())}>
@@ -761,5 +793,21 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
         )}
       </div>
     </div>
+  )
+}
+/** Kleiner runder Werkzeugknopf in der Prüfen-Blase (Querformat) */
+function ToolDot({ children, onClick, label, on = false, disabled = false }: { children: React.ReactNode; onClick: () => void; label: string; on?: boolean; disabled?: boolean }) {
+  return (
+    <button
+      type="button"
+      className={`grid h-10 w-10 place-items-center rounded-full transition active:scale-90 disabled:opacity-35 ${on ? 'bg-blue text-white' : 'bg-fill-3 text-label hover:bg-fill-1'}`}
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={label}
+      aria-pressed={on || undefined}
+      title={label}
+    >
+      {children}
+    </button>
   )
 }
