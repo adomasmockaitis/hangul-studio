@@ -7,6 +7,7 @@ import { HangulCanvas } from './HangulCanvas'
 import { WordExtras } from './WordExtras'
 import { VoiceStatus } from './VoiceStatus'
 import { SlowButton } from './SlowButton'
+import { useLandscapeFocus } from '../lib/useLandscape'
 
 interface Props {
   word: WordItem
@@ -23,6 +24,7 @@ export function WordCard({ word, mode, onResult, onRevise, onNext, nextLabel }: 
   const [showPron, setShowPron] = useState(false)
   const [open, setOpen] = useState<ConjugationKey | null>(null)
   const [done, setDone] = useState(false)
+  const focusRef = useLandscapeFocus<HTMLDivElement>()
 
   useEffect(() => {
     if (settings.autoSpeak) speakWord(word, settings.speechMode)
@@ -36,8 +38,8 @@ export function WordCard({ word, mode, onResult, onRevise, onNext, nextLabel }: 
     : []
 
   return (
-    <div className="space-y-5">
-      <div className="card fade-up relative p-6 text-center">
+    <div ref={focusRef} className="space-y-5 landscape-phone:grid landscape-phone:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] landscape-phone:items-start landscape-phone:gap-3 landscape-phone:space-y-0 scroll-mt-3">
+      <div className="card fade-up relative p-6 text-center landscape-phone:sticky landscape-phone:top-0 landscape-phone:max-h-[calc(100dvh-1.5rem)] landscape-phone:overflow-y-auto landscape-phone:!p-4">
         <VoiceStatus word={word} slow className="absolute right-3 top-3" />
         <div className="mb-3 flex items-center justify-center gap-2 text-xs text-label-2">
           <span className="rounded-full bg-fill-3 px-2.5 py-0.5 font-medium">{WORD_TYPE_LABELS[word.wordType]}</span>
@@ -47,12 +49,12 @@ export function WordCard({ word, mode, onResult, onRevise, onNext, nextLabel }: 
         {hideKorean ? (
           <>
             <p className="label mb-1">Schreibe auf Koreanisch</p>
-            <h2 className="text-4xl font-bold tracking-tight">{word.german}</h2>
+            <h2 className="text-4xl font-bold tracking-tight landscape-phone:text-3xl">{word.german}</h2>
           </>
         ) : (
           <>
-            <h2 lang="ko" className="text-6xl font-bold tracking-tight">{word.korean}</h2>
-            <p className="mt-3 text-3xl font-semibold text-label-2">{word.german}</p>
+            <h2 lang="ko" className="text-6xl font-bold tracking-tight landscape-phone:text-5xl">{word.korean}</h2>
+            <p className="mt-3 text-3xl font-semibold text-label-2 landscape-phone:mt-1 landscape-phone:text-2xl">{word.german}</p>
           </>
         )}
 
@@ -92,9 +94,9 @@ export function WordCard({ word, mode, onResult, onRevise, onNext, nextLabel }: 
         {!hideKorean && <WordExtras key={word.id} word={word} />}
       </div>
 
-      <div className="card p-4 sm:p-5">
+      <div className="card p-4 sm:p-5 landscape-phone:!p-3">
         {/* Wort direkt am Zeichenfeld: Deutsch groß, damit die Bedeutung beim Schreiben im Blick bleibt */}
-        <div className="glass sticky top-2 z-10 mb-4 flex items-center justify-between gap-3 rounded-[22px] px-4 py-3">
+        <div className="glass top-2 z-10 mb-4 flex items-center justify-between gap-3 rounded-[22px] px-4 py-3 md:sticky landscape-phone:hidden">
           <div className="min-w-0">
             <p className="label">Bedeutung</p>
             <p className="truncate text-2xl font-bold leading-tight sm:text-3xl">{word.german}</p>

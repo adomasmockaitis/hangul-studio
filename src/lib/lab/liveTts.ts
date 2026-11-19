@@ -61,6 +61,70 @@ export function slowLengthOk(text: string, audioMs: number, perSyllable = 300): 
   return !n || audioMs >= n * perSyllable
 }
 
+/** Testlabor (Vorschlag von Gemini Argon): deutlich langsamer mit allen Lautregeln, keine Silbentrennung im Wort */
+export const SLOW_NATURAL_INSTRUCTION = `You are a professional Korean pronunciation instructor recording slow-speed reference audio for absolute beginners (A1/TOPIK I level).
+Each message contains exactly one text. Read it aloud exactly once. Output ONLY the spoken audio, with no conversation, greeting or commentary. German text is read with natural German pronunciation.
+
+VOICE & PACING RULES:
+1. Target speed: about 55-60% of normal native conversational speed (roughly 2.0-2.5 syllables per second), like a clear dictionary slow-playback recording.
+2. Slow down by gently elongating the vowel core of each syllable while keeping airflow continuous. NEVER chop a word into isolated syllables and NEVER insert pauses inside a word (어절).
+3. Apply all standard Korean sound-change rules (표준 발음법) smoothly across syllable boundaries:
+   - Liaison (연음): 한국어 -> [한구거], 괜찮아요 -> [괜차나요], 물을 -> [무를]
+   - Nasalization (비음화): 감사합니다 -> [감사함니다]
+   - Tensification and cluster simplification (경음화/자음군 단순화): 읽다 -> [익따], 학교에 -> [학꾜에]
+4. Sentences: keep each word+particle unit (어절, e.g. 학교에, 물을) as one smooth breath group. Place a brief pause (about 0.25-0.35 s) only at spaces between words.`
+
+export interface SlowAnalysis {
+  /** Dauer ohne Stille am Anfang/Ende */
+  netMs: number
+  /** Dauer je Silbe (Wortpausen bei Sätzen abgezogen) */
+  perSyllableMs: number
+  /** längste Stille mitten in der Aufnahme */
+  maxGapMs: number
+  ok: boolean
+  reason: string
+}
+
+/**
+ * Prüft eine langsame Aufnahme (Grenzen nach Vorschlag von Gemini Argon, noch nicht kalibriert):
+ * 280–580 ms je Silbe, bei Einzelwörtern keine Lücke über 160 ms (sonst Silbentrennung).
+ */
+export function analyzeSlow(chunks: Int16Array[], sampleRate: number, text: string): SlowAnalysis {
+  const n = chunks.reduce((a, c) => a + c.length, 0)
+  const all = new Int16Array(n)
+  let o = 0
+  for (const c of chunks) { all.set(c, o); o += c.length }
+  const win = Math.max(1, Math.floor(sampleRate * 0.01))
+  const threshold = 32768 * Math.pow(10, -38 / 20)
+  const loud: boolean[] = []
+  for (let i = 0; i + win <= n; i += win) {
+    let sum = 0
+    for (let j = i; j < i + win; j++) sum += all[j] * all[j]
+    loud.push(Math.sqrt(sum / win) > threshold)
+  }
+  const first = loud.indexOf(true)
+  const last = loud.lastIndexOf(true)
+  const syl = syllableCount(text)
+  if (first < 0) return { netMs: 0, perSyllableMs: 0, maxGapMs: 0, ok: false, reason: 'stumm' }
+  let gap = 0
+  let maxGap = 0
+  for (let i = first; i <= last; i++) {
+    gap = loud[i] ? 0 : gap + 1
+    maxGap = Math.max(maxGap, gap)
+  }
+  const netMs = (last - first + 1) * 10
+  const maxGapMs = maxGap * 10
+  const spaces = (text.trim().match(/\s+/g) ?? []).length
+  const perSyllableMs = syl ? Math.round((netMs - spaces * 250) / syl) : 0
+  if (!syl) return { netMs, perSyllableMs, maxGapMs, ok: true, reason: '' }
+  const minPer = syl <= 2 ? 300 : 280
+  if (perSyllableMs < minPer) return { netMs, perSyllableMs, maxGapMs, ok: false, reason: 'zu schnell' }
+  if (perSyllableMs > 580) return { netMs, perSyllableMs, maxGapMs, ok: false, reason: 'zu langsam' }
+  if (!spaces && maxGapMs > 160) return { netMs, perSyllableMs, maxGapMs, ok: false, reason: 'Silben getrennt' }
+  if (spaces && maxGapMs > 450) return { netMs, perSyllableMs, maxGapMs, ok: false, reason: 'Pause zu lang' }
+  return { netMs, perSyllableMs, maxGapMs, ok: true, reason: '' }
+}
+
 /** Aufnahme mit anderem Tempo abspielen, Tonhöhe bleibt gleich (Browser-Zeitdehnung) */
 export function playPcmAtSpeed(chunks: Int16Array[], sampleRate: number, speed: number) {
   const wav = pcmToWav(chunks, sampleRate)

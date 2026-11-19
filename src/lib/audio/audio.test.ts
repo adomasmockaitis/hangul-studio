@@ -4,7 +4,7 @@ import {
   produceClip, type Clip, type Generator, type Raw,
 } from './clips'
 import { isWordLike, shortGerman } from '../speech'
-import { collapseRepeat, isVerbatim, slowLengthOk, stepText } from '../lab/liveTts'
+import { analyzeSlow, collapseRepeat, isVerbatim, slowLengthOk, stepText } from '../lab/liveTts'
 import { attemptsFor, closeEnough, shouldSyncKey } from './clips'
 import { memoryAudioRemote, packOf, removeRemote } from './audioSync'
 
@@ -228,5 +228,21 @@ describe('Langsam mit Pausen im Text', () => {
     expect(slowLengthOk('읽다', 500)).toBe(false)
     expect(slowLengthOk('감사합니다', 1200)).toBe(false)
     expect(slowLengthOk('Danke', 300)).toBe(true)
+  })
+})
+
+describe('Langsam natürlich: Prüfung', () => {
+  const rate = 24000
+  const tone = (ms: number) => Int16Array.from({ length: (rate * ms) / 1000 }, (_, i) => Math.round(8000 * Math.sin(i / 5)))
+  const silence = (ms: number) => new Int16Array((rate * ms) / 1000)
+  it('erkennt passendes Tempo, Stille am Rand zählt nicht', () => {
+    const a = analyzeSlow([silence(300), tone(800), silence(400)], rate, '학생')
+    expect(a.netMs).toBe(800)
+    expect(a.ok).toBe(true)
+  })
+  it('zu schnell und Silbentrennung fallen durch', () => {
+    expect(analyzeSlow([tone(450)], rate, '학생').reason).toBe('zu schnell')
+    expect(analyzeSlow([tone(400), silence(300), tone(400)], rate, '학생').reason).toBe('Silben getrennt')
+    expect(analyzeSlow([tone(900), silence(300), tone(700)], rate, '학교에 가요').ok).toBe(true)
   })
 })

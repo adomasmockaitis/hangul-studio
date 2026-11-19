@@ -222,6 +222,12 @@ export async function requestClip(text: string, lang: ClipLang, prio: Priority, 
   }
   if (typeof navigator !== 'undefined' && navigator.onLine === false) return null
   if (prio === 'background' && Date.now() - (failed.get(k) ?? 0) < RETRY_AFTER) return null
+  // Neues Gerät: erst schauen, ob es die Aufnahme schon im Abgleich gibt, dann erst erzeugen
+  if (prio !== 'play' && !gateOpen) {
+    await syncGate
+    const c = await cachedClip(text, lang, voice)
+    if (c && !opts.regenerate) return c
+  }
   const kind: ProgressKind = isSlowVoice(voice) ? 'slow' : lang
   if (!queue.pending(k)) {
     if (!queue.size()) startBatch()
@@ -266,6 +272,25 @@ export async function requestClip(text: string, lang: ClipLang, prio: Priority, 
     return clip
   }
 }
+
+// ---------- Erst holen, dann erzeugen ----------
+
+/** Offen, sobald der erste Abgleich gelaufen ist – oder nach kurzer Zeit, wenn kein Konto/Drive verbunden ist */
+let gateOpen = false
+let openGateFn: () => void = () => undefined
+const syncGate = new Promise<void>((resolve) => {
+  openGateFn = resolve
+})
+function openGate() {
+  if (gateOpen) return
+  gateOpen = true
+  openGateFn()
+}
+setTimeout(() => {
+  // ohne Ziel kein Warten; mit Ziel läuft der Abgleich und öffnet selbst (spätestens nach 30 s trotzdem)
+  if (!slots.account && !slots.drive) openGate()
+  else setTimeout(openGate, 25_000)
+}, 5_000)
 
 // ---------- Fortschritt (Anzeige „Stimmen werden erstellt“) ----------
 
@@ -430,7 +455,7 @@ export function setAudioRemote(slot: 'account' | 'drive', remote: AudioRemote | 
   }
   syncInfo = { active: true, lastSync: null, error: '', where: slots.account ? 'account' : 'drive' }
   notify()
-  setTimeout(() => void syncAudioNow(), 4000)
+  setTimeout(() => void syncAudioNow(), 800)
 }
 
 /** Holen und hochladen; leise bei Fehlern (die App funktioniert ohne Abgleich weiter) */
@@ -452,6 +477,7 @@ export async function syncAudioNow(): Promise<void> {
     if (syncer === cur) syncInfo = { ...syncInfo, error: e instanceof Error ? e.message : 'Abgleich fehlgeschlagen' }
   } finally {
     syncBusy = false
+    openGate()
     notify()
   }
 }

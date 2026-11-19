@@ -1,5 +1,7 @@
 ﻿@import "tailwindcss";
 @custom-variant dark (&:where(.dark, .dark *));
+/* Handy quer: wenig Höhe – eigenes Layout (Wort links, großes Zeichenfeld rechts) */
+@custom-variant landscape-phone (@media (orientation: landscape) and (max-height: 540px));
 
 /*
  * Design-Tokens nach Apple Human Interface Guidelines.
@@ -186,6 +188,17 @@ select option, select optgroup { background-color: var(--color-surface); color: 
 
 @keyframes sheet-up { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: none; } }
 .sheet-up { animation: sheet-up .32s cubic-bezier(.2,.9,.3,1) both; }
+/* Prüfen-Blase: Ergebnis wächst aus der Blase unten rechts heraus */
+@keyframes bubble-grow {
+  0% { opacity: 0; transform: scale(.18, .3); border-radius: 999px; }
+  55% { opacity: 1; }
+  100% { opacity: 1; transform: none; }
+}
+.bubble-grow { transform-origin: 100% 100%; animation: bubble-grow .5s cubic-bezier(.3, 1.25, .45, 1) both; }
+@keyframes bubble-in { 0% { opacity: 0; transform: scale(.6); } 100% { opacity: 1; transform: none; } }
+.bubble-in { transform-origin: 100% 100%; animation: bubble-in .35s cubic-bezier(.3, 1.35, .5, 1) both; }
+/* Während des Zeichnens nichts markieren (iOS) */
+.no-select, .no-select * { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 @keyframes alert-in { from { opacity: 0; transform: scale(1.08); } to { opacity: 1; transform: none; } }
 .alert-in { animation: alert-in .2s ease-out both; }
 

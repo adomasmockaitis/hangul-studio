@@ -8,7 +8,7 @@ import {
   HANDWRITING_CANDIDATES, gemmaModels, generateSentences, listAllModels, readOne, samplesFromExport, samplesFromLocal, sleep,
   type HandResult, type HandSample, type LabModel, type SentenceResult,
 } from '../lib/lab/bench'
-import { LIVE_VOICES, LiveSession, SLOW_INSTRUCTION, SLOW_STEP_INSTRUCTION, SLOW_TEXT_INSTRUCTION, slowLengthOk, stepText, syllableCount, type StepSep, isVerbatim, playPcm, playPcmAtSpeed, speakWithTtsModel, tailCheck, verifyAudio, verifyAudioLive, withFinalStop, type SpeakResult } from '../lib/lab/liveTts'
+import { LIVE_VOICES, LiveSession, SLOW_INSTRUCTION, SLOW_STEP_INSTRUCTION, SLOW_TEXT_INSTRUCTION, SLOW_NATURAL_INSTRUCTION, analyzeSlow, slowLengthOk, stepText, syllableCount, type StepSep, isVerbatim, playPcm, playPcmAtSpeed, speakWithTtsModel, tailCheck, verifyAudio, verifyAudioLive, withFinalStop, type SpeakResult } from '../lib/lab/liveTts'
 import { useApp } from '../store'
 import { POOL } from '../lib/particles/pool'
 import { fillSentence } from '../lib/particles/forms'
@@ -24,11 +24,12 @@ const SENTENCE_SET = [
   'Ich lerne seit einem Jahr Koreanisch.',
   'Morgen fahre ich mit meiner Familie ans Meer.',
 ].join(String.fromCharCode(10))
-type Tempo = 'normal' | 'langsam' | 'silben' | 'silbentext'
-const TEMPO_TAG: Record<Tempo, string> = { normal: '', langsam: ' · langsam', silben: ' · silbenweise', silbentext: ' · Pausen im Text' }
+type Tempo = 'normal' | 'langsam' | 'natuerlich' | 'silben' | 'silbentext'
+const TEMPO_TAG: Record<Tempo, string> = { normal: '', langsam: ' · langsam', natuerlich: ' · langsam natürlich', silben: ' · silbenweise', silbentext: ' · Pausen im Text' }
 const TEMPO_HINT: Record<Tempo, string> = {
   normal: 'Normale Vorlese-Anweisung',
   langsam: 'Die Live API bekommt die Anweisung, langsam und deutlich mit kleinen Pausen zu sprechen',
+  natuerlich: 'Vorschlag von Gemini Argon: ca. 2–2,5 Silben/s, Vokale dehnen, alle Lautregeln (한국어 → [한구거]), Pausen nur zwischen Wörtern; geprüft über Tempo und Lücken',
   silben: 'Anweisung: Wörter Silbe für Silbe, Sätze Wort für Wort',
   silbentext: 'Die App schreibt die Pausen in den Text (학-생); geprüft wird die Länge statt der Mitschrift',
 }
@@ -363,7 +364,7 @@ function VoiceBench({ apiKey, allModels }: { apiKey: string; allModels: { id: st
   const runLive = async () => {
     setRunning(true)
     setResults([])
-    const s = new LiveSession(apiKey, liveModel, voice, tempo === 'langsam' ? SLOW_INSTRUCTION : tempo === 'silben' ? SLOW_STEP_INSTRUCTION : tempo === 'silbentext' ? SLOW_TEXT_INSTRUCTION : undefined)
+    const s = new LiveSession(apiKey, liveModel, voice, tempo === 'langsam' ? SLOW_INSTRUCTION : tempo === 'silben' ? SLOW_STEP_INSTRUCTION : tempo === 'silbentext' ? SLOW_TEXT_INSTRUCTION : tempo === 'natuerlich' ? SLOW_NATURAL_INSTRUCTION : undefined)
     try {
       setStatus('Verbinde …')
       const connectMs = await s.open()
@@ -379,7 +380,12 @@ function VoiceBench({ apiKey, allModels }: { apiKey: string; allModels: { id: st
             const t = tailCheck(cand.pcm, cand.sampleRate)
             cand.tailRatio = t.ratio
             cand.tailCut = t.cut
-            if (stepMode && syllableCount(l)) {
+            if (tempo === 'natuerlich' && syllableCount(l)) {
+              // Gegenprüfung bricht bei Pausen ab – hier zählen Tempo je Silbe und Lücken im Wort
+              const a = analyzeSlow(cand.pcm, cand.sampleRate, l)
+              cand.heardOk = a.ok
+              cand.heard = `${a.perSyllableMs} ms/Silbe · Lücke max. ${a.maxGapMs} ms · netto ${a.netMs} ms${a.reason ? ` – ${a.reason}` : ''}`
+            } else if (stepMode && syllableCount(l)) {
               // Gegenprüfung bricht bei Pausen ab – hier zählt, ob die Aufnahme lang genug für die Silben ist
               const ms = cand.audioMs ?? 0
               cand.heardOk = slowLengthOk(l, ms)
@@ -460,6 +466,7 @@ function VoiceBench({ apiKey, allModels }: { apiKey: string; allModels: { id: st
             <select className="input !w-auto" value={tempo} onChange={(e) => setTempo(e.target.value as Tempo)} aria-label="Tempo">
               <option value="normal">normal</option>
               <option value="langsam">langsam (Anweisung)</option>
+              <option value="natuerlich">langsam natürlich (Argon, neu)</option>
               <option value="silben">silbenweise (Anweisung)</option>
               <option value="silbentext">silbenweise (Pausen im Text)</option>
             </select>
@@ -523,6 +530,7 @@ function VoiceBench({ apiKey, allModels }: { apiKey: string; allModels: { id: st
                 <span className="flex shrink-0 items-center gap-2">
                   {!r.error && (() => { const ok = (r.heardOk ?? r.verbatim) && !r.tailCut; return <span className={`text-sm font-semibold ${ok ? 'text-green' : 'text-orange'}`}>{ok ? '✓ sauber' : r.tailCut ? '✂ abgeschnitten' : '≠ abweichend'}</span> })()}
                   <button className="btn-soft !min-h-9 !px-2 !py-1 text-xs" disabled={!r.pcm.length} onClick={() => playPcmAtSpeed(r.pcm, r.sampleRate, 0.75)} title="Dieselbe Aufnahme mit 75 % Tempo, Tonhöhe bleibt gleich">0,75×</button>
+                  <button className="btn-soft !min-h-9 !px-2 !py-1 text-xs" disabled={!r.pcm.length} onClick={() => playPcmAtSpeed(r.pcm, r.sampleRate, 0.88)} title="Dieselbe Aufnahme mit 88 % Tempo – laut Argon fast ohne Klangverlust">0,88×</button>
                   <button className="btn-soft !min-h-9 !px-2 !py-1 text-xs" onClick={() => speakSystem(r.text, /[가-힣]/.test(r.text) ? 'ko' : 'de')} title="Zum Vergleich: Systemstimme">System</button>
                   <button className="grid h-11 w-11 place-items-center rounded-full text-blue transition hover:bg-fill-3 disabled:opacity-30" disabled={!r.pcm.length} onClick={() => playPcm(r.pcm, r.sampleRate)} aria-label={`${r.text} abspielen`}>
                     <Play size={18} fill="currentColor" />

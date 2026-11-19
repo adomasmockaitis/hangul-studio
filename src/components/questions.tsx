@@ -7,6 +7,7 @@ import type { WordItem } from '../types'
 import { HangulCanvas } from './HangulCanvas'
 import type { QResult } from './Runner'
 import { useQuestionAside } from './questionAside'
+import { useLandscapeFocus } from '../lib/useLandscape'
 
 interface Common {
   onResult: (r: QResult) => void
@@ -33,6 +34,7 @@ export function WriteQuestion({
 }) {
   const [done, setDone] = useState(false)
   const { settings } = useApp()
+  const focusRef = useLandscapeFocus<HTMLDivElement>()
   useEffect(() => {
     if (autoPlay && audioPrompt) speak(audioPrompt)
     else if (speakPrompt && settings.autoSpeak) speakGerman(speakPrompt)
@@ -41,8 +43,8 @@ export function WriteQuestion({
   }, [])
 
   return (
-    <div className="space-y-5">
-      <div className="card fade-up p-6 text-center">
+    <div ref={focusRef} className="space-y-5 landscape-phone:grid landscape-phone:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] landscape-phone:items-start landscape-phone:gap-3 landscape-phone:space-y-0 scroll-mt-3">
+      <div className="card fade-up p-6 text-center landscape-phone:sticky landscape-phone:top-0 landscape-phone:max-h-[calc(100dvh-1.5rem)] landscape-phone:overflow-y-auto landscape-phone:!p-4">
         {prompt}
         {audioPrompt && (
           <div className="mt-3 flex flex-wrap justify-center gap-2">
@@ -64,7 +66,7 @@ export function WriteQuestion({
           </div>
         )}
       </div>
-      <div className="card p-4 sm:p-5">
+      <div className="card p-4 sm:p-5 landscape-phone:!p-3">
         <HangulCanvas
           target={target}
           testMode

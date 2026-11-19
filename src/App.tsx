@@ -57,9 +57,9 @@ function Shell() {
   return (
     <div className="flex h-full">
       {/* Seitenleiste (ab Tablet quer): schwebendes Glas */}
-      <aside className="hidden shrink-0 p-3 pr-0 md:block">
-        <div className="glass flex h-full w-60 flex-col rounded-[26px] p-3">
-          <div className="mb-5 flex items-center gap-3 px-2 pt-2">
+      <aside className="hidden shrink-0 p-3 pr-0 md:block landscape-phone:p-2 landscape-phone:pr-0">
+        <div className="glass flex h-full w-60 flex-col rounded-[26px] p-3 landscape-phone:w-14 landscape-phone:rounded-[22px] landscape-phone:p-1.5">
+          <div className="mb-5 flex items-center gap-3 px-2 pt-2 landscape-phone:hidden">
             <div className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-blue to-indigo text-xl font-bold text-white shadow-md" aria-hidden>한</div>
             <div>
               <p className="font-bold leading-tight">Hangul Studio</p>
@@ -74,20 +74,22 @@ function Shell() {
                 key={n.id}
                 onClick={() => go(n.id)}
                 aria-current={tab === n.id ? 'page' : undefined}
-                className={`relative flex min-h-11 w-full items-center gap-3 rounded-full px-3.5 text-left text-base transition-colors active:opacity-60 ${
+                aria-label={n.label}
+                className={`relative flex min-h-11 w-full items-center gap-3 rounded-full px-3.5 text-left text-base transition-colors active:opacity-60 landscape-phone:justify-center landscape-phone:px-0 ${
                   tab === n.id ? 'font-semibold text-label' : 'font-medium text-label-2 hover:bg-fill-4'
                 }`}
               >
-                <n.icon key={tab === n.id ? 'on' : 'off'} size={20} className={tab === n.id ? 'tab-bounce text-blue' : ''} /> {n.label}
+                <n.icon key={tab === n.id ? 'on' : 'off'} size={20} className={tab === n.id ? 'tab-bounce text-blue' : ''} /> <span className="landscape-phone:hidden">{n.label}</span>
               </button>
             ))}
           </nav>
-          <div className="mt-auto pt-4"><AiStatusPill className="w-full" /></div>
+          <div className="mt-auto pt-4 landscape-phone:hidden"><AiStatusPill className="w-full" /></div>
         </div>
       </aside>
 
-      <AiStatusPill compact className="glass fixed right-3 top-[max(0.75rem,env(safe-area-inset-top))] z-30 md:hidden" />
-      <main id="main" className="min-w-0 flex-1 overflow-y-auto px-4 pb-32 pt-16 sm:px-8 md:pb-10 md:pt-10">
+      <main id="main" className="relative min-w-0 flex-1 overflow-y-auto px-4 pb-32 pt-16 sm:px-8 md:pb-10 md:pt-10 landscape-phone:px-3 landscape-phone:pb-3 landscape-phone:pt-3">
+        {/* KI-Status oben rechts: scrollt mit, statt über dem Inhalt zu schweben */}
+        <AiStatusPill compact className="glass absolute right-3 top-[max(0.75rem,env(safe-area-inset-top))] z-10 md:hidden" />
         <div key={`${tab}-${navKey}`} className="page-in">
           {tab === 'start' && <Dashboard />}
           {tab === 'woerter' && <Dictionary />}

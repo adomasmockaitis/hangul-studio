@@ -161,6 +161,20 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
     return () => ro.disconnect()
   }, [keyboard])
 
+  // iOS: Berühren des Zeichenfelds darf weder Text markieren noch die Lupe/das Kontextmenü öffnen
+  useEffect(() => {
+    const c = canvasRef.current
+    if (!c) return
+    const stop = (e: TouchEvent) => e.preventDefault()
+    c.addEventListener('touchstart', stop, { passive: false })
+    c.addEventListener('touchmove', stop, { passive: false })
+    return () => {
+      c.removeEventListener('touchstart', stop)
+      c.removeEventListener('touchmove', stop)
+      document.documentElement.classList.remove('no-select')
+    }
+  }, [keyboard])
+
   useLayoutEffect(() => {
     const c = canvasRef.current
     if (!c) return
@@ -182,6 +196,9 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
     e.preventDefault()
     canvasRef.current!.setPointerCapture(e.pointerId)
     pointerIdRef.current = e.pointerId
+    // solange gezeichnet wird, nirgends auf der Seite markieren
+    document.documentElement.classList.add('no-select')
+    window.getSelection()?.removeAllRanges()
     const p = pos(e)
     currentRef.current = [p]
     const ctx = canvasRef.current!.getContext('2d')!
@@ -205,6 +222,7 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
   const finish = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (e.pointerId !== pointerIdRef.current) return
     pointerIdRef.current = null
+    document.documentElement.classList.remove('no-select')
     if (currentRef.current) {
       strokesRef.current.push(currentRef.current)
       currentRef.current = null
@@ -511,15 +529,36 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
   const tplColor = dark ? 'rgba(255,255,255,0.16)' : 'rgba(0,0,0,0.13)'
 
   const statusColor = result?.error ? 'amber' : result?.correct ? 'green' : 'red'
+  /** Blase aufgeklappt: Ergebnis, Musterlösung oder vorläufiges Ergebnis */
+  const expanded = phase === 'result' || phase === 'reveal' || (phase === 'checking' && !!preview) || (!!bgNote && phase !== 'idle')
 
   return (
     <div className="space-y-3">
-      {/* Kopfleiste: Hilfen & Eingabeart */}
-      <div className="flex flex-wrap items-center gap-2">
+      {/* Eine Werkzeugzeile: Hilfen, Zeichenwerkzeuge, Eingabeart */}
+      <div className="flex flex-wrap items-center gap-2 landscape-phone:gap-1.5">
         {!testMode && (
-          <button className={showHelp ? 'btn-primary' : 'btn-soft'} onClick={() => setShowHelp((s) => !s)} title="Strichreihenfolge-Hilfe">
-            <ListOrdered size={16} /> <span className="hidden sm:inline">Strichreihenfolge</span>
+          <button className={showHelp ? 'btn-primary' : 'btn-soft'} onClick={() => setShowHelp((s) => !s)} title="Strichreihenfolge-Hilfe" aria-label="Strichreihenfolge" aria-pressed={showHelp}>
+            <ListOrdered size={16} /> <span className="hidden lg:inline">Strichreihenfolge</span>
           </button>
+        )}
+        {!keyboard && (
+          <>
+            <button className="btn-soft" onClick={clear} disabled={!strokeCount || phase === 'result'} title="Löschen" aria-label="Zeichnung löschen">
+              <Eraser size={16} /> <span className="hidden lg:inline">Löschen</span>
+            </button>
+            <button className="btn-soft" onClick={undo} disabled={!strokeCount || phase === 'result'} title="Rückgängig" aria-label="Letzten Strich rückgängig">
+              <Undo2 size={16} /> <span className="hidden lg:inline">Rückgängig</span>
+            </button>
+            <label className="flex min-h-11 items-center gap-2 rounded-full bg-fill-3 px-4 text-sm landscape-phone:px-3" title="Strichdicke">
+              <span className="text-label-2 landscape-phone:hidden">Strich</span>
+              <input type="range" min={2} max={16} value={width} onChange={(e) => setWidth(+e.target.value)} className="w-16 accent-blue sm:w-20" />
+            </label>
+            {!testMode && (
+              <button className={template ? 'btn-primary' : 'btn-soft'} onClick={() => setTemplate((t) => !t)} title="Blasse Vorlage" aria-label="Blasse Vorlage" aria-pressed={template}>
+                {template ? <Eye size={16} /> : <EyeOff size={16} />} <span className="hidden lg:inline">Vorlage</span>
+              </button>
+            )}
+          </>
         )}
         <button
           className="btn-soft ml-auto"
@@ -527,10 +566,11 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
             setKeyboard((k) => !k)
             retry()
           }}
-          title="Zwischen Zeichnen und Tastatur wechseln"
+          title={keyboard ? 'Zeichnen' : 'Tastatur statt Zeichnen'}
+          aria-label={keyboard ? 'Zeichnen' : 'Tastatur statt Zeichnen'}
         >
           {keyboard ? <PenLine size={16} /> : <Keyboard size={16} />}
-          <span className="text-xs sm:text-sm">{keyboard ? 'Zeichnen' : 'Tastatur statt Zeichnen'}</span>
+          <span className="hidden text-sm sm:inline landscape-phone:hidden">{keyboard ? 'Zeichnen' : 'Tastatur'}</span>
         </button>
       </div>
       {showHelp && <StrokeOrder text={target} mode={settings.strokeOrderStyle} />}
@@ -543,26 +583,6 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
         </div>
       )}
 
-      {/* Zeichen-Werkzeuge direkt am Zeichenfeld */}
-      {!keyboard && (
-        <div className="flex flex-wrap items-center gap-2">
-          <button className="btn-soft" onClick={clear} disabled={!strokeCount || phase === 'result'} title="Löschen" aria-label="Zeichnung löschen">
-            <Eraser size={16} /> <span className="hidden sm:inline">Löschen</span>
-          </button>
-          <button className="btn-soft" onClick={undo} disabled={!strokeCount || phase === 'result'} title="Rückgängig" aria-label="Letzten Strich rückgängig">
-            <Undo2 size={16} /> <span className="hidden sm:inline">Rückgängig</span>
-          </button>
-          <label className="flex min-h-11 items-center gap-2 rounded-full bg-fill-3 px-4 text-sm" title="Strichdicke">
-            <span className="text-label-2">Strich</span>
-            <input type="range" min={2} max={16} value={width} onChange={(e) => setWidth(+e.target.value)} className="w-20 accent-blue" />
-          </label>
-          {!testMode && (
-            <button className={template ? 'btn-primary' : 'btn-soft'} onClick={() => setTemplate((t) => !t)} title="Blasse Vorlage" aria-label="Blasse Vorlage" aria-pressed={template}>
-              {template ? <Eye size={16} /> : <EyeOff size={16} />} <span className="hidden sm:inline">Vorlage</span>
-            </button>
-          )}
-        </div>
-      )}
       {/* Zeichenfläche / Tastatur */}
       {keyboard ? (
         <input
@@ -580,7 +600,7 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
       ) : (
         <div
           ref={wrapRef}
-          className="relative h-[260px] overflow-hidden rounded-2xl border border-separator shadow-inner sm:h-[320px]"
+          className="no-select relative h-[300px] overflow-hidden rounded-2xl border border-separator shadow-inner sm:h-[320px] landscape-phone:h-[calc(100dvh-6.5rem)]"
           style={bgStyle}
         >
           {hangulRow && (
@@ -623,11 +643,28 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
         </div>
       )}
 
-      {/* Schwebende Leiste: Ergebnis + Aktionen. Der ganze Kasten färbt sich passend zum Ergebnis (grün = richtig, rot = falsch). */}
-      <div ref={barRef} className="sticky bottom-[var(--tabbar-space)] z-20 md:bottom-3">
+      {/* Prüfen-Blase unten rechts; Ergebnis, Musterlösung und Aktionen wachsen als Karte aus ihr heraus */}
+      <div
+        ref={barRef}
+        className="pointer-events-none fixed inset-x-3 bottom-[calc(var(--tabbar-space)+0.5rem)] z-30 flex justify-end md:sticky md:bottom-3 landscape-phone:fixed landscape-phone:bottom-3 landscape-phone:left-auto landscape-phone:right-3"
+      >
+        {!expanded ? (
+          <div className="bubble-in glass pointer-events-auto flex max-w-full items-center gap-1.5 rounded-full p-1.5 shadow-lg">
+            {!keyboard && phase === 'idle' && (
+              <span className="truncate pl-2.5 pr-1 text-xs text-label-2">
+                {firstMethod === 'inputtools' ? 'Input Tools' : firstMethod === 'gemini' ? 'Gemini' : 'Selbst-Check'}
+              </span>
+            )}
+            {aside && <div className="flex">{aside}</div>}
+            <button data-primary className="btn-primary !rounded-full !px-5 !py-3" onClick={() => void check()} disabled={phase === 'checking' || (keyboard && !typed.trim())}>
+              {phase === 'checking' ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
+              {phase === 'checking' ? 'Prüfe…' : 'Prüfen'}
+            </button>
+          </div>
+        ) : (
         <div
-          key={result ? statusColor : 'idle'}
-          className={`space-y-2.5 rounded-[22px] border p-3 shadow-lg backdrop-blur-xl transition-colors duration-300 ${result ? (statusColor === 'green' ? 'pulse-once' : 'shake') : ''} ${
+          key={`${phase}-${result ? statusColor : 'none'}`}
+          className={`bubble-grow pointer-events-auto max-h-[70dvh] w-[min(28rem,calc(100vw-1.5rem))] space-y-2.5 overflow-y-auto rounded-[22px] border p-3 shadow-xl backdrop-blur-xl transition-colors duration-300 ${
             result && statusColor === 'green'
               ? 'border-green/50 bg-[#e3f8e8]/95 dark:bg-[#10301b]/95'
               : result && statusColor === 'red'
@@ -713,21 +750,13 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
                 {onNext && <button data-primary className="btn-primary ml-auto !py-3" onClick={onNext}>{nextLabel} <ArrowRight size={16} /></button>}
               </>
             ) : (
-              <>
-                {!keyboard && phase === 'idle' && (
-                  <span className="px-1 text-xs text-label-3">
-                    {firstMethod === 'inputtools' ? 'Prüfung: Input Tools' : firstMethod === 'gemini' ? 'Prüfung: Gemini' : 'Selbst-Check'}
-                  </span>
-                )}
-                {aside && <div className="ml-auto flex">{aside}</div>}
-                <button data-primary className={`btn-primary ${aside ? '' : 'ml-auto'} !py-3`} onClick={() => void check()} disabled={phase === 'checking' || (keyboard && !typed.trim())}>
-                  {phase === 'checking' ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
-                  {phase === 'checking' ? 'Prüfe…' : 'Prüfen'}
-                </button>
-              </>
+              <button data-primary className="btn-primary ml-auto !py-3" disabled>
+                <Loader2 size={16} className="animate-spin" /> Prüfe…
+              </button>
             )}
           </div>
         </div>
+        )}
       </div>
     </div>
   )

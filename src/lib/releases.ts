@@ -24,6 +24,38 @@ export interface Release {
 }
 export const RELEASES: Release[] = [
   {
+    id: '2026-11-writing-bubble',
+    size: 'major',
+    title: 'Neu in Hangul Studio',
+    subtitle: 'Schreiben, neu gedacht',
+    features: [
+      {
+        icon: 'sparkles',
+        color: '#0a84ff',
+        title: 'Prüfen-Blase',
+        text: '„Prüfen“ schwebt jetzt als kleine Blase unten rechts und verdeckt nichts mehr. Das Ergebnis wächst mit einer Animation direkt aus der Blase heraus.',
+      },
+      {
+        icon: 'layers',
+        color: '#5e5ce6',
+        title: 'Handy quer halten',
+        text: 'Im Querformat steht das Wort links und das Zeichenfeld nimmt fast den ganzen Bildschirm ein. Die Navigation wird zur schmalen Leiste.',
+      },
+      {
+        icon: 'pointer',
+        color: '#30d158',
+        title: 'Kein Markieren mehr',
+        text: 'Beim Zeichnen auf dem Handy wird kein Text mehr blau markiert.',
+      },
+      {
+        icon: 'cloud',
+        color: '#ff9f0a',
+        title: 'Erst laden, dann erstellen',
+        text: 'Auf einem neuen Gerät holt die App zuerst die Stimmen aus deinem Konto bzw. Drive und erstellt nur, was noch fehlt.',
+      },
+    ],
+  },
+  {
     id: '2026-11-slow-sync',
     size: 'minor',
     title: 'Neu in Hangul Studio',
