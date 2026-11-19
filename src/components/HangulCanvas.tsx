@@ -98,6 +98,12 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
   const barRef = useRef<HTMLDivElement>(null)
   const aside = useQuestionAside()
   const landscape = useLandscapePhone()
+  /** Breite der Prüfen-Blase: daraus wächst die Strichreihenfolge (Querformat) */
+  const bubbleRef = useRef<HTMLDivElement>(null)
+  const [bubbleW, setBubbleW] = useState(320)
+  useLayoutEffect(() => {
+    if (bubbleRef.current) setBubbleW(bubbleRef.current.offsetWidth)
+  })
   // Enter = Hauptaktion (Prüfen / Weiter), solange kein Feld, Knopf oder Dialog den Fokus hat
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -579,7 +585,7 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
       {showHelp && !landscape && <StrokeOrder text={target} mode={settings.strokeOrderStyle} />}
       {/* Querformat: Strichreihenfolge als Blase über dem Zeichenfeld, mit X zum Schließen */}
       {showHelp && landscape && (
-        <div role="dialog" aria-label="Strichreihenfolge" className="bubble-grow glass fixed bottom-[4.25rem] right-[max(0.75rem,env(safe-area-inset-right))] z-40 max-h-[calc(100dvh-5.5rem)] w-[min(26rem,calc(100vw-1.5rem))] overflow-y-auto rounded-[22px] p-3 shadow-xl">
+        <div role="dialog" aria-label="Strichreihenfolge" style={{ ['--bw' as string]: `${bubbleW}px` }} className="bubble-rise glass fixed bottom-[4.25rem] right-[max(0.75rem,env(safe-area-inset-right))] z-40 max-h-[calc(100dvh-5.5rem)] w-[min(26rem,calc(100vw-1.5rem))] overflow-y-auto rounded-[22px] p-3 shadow-xl">
           <div className="relative">
             <button className="absolute right-0 top-0 z-10 grid h-8 w-8 place-items-center rounded-full bg-fill-3 text-label-2 transition hover:bg-fill-1" onClick={() => setShowHelp(false)} aria-label="Strichreihenfolge schließen">
               <X size={16} />
@@ -663,7 +669,7 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
         className="pointer-events-none fixed inset-x-3 bottom-[calc(var(--tabbar-space)+0.5rem)] z-30 flex justify-end md:sticky md:bottom-3 landscape-phone:fixed landscape-phone:bottom-3 landscape-phone:left-auto landscape-phone:right-[max(0.75rem,env(safe-area-inset-right))]"
       >
         {!expanded ? (
-          <div className="bubble-in glass pointer-events-auto flex max-w-full items-center gap-1.5 rounded-full p-1.5 shadow-lg">
+          <div ref={bubbleRef} className="bubble-in glass pointer-events-auto flex max-w-full items-center gap-1.5 rounded-full p-1.5 shadow-lg">
             {!keyboard && phase === 'idle' && (
               <span className="truncate pl-2.5 pr-1 text-xs text-label-2 landscape-phone:hidden">
                 {firstMethod === 'inputtools' ? 'Input Tools' : firstMethod === 'gemini' ? 'Gemini' : 'Selbst-Check'}
