@@ -192,7 +192,8 @@ function Animated({ layouts, compact = false }: { layouts: SyllableLayout[]; com
   )
 }
 
-export function StrokeOrder({ text, mode, compact = false }: { text: string; mode: StrokeStyleMode; compact?: boolean }) {
+/** `embedded`: ohne eigene Karte und ohne Minimieren (z. B. in der Blase, die ihr eigenes X hat) */
+export function StrokeOrder({ text, mode, compact = false, embedded = false }: { text: string; mode: StrokeStyleMode; compact?: boolean; embedded?: boolean }) {
   const layouts = useMemo(
     () => Array.from(text).map((ch) => layoutSyllable(ch)).filter((l): l is SyllableLayout => !!l),
     [text],
@@ -225,14 +226,14 @@ export function StrokeOrder({ text, mode, compact = false }: { text: string; mod
   }
 
   return (
-    <div className="fade-up rounded-2xl border border-separator bg-fill-4 p-3">
-      <div className="flex items-center justify-between gap-2">
+    <div className={embedded ? '' : 'fade-up rounded-2xl border border-separator bg-fill-4 p-3'}>
+      <div className="flex min-h-9 items-center justify-between gap-2">
         <p className="label">Strichreihenfolge · {mode === 'animation' ? 'Animation' : 'Zahlen & Pfeile'}</p>
-        <button className="btn-soft !px-2.5 !py-1 text-xs" onClick={toggle} aria-expanded={!collapsed} title={collapsed ? 'Strichreihenfolge einblenden' : 'Strichreihenfolge minimieren'}>
+        {!embedded && <button className="btn-soft !px-2.5 !py-1 text-xs" onClick={toggle} aria-expanded={!collapsed} title={collapsed ? 'Strichreihenfolge einblenden' : 'Strichreihenfolge minimieren'}>
           {collapsed ? <><ChevronDown size={14} /> Einblenden</> : <><ChevronUp size={14} /> Minimieren</>}
-        </button>
+        </button>}
       </div>
-      {collapsed ? null : (
+      {collapsed && !embedded ? null : (
         <>
       <p className="mb-2 mt-1 text-xs text-label-2">
         Jede Silbe wird als <b>ein Block</b> geschrieben – genau so, wie unten im Silbenraster: Anlaut links/oben, Vokal rechts oder unten.

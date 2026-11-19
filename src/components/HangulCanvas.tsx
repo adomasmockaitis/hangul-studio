@@ -98,12 +98,18 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
   const barRef = useRef<HTMLDivElement>(null)
   const aside = useQuestionAside()
   const landscape = useLandscapePhone()
-  /** Breite der Prüfen-Blase: daraus wächst die Strichreihenfolge (Querformat) */
-  const bubbleRef = useRef<HTMLDivElement>(null)
-  const [bubbleW, setBubbleW] = useState(320)
-  useLayoutEffect(() => {
-    if (bubbleRef.current) setBubbleW(bubbleRef.current.offsetWidth)
-  })
+  /** Größe der Strichreihenfolge-Karte im Querformat: von der Oberkante der Schreibfläche bis zur Blase */
+  const [helpBox, setHelpBox] = useState({ w: 480, h: 260 })
+  const toggleHelp = () => {
+    if (!showHelp && landscape && wrapRef.current) {
+      const r = wrapRef.current.getBoundingClientRect()
+      const bar = barRef.current?.getBoundingClientRect()
+      const right = bar ? bar.right : window.innerWidth - 12
+      const bottom = bar ? bar.bottom : window.innerHeight - 12
+      setHelpBox({ w: Math.round(right - r.left), h: Math.round(bottom - r.top) })
+    }
+    setShowHelp((s) => !s)
+  }
   // Enter = Hauptaktion (Prüfen / Weiter), solange kein Feld, Knopf oder Dialog den Fokus hat
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -539,6 +545,8 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
 
   const statusColor = result?.error ? 'amber' : result?.correct ? 'green' : 'red'
   /** Blase aufgeklappt: Ergebnis, Musterlösung oder vorläufiges Ergebnis */
+  /** Querformat: Strichreihenfolge wächst aus der Knopfleiste (wie das Ergebnis) */
+  const helpOpen = landscape && showHelp && !keyboard && phase === 'idle'
   const expanded = phase === 'result' || phase === 'reveal' || (phase === 'checking' && !!preview) || (!!bgNote && phase !== 'idle')
 
   return (
@@ -634,15 +642,6 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
               {target}
             </div>
           )}
-          {/* Querformat: Strichreihenfolge wächst aus der Prüfen-Blase und füllt die Schreibfläche; X schließt */}
-          {showHelp && landscape && (
-            <div role="dialog" aria-label="Strichreihenfolge" style={{ ['--bw' as string]: `${bubbleW}px` }} className="bubble-fill absolute inset-0 z-10 overflow-y-auto rounded-2xl bg-[var(--color-surface)] p-3 pb-16">
-              <button className="sticky top-0 z-10 float-right grid h-9 w-9 place-items-center rounded-full bg-fill-2 text-label transition hover:bg-fill-1" onClick={() => setShowHelp(false)} aria-label="Strichreihenfolge schließen">
-                <X size={18} />
-              </button>
-              <div className="pr-11"><StrokeOrder text={target} mode={settings.strokeOrderStyle} /></div>
-            </div>
-          )}
           <canvas
             ref={canvasRef}
             className="absolute inset-0 h-full w-full cursor-crosshair"
@@ -666,8 +665,23 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
         ref={barRef}
         className="pointer-events-none fixed inset-x-3 bottom-[calc(var(--tabbar-space)+0.5rem)] z-30 flex justify-end md:sticky md:bottom-3 landscape-phone:fixed landscape-phone:bottom-3 landscape-phone:left-auto landscape-phone:right-[max(0.75rem,env(safe-area-inset-right))]"
       >
-        {!expanded ? (
-          <div ref={bubbleRef} className="bubble-in glass pointer-events-auto flex max-w-full items-center gap-1.5 rounded-full p-1.5 shadow-lg">
+        {helpOpen ? (
+          <div
+            key="help"
+            role="dialog"
+            aria-label="Strichreihenfolge"
+            className="bubble-grow pointer-events-auto relative overflow-y-auto rounded-[22px] border border-separator bg-[color-mix(in_srgb,var(--color-surface),white_8%)] p-3 pl-4 shadow-xl"
+            style={{ width: helpBox.w, height: helpBox.h, maxWidth: 'calc(100vw - 1.5rem)' }}
+          >
+            <div>
+              <button className="absolute right-3 top-3 z-10 grid h-9 w-9 place-items-center rounded-full bg-fill-2 text-label transition hover:bg-fill-3" onClick={() => setShowHelp(false)} aria-label="Strichreihenfolge schließen">
+                <X size={18} />
+              </button>
+              <div className="pr-11"><StrokeOrder text={target} mode={settings.strokeOrderStyle} embedded /></div>
+            </div>
+          </div>
+        ) : !expanded ? (
+          <div className="bubble-in glass pointer-events-auto flex max-w-full items-center gap-1.5 rounded-full p-1.5 shadow-lg">
             {!keyboard && phase === 'idle' && (
               <span className="truncate pl-2.5 pr-1 text-xs text-label-2 landscape-phone:hidden">
                 {firstMethod === 'inputtools' ? 'Input Tools' : firstMethod === 'gemini' ? 'Gemini' : 'Selbst-Check'}
@@ -677,7 +691,7 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
             {landscape && phase === 'idle' && (
               <div className="flex items-center gap-1">
                 {!testMode && (
-                  <ToolDot on={showHelp} onClick={() => setShowHelp((s) => !s)} label="Strichreihenfolge"><ListOrdered size={16} /></ToolDot>
+                  <ToolDot on={showHelp} onClick={toggleHelp} label="Strichreihenfolge"><ListOrdered size={16} /></ToolDot>
                 )}
                 {!keyboard && (
                   <>
