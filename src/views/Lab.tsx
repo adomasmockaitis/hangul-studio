@@ -8,7 +8,7 @@ import {
   HANDWRITING_CANDIDATES, gemmaModels, generateSentences, listAllModels, readOne, samplesFromExport, samplesFromLocal, sleep,
   type HandResult, type HandSample, type LabModel, type SentenceResult,
 } from '../lib/lab/bench'
-import { LIVE_VOICES, LiveSession, SLOW_INSTRUCTION, SLOW_STEP_INSTRUCTION, isVerbatim, playPcm, playPcmAtSpeed, speakWithTtsModel, tailCheck, verifyAudio, verifyAudioLive, withFinalStop, type SpeakResult } from '../lib/lab/liveTts'
+import { LIVE_VOICES, LiveSession, SLOW_INSTRUCTION, SLOW_STEP_INSTRUCTION, SLOW_TEXT_INSTRUCTION, slowLengthOk, stepText, syllableCount, type StepSep, isVerbatim, playPcm, playPcmAtSpeed, speakWithTtsModel, tailCheck, verifyAudio, verifyAudioLive, withFinalStop, type SpeakResult } from '../lib/lab/liveTts'
 import { useApp } from '../store'
 import { POOL } from '../lib/particles/pool'
 import { fillSentence } from '../lib/particles/forms'
@@ -24,7 +24,16 @@ const SENTENCE_SET = [
   'Ich lerne seit einem Jahr Koreanisch.',
   'Morgen fahre ich mit meiner Familie ans Meer.',
 ].join(String.fromCharCode(10))
-const DEFAULT_WORDS = '학생\n감사합니다\n먹다\n읽다\n한국어\n괜찮아요\n학교에 가요\n물을 마셔요\nSchüler\nDanke\nessen\nKoreanisch'
+type Tempo = 'normal' | 'langsam' | 'silben' | 'silbentext'
+const TEMPO_TAG: Record<Tempo, string> = { normal: '', langsam: ' · langsam', silben: ' · silbenweise', silbentext: ' · Pausen im Text' }
+const TEMPO_HINT: Record<Tempo, string> = {
+  normal: 'Normale Vorlese-Anweisung',
+  langsam: 'Die Live API bekommt die Anweisung, langsam und deutlich mit kleinen Pausen zu sprechen',
+  silben: 'Anweisung: Wörter Silbe für Silbe, Sätze Wort für Wort',
+  silbentext: 'Die App schreibt die Pausen in den Text (학-생); geprüft wird die Länge statt der Mitschrift',
+}
+
+const DEFAULT_WORDS ='학생\n감사합니다\n먹다\n읽다\n한국어\n괜찮아요\n학교에 가요\n물을 마셔요\nSchüler\nDanke\nessen\nKoreanisch'
 
 /** Verstecktes Testlabor (#/labor): Modelle für Handschrift und Sätze vergleichen, Vorlesen testen. */
 export function Lab() {
@@ -334,7 +343,10 @@ function VoiceBench({ apiKey, allModels }: { apiKey: string; allModels: { id: st
   }, [liveModels, ttsModels, liveModel, ttsModel])
   const [voice, setVoice] = useState<string>('Kore')
   /** Tempo-Test: normale Anweisung oder „langsam und deutlich“ */
-  const [tempo, setTempo] = useState<'normal' | 'langsam' | 'silben'>('normal')
+  const [tempo, setTempo] = useState<Tempo>('normal')
+  /** Trennzeichen für „Pausen im Text“ (bestimmt die Länge der Pause) */
+  const [sep, setSep] = useState<StepSep>('-')
+  const stepMode = tempo === 'silben' || tempo === 'silbentext'
   const [text, setText] = useState(DEFAULT_WORDS)
   const [results, setResults] = useState<(SpeakResult & { source: string })[]>([])
   const [status, setStatus] = useState('')
@@ -351,7 +363,7 @@ function VoiceBench({ apiKey, allModels }: { apiKey: string; allModels: { id: st
   const runLive = async () => {
     setRunning(true)
     setResults([])
-    const s = new LiveSession(apiKey, liveModel, voice, tempo === 'langsam' ? SLOW_INSTRUCTION : tempo === 'silben' ? SLOW_STEP_INSTRUCTION : undefined)
+    const s = new LiveSession(apiKey, liveModel, voice, tempo === 'langsam' ? SLOW_INSTRUCTION : tempo === 'silben' ? SLOW_STEP_INSTRUCTION : tempo === 'silbentext' ? SLOW_TEXT_INSTRUCTION : undefined)
     try {
       setStatus('Verbinde …')
       const connectMs = await s.open()
@@ -360,14 +372,19 @@ function VoiceBench({ apiKey, allModels }: { apiKey: string; allModels: { id: st
         // Bis zu 3 Erzeugungen: angenommen wird ein Ergebnis, das sauber endet und (falls geprüft) richtig gehört wurde
         let r: SpeakResult | null = null
         for (let attempt = 1, max = attemptsFor(l); attempt <= max; attempt++) {
-          const cand = await s.speak(withFinalStop(l))
+          const cand = await s.speak(withFinalStop(tempo === 'silbentext' && syllableCount(l) ? stepText(l, sep) : l))
           cand.text = l
           cand.attempts = attempt
           if (!cand.error && cand.pcm.length) {
             const t = tailCheck(cand.pcm, cand.sampleRate)
             cand.tailRatio = t.ratio
             cand.tailCut = t.cut
-            if (check) {
+            if (stepMode && syllableCount(l)) {
+              // Gegenprüfung bricht bei Pausen ab – hier zählt, ob die Aufnahme lang genug für die Silben ist
+              const ms = cand.audioMs ?? 0
+              cand.heardOk = slowLengthOk(l, ms)
+              cand.heard = `Länge ${ms} ms – mindestens ${syllableCount(l) * 300} ms (${syllableCount(l)} Silben)`
+            } else if (check) {
               try {
                 cand.heard = /transcribe/i.test(checker)
                   ? await verifyAudioLive(apiKey, checker, cand.pcm, cand.sampleRate, (raw) => { cand.heardRaw = [...(cand.heardRaw ?? []), raw].slice(0, 6) })
@@ -383,7 +400,7 @@ function VoiceBench({ apiKey, allModels }: { apiKey: string; allModels: { id: st
           if (good || cand.error?.startsWith('Verbindung')) break
         }
         if (!r) continue
-        setResults((prev) => [...prev, { ...r, source: `${liveModel} · ${voice}${tempo === 'langsam' ? ' · langsam' : tempo === 'silben' ? ' · silbenweise' : ''}` }])
+        setResults((prev) => [...prev, { ...r, source: `${liveModel} · ${voice}${TEMPO_TAG[tempo]}${tempo === 'silbentext' ? ` „${sep}“` : ''}` }])
         if (r.error?.startsWith('Verbindung')) break
       }
       setStatus((st) => st + ' · fertig')
@@ -438,15 +455,30 @@ function VoiceBench({ apiKey, allModels }: { apiKey: string; allModels: { id: st
         />
         <ListRow
           title="Tempo"
-          subtitle={tempo === 'langsam' ? 'Die Live API bekommt die Anweisung, langsam und deutlich mit kleinen Pausen zu sprechen' : tempo === 'silben' ? 'Wörter Silbe für Silbe, Sätze Wort für Wort mit Pausen' : 'Normale Vorlese-Anweisung'}
+          subtitle={TEMPO_HINT[tempo]}
           right={
-            <select className="input !w-auto" value={tempo} onChange={(e) => setTempo(e.target.value as 'normal' | 'langsam' | 'silben')} aria-label="Tempo">
+            <select className="input !w-auto" value={tempo} onChange={(e) => setTempo(e.target.value as Tempo)} aria-label="Tempo">
               <option value="normal">normal</option>
               <option value="langsam">langsam (Anweisung)</option>
-              <option value="silben">silbenweise / wortweise (neu)</option>
+              <option value="silben">silbenweise (Anweisung)</option>
+              <option value="silbentext">silbenweise (Pausen im Text)</option>
             </select>
           }
         />
+        {tempo === 'silbentext' && (
+          <ListRow
+            title="Trennzeichen"
+            subtitle={`Bestimmt die Pause – Beispiel: ${stepText('학생', sep)} · ${stepText('학교에 가요', sep)}`}
+            right={
+              <select className="input !w-auto" value={sep} onChange={(e) => setSep(e.target.value as StepSep)} aria-label="Trennzeichen">
+                <option value="-">- (kurz)</option>
+                <option value="·">· (kurz)</option>
+                <option value=",">, (mittel)</option>
+                <option value="…">… (lang)</option>
+              </select>
+            }
+          />
+        )}
         <ListRow
           title="Stimme"
           right={

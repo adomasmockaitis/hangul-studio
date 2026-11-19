@@ -27,6 +27,40 @@ export const SLOW_STEP_INSTRUCTION =
   'Ist der Text ein Satz, sprich ihn Wort für Wort mit einer deutlichen Pause nach jedem Wort, aber jedes Wort selbst flüssig und mit natürlicher Aussprache. ' +
   'Sprich jeden Text genau einmal.'
 
+/** Testlabor: Pausen stehen schon im Text (Trennzeichen zwischen Silben bzw. Wörtern) */
+export const SLOW_TEXT_INSTRUCTION =
+  READ_ALOUD_INSTRUCTION +
+  ' Der Text ist für Sprachlernende mit Trennzeichen (z. B. „-“, „·“ oder „…“) zwischen Silben oder Wörtern geschrieben. ' +
+  'Mach an jedem Trennzeichen eine kurze Pause (etwa eine Viertelsekunde) und sprich die Trennzeichen nicht mit. ' +
+  'Sprich jede Silbe bzw. jedes Wort deutlich, etwas langsamer als normal. Sag den Text danach NICHT noch einmal am Stück.'
+
+export type StepSep = '-' | '·' | '…' | ','
+
+/** Wort → Silben mit Trennzeichen („학-생“), Satz → Wörter mit Trennzeichen („학교에 - 가요“) */
+export function stepText(text: string, sep: StepSep): string {
+  const t = text.trim().replace(/[.!?。]+$/, '')
+  if (/\s/.test(t)) return t.split(/\s+/).join(sep === ',' ? ', ' : ` ${sep} `)
+  const parts = [...t].reduce<string[]>((acc, ch) => {
+    // Hangul-Silben einzeln, alles andere (Ziffern, Latein) bleibt zusammen
+    if (/[가-힣]/.test(ch) || !acc.length || /[가-힣]/.test(acc[acc.length - 1].slice(-1))) acc.push(ch)
+    else acc[acc.length - 1] += ch
+    return acc
+  }, [])
+  return parts.join(sep === ',' ? ', ' : sep)
+}
+
+/** Koreanische Silben im Text */
+export const syllableCount = (text: string) => (text.match(/[가-힣]/g) ?? []).length
+
+/**
+ * Langsame Fassung plausibel lang? (Die Gegenprüfung bricht bei Pausen ab, deshalb zählt hier die Länge.)
+ * Mindestens `perSyllable` ms je Silbe; ohne koreanische Silben immer ok.
+ */
+export function slowLengthOk(text: string, audioMs: number, perSyllable = 300): boolean {
+  const n = syllableCount(text)
+  return !n || audioMs >= n * perSyllable
+}
+
 /** Aufnahme mit anderem Tempo abspielen, Tonhöhe bleibt gleich (Browser-Zeitdehnung) */
 export function playPcmAtSpeed(chunks: Int16Array[], sampleRate: number, speed: number) {
   const wav = pcmToWav(chunks, sampleRate)

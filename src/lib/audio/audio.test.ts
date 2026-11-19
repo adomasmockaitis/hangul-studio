@@ -4,7 +4,7 @@ import {
   produceClip, type Clip, type Generator, type Raw,
 } from './clips'
 import { isWordLike, shortGerman } from '../speech'
-import { collapseRepeat, isVerbatim } from '../lab/liveTts'
+import { collapseRepeat, isVerbatim, slowLengthOk, stepText } from '../lab/liveTts'
 import { attemptsFor, closeEnough, shouldSyncKey } from './clips'
 import { memoryAudioRemote, packOf, removeRemote } from './audioSync'
 
@@ -212,5 +212,21 @@ describe('Speicher und Stimmen', () => {
     expect(isWordLike('학교에 가요')).toBe(true)
     expect(isWordLike('저는 학교에 가요.')).toBe(false)
     expect(isWordLike(shortGerman('Schüler/in, Student/in'))).toBe(true)
+  })
+})
+
+describe('Langsam mit Pausen im Text', () => {
+  it('teilt Wörter in Silben und Sätze in Wörter', () => {
+    expect(stepText('학생', '-')).toBe('학-생')
+    expect(stepText('감사합니다', '·')).toBe('감·사·합·니·다')
+    expect(stepText('학교에 가요.', '-')).toBe('학교에 - 가요')
+    expect(stepText('학교에 가요', ',')).toBe('학교에, 가요')
+    expect(stepText('3시', '-')).toBe('3-시')
+  })
+  it('zu kurze Aufnahmen fallen durch', () => {
+    expect(slowLengthOk('읽다', 700)).toBe(true)
+    expect(slowLengthOk('읽다', 500)).toBe(false)
+    expect(slowLengthOk('감사합니다', 1200)).toBe(false)
+    expect(slowLengthOk('Danke', 300)).toBe(true)
   })
 })
