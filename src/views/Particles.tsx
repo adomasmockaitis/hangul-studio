@@ -8,7 +8,7 @@ import {
   PenLine, RotateCcw, Shuffle, Snail, Sparkles, Volume2, X,
 } from 'lucide-react'
 import { HangulCanvas } from '../components/HangulCanvas'
-import { Group, Segmented, Sheet } from '../components/ui'
+import { Group, Segmented, SessionBar, Sheet } from '../components/ui'
 import { SentenceWriter, type SentenceResult } from '../components/SentenceWriter'
 import { sameSentence } from '../lib/ink'
 import { useToast } from '../components/Toasts'
@@ -444,15 +444,7 @@ function Session({
       {pending[0] && (
         <NewWordSheet key={pending[0].ko} word={pending[0]} more={pending.length - 1} onDone={() => setIntroduced((s) => new Set(s).add(pending[0].ko))} />
       )}
-      <div className="h-1.5 overflow-hidden rounded-full bg-fill-2">
-        <div className="h-full rounded-full bg-blue transition-all" style={{ width: `${(i / tasks.length) * 100}%` }} />
-      </div>
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-xs text-label-3">
-          <b className="text-label-2">{title}</b> · Aufgabe {i + 1} von {tasks.length}{subtitle ? ` · ${subtitle}` : ''}
-        </p>
-        {onCancel && <button className="text-xs font-medium text-label-3 hover:text-label" onClick={onCancel}>Abbrechen</button>}
-      </div>
+      <SessionBar title={title} current={i} total={tasks.length} extra={subtitle} onCancel={onCancel} />
       {pending.length ? (
         <div className="card p-8 text-center text-sm text-label-3">Neues Wort …</div>
       ) : task.kind === 'translate' ? (

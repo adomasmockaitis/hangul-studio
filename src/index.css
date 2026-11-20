@@ -130,9 +130,11 @@ select option, select optgroup { background-color: var(--color-surface); color: 
   border: 1px solid var(--glass-edge);
   box-shadow: var(--glass-shadow);
 }
+/* Knopf: Rückmeldung sofort beim Drücken (80 ms), beim Loslassen ohne Überschwingen zurück */
 @utility btn {
-  @apply inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold active:scale-[0.95] disabled:opacity-40;
-  transition: transform .28s cubic-bezier(.3, 1.35, .5, 1), background-color .2s ease, filter .2s ease, opacity .2s ease;
+  @apply inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold active:scale-[0.97] disabled:opacity-40;
+  transition: transform .3s cubic-bezier(.32, .72, 0, 1), background-color .2s ease, filter .2s ease, opacity .2s ease;
+  &:active { transition-duration: 80ms; }
 }
 @utility btn-primary { @apply btn bg-blue text-white hover:brightness-110; }
 @utility btn-soft { @apply btn bg-fill-3 text-label hover:bg-fill-1; }
@@ -144,7 +146,8 @@ select option, select optgroup { background-color: var(--color-surface); color: 
 @utility label { @apply text-[13px] font-medium text-label-2; }
 
 /* Bewegung im Apple-Stil: weich auslaufend, bei Bedienelementen mit leichtem Federn */
-@utility ease-spring { transition-timing-function: cubic-bezier(.3, 1.35, .5, 1); }
+/* „Feder“ ohne Überschwingen (kritisch gedämpft) – Überschwingen nur bei Gesten mit Schwung */
+@utility ease-spring { transition-timing-function: cubic-bezier(.32, .72, 0, 1); }
 
 /* Seitenwechsel */
 @keyframes page-in { from { opacity: 0; transform: translateY(10px) scale(.992); } to { opacity: 1; transform: none; } }
@@ -170,15 +173,15 @@ select option, select optgroup { background-color: var(--color-surface); color: 
 .stagger > :nth-child(n+9) { animation-delay: 240ms; }
 
 /* Rückmeldung: Symbol federt herein, bei „falsch“ kurzes Kopfschütteln */
-@keyframes pop-in { 0% { opacity: 0; transform: scale(.4); } 60% { opacity: 1; transform: scale(1.18); } 100% { transform: none; } }
+@keyframes pop-in { 0% { opacity: 0; transform: scale(.5); } 60% { opacity: 1; transform: scale(1.08); } 100% { transform: none; } }
 .pop-in { animation: pop-in .45s cubic-bezier(.3, 1.35, .5, 1) both; }
 @keyframes shake { 0%, 100% { transform: none; } 20% { transform: translateX(-7px); } 40% { transform: translateX(6px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(2px); } }
 .shake { animation: shake .4s ease-out; }
 @keyframes pulse-once { 0% { transform: scale(1); } 45% { transform: scale(1.025); } 100% { transform: none; } }
 .pulse-once { animation: pulse-once .45s cubic-bezier(.22, 1, .36, 1); }
 /* Aktives Tab-Symbol hüpft kurz */
-@keyframes tab-bounce { 0% { transform: scale(.8); } 55% { transform: scale(1.14); } 100% { transform: none; } }
-.tab-bounce { animation: tab-bounce .4s cubic-bezier(.3, 1.35, .5, 1); }
+@keyframes tab-bounce { 0% { transform: scale(.88); } 100% { transform: none; } }
+.tab-bounce { animation: tab-bounce .35s cubic-bezier(.32, .72, 0, 1); }
 
 @keyframes fade-up { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 .fade-up { animation: fade-up .35s ease-out both; }
@@ -187,6 +190,11 @@ select option, select optgroup { background-color: var(--color-surface); color: 
 .toast-in { animation: toast-in .38s cubic-bezier(.2,.9,.3,1.1) both; }
 
 @keyframes sheet-up { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: none; } }
+/* Sheet schließt auf demselben Weg, auf dem es kam */
+@keyframes sheet-down { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(24px); } }
+.sheet-down { animation: sheet-down .22s cubic-bezier(.32, .72, 0, 1) both; }
+@keyframes fade-out { from { opacity: 1; } to { opacity: 0; } }
+.fade-out { animation: fade-out .22s ease both; }
 .sheet-up { animation: sheet-up .32s cubic-bezier(.2,.9,.3,1) both; }
 /* Prüfen-Blase: Ergebnis wächst aus der Blase unten rechts heraus */
 /* Die Form wächst aus der Blase (Ausschnitt statt Stauchen, damit nichts verzerrt), der Inhalt blendet danach ein */
@@ -239,4 +247,13 @@ select option, select optgroup { background-color: var(--color-surface); color: 
   .landscape-strip { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: .25rem 1rem; }
   .landscape-strip > *, .landscape-strip > * > * { margin-top: 0 !important; margin-bottom: 0 !important; }
   .landscape-strip :is(h2, .text-4xl, .text-5xl, .text-6xl) { font-size: 1.75rem !important; line-height: 1.15 !important; }
+}
+
+/* Bedienungshilfen: weniger Transparenz → feste Flächen; mehr Kontrast → klare Ränder */
+@media (prefers-reduced-transparency: reduce) {
+  .glass { background: var(--color-surface) !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+}
+@media (prefers-contrast: more) {
+  .glass, .card { border: 1px solid var(--color-label-3) !important; }
+  .glass { background: var(--color-surface) !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
 }

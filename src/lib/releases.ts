@@ -24,6 +24,14 @@ export interface Release {
 }
 export const RELEASES: Release[] = [
   {
+    id: '2026-11-motion-polish',
+    size: 'minor',
+    title: 'Neu in Hangul Studio',
+    subtitle: 'Ruhigere Bewegungen',
+    summary: 'Knöpfe reagieren sofort beim Drücken und federn nicht mehr über, Fenster gleiten beim Schließen auf demselben Weg zurück und lassen sich auf dem Handy nach unten wegwischen, alle Übungen haben dieselbe Kopfzeile mit Fortschritt und „Beenden“, und „Weniger Transparenz“ sowie „Mehr Kontrast“ deines Geräts werden berücksichtigt.',
+    features: [],
+  },
+  {
     id: '2026-11-design-cleanup',
     size: 'minor',
     title: 'Neu in Hangul Studio',

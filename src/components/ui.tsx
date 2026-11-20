@@ -202,27 +202,90 @@ export function Sheet({
   /** Inhalt bleibt beim Schließen erhalten (z. B. laufender Scan) */
   keepMounted?: boolean
 }) {
-  const ref = useDialog(open, onClose)
+  // Schließen mit Animation: auf demselben Weg zurück, auf dem das Sheet kam
+  const [closing, setClosing] = useState(false)
+  const close = useCallback(() => {
+    if (closing) return
+    setClosing(true)
+    setTimeout(() => {
+      setClosing(false)
+      onClose()
+    }, 200)
+  }, [closing, onClose])
+  const ref = useDialog(open, close)
   const titleId = useId()
+  // Wischen zum Schließen (Handy): Griff folgt dem Finger 1:1, Schwung entscheidet
+  const drag = useRef<{ y0: number; last: { y: number; t: number }[] } | null>(null)
+  const [dy, setDy] = useState(0)
+  const [dragging, setDragging] = useState(false)
   useEffect(() => {
     if (open) playSound('open')
+    setDy(0)
   }, [open])
   if (!open && !keepMounted) return null
+  const onDown = (e: React.PointerEvent) => {
+    if (e.pointerType === 'mouse') return
+    try {
+      ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+    } catch {
+      /* z. B. Zeiger schon weg */
+    }
+    drag.current = { y0: e.clientY, last: [{ y: e.clientY, t: e.timeStamp }] }
+    setDragging(true)
+  }
+  const onMove = (e: React.PointerEvent) => {
+    const d = drag.current
+    if (!d) return
+    const raw = e.clientY - d.y0
+    // nach oben weich abbremsen (Gummiband), nach unten 1:1
+    setDy(raw >= 0 ? raw : -((-raw * 0.55 * 200) / (200 + 0.55 * -raw)))
+    d.last = [...d.last.slice(-4), { y: e.clientY, t: e.timeStamp }]
+  }
+  const onUp = () => {
+    const d = drag.current
+    drag.current = null
+    setDragging(false)
+    if (!d) return
+    const a = d.last[0]
+    const b = d.last[d.last.length - 1]
+    const v = b.t > a.t ? ((b.y - a.y) / (b.t - a.t)) * 1000 : 0 // px/s
+    // Wohin würde der Schwung das Sheet tragen? (Apples Projektion, Abbremsrate 0,998)
+    const projected = dy + ((v / 1000) * 0.998) / (1 - 0.998)
+    const height = ref.current?.offsetHeight ?? 400
+    if (projected > height * 0.4) close()
+    else setDy(0)
+  }
   return (
-    <div className={`fade-in fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center sm:p-6 ${open ? '' : 'hidden'}`} onMouseDown={onClose}>
+    <div className={`${closing ? 'fade-out' : 'fade-in'} fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center sm:p-6 ${open ? '' : 'hidden'}`} onMouseDown={close}>
       <div
         ref={ref}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className={`sheet-up max-h-[92dvh] w-full ${wide ? 'max-w-4xl' : 'max-w-xl'} overflow-y-auto rounded-t-[28px] bg-page p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl outline-none sm:rounded-[28px] dark:bg-surface`}
+        className={`${closing ? (dy > 0 ? '' : 'sheet-down') : 'sheet-up'} max-h-[92dvh] w-full ${wide ? 'max-w-4xl' : 'max-w-xl'} overflow-y-auto rounded-t-[28px] bg-page p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl outline-none sm:rounded-[28px] dark:bg-surface`}
+        style={
+          closing && dy > 0
+            ? { transform: 'translateY(100%)', transition: 'transform .22s cubic-bezier(.32,.72,0,1)' } // vom aktuellen Punkt aus weiter nach unten
+            : dy && !closing
+              ? { transform: `translateY(${dy}px)`, transition: dragging ? 'none' : 'transform .35s cubic-bezier(.32,.72,0,1)' }
+              : undefined
+        }
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <div className="mx-auto mb-3 h-1.5 w-9 rounded-full bg-fill-1 sm:hidden" aria-hidden />
+        <div
+          className="-mx-5 -mt-5 mb-1 touch-none px-5 pb-2 pt-3 sm:hidden"
+          onPointerDown={onDown}
+          onPointerMove={onMove}
+          onPointerUp={onUp}
+          onPointerCancel={onUp}
+          aria-hidden
+        >
+          <div className="mx-auto h-1.5 w-9 rounded-full bg-fill-1" />
+        </div>
         <div className="mb-4 flex items-center justify-between gap-3">
           <h2 id={titleId} className="text-xl font-bold">{title}</h2>
-          <button type="button" onClick={onClose} aria-label="Schließen" className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-fill-3 text-label-2 transition hover:bg-fill-1">
+          <button type="button" onClick={close} aria-label="Schließen" className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-fill-3 text-label-2 transition hover:bg-fill-1">
             <X size={18} strokeWidth={2.4} />
           </button>
         </div>
@@ -231,6 +294,41 @@ export function Sheet({
     </div>
   )
 }
+/**
+ * Kopfzeile jeder Übung: Fortschritt, „Aufgabe x von y“ und Beenden – überall gleich gebaut.
+ * Der Balken wächst ohne Überschwingen mit (kritisch gedämpft).
+ */
+export function SessionBar({ title, current, total, unit = 'Aufgabe', extra, onCancel }: {
+  title?: ReactNode
+  /** 0-basiert: aktuelle Aufgabe */
+  current: number
+  total: number
+  unit?: string
+  extra?: ReactNode
+  onCancel?: () => void
+}) {
+  const pct = total ? Math.min(100, (current / total) * 100) : 0
+  return (
+    <div className="space-y-2">
+      <div className="h-1.5 overflow-hidden rounded-full bg-fill-2" role="progressbar" aria-valuemin={0} aria-valuemax={total} aria-valuenow={current} aria-label="Fortschritt">
+        <div className="ease-spring h-full rounded-full bg-blue transition-[width] duration-500" style={{ width: `${pct}%` }} />
+      </div>
+      <div className="flex min-h-8 items-center justify-between gap-2">
+        <p className="min-w-0 truncate text-[13px] text-label-2">
+          {title && <b className="font-semibold text-label">{title} · </b>}
+          {unit} {Math.min(current + 1, total)} von {total}
+          {extra && <> · {extra}</>}
+        </p>
+        {onCancel && (
+          <button className="-mr-2 shrink-0 rounded-full px-3 py-1.5 text-[13px] font-medium text-blue transition hover:bg-fill-4 active:opacity-60" onClick={onCancel}>
+            Beenden
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
 /** Alter Name – bitte `Sheet` verwenden. */
 export const Modal = Sheet
 

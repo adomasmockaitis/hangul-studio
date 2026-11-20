@@ -9,6 +9,7 @@ import { gradeFrom, type Dir } from '../lib/fsrs'
 import { useApp } from '../store'
 import { QuestionAside } from './questionAside'
 import { prepareSentences, prepareUpcomingWords } from '../lib/speech'
+import { SessionBar } from './ui'
 
 export interface QResult {
   correct: boolean
@@ -183,12 +184,7 @@ export function Runner({ questions, onDashboard, onBack, backLabel }: Props) {
   }
   return (
     <div className="space-y-4">
-      <div className="h-1.5 overflow-hidden rounded-full bg-fill-2">
-        <div className="h-full rounded-full bg-blue transition-all" style={{ width: `${(i / qs.length) * 100}%` }} />
-      </div>
-      <p className="text-xs text-label-3">
-        Frage {i + 1} von {qs.length}{round > 0 ? ' · Wiederholung' : ''}{isRetry && !answered ? ' · übersprungen' : ''}
-      </p>
+      <SessionBar current={i} total={qs.length} unit="Frage" extra={round > 0 ? 'Wiederholung' : isRetry && !answered ? 'übersprungen' : undefined} onCancel={onBack} />
       {gaveUp ? (
         <div className="card fade-up p-6 text-center">
           <p className="label mb-1">Lösung</p>
