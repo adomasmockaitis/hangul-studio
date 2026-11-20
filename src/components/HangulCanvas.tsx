@@ -1,6 +1,6 @@
 ﻿import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
 import {
-  AlertTriangle, ArrowRight, Check, Eraser, Eye, EyeOff, Keyboard, ListOrdered, Flag, Loader2, PenLine, ThumbsDown, ThumbsUp, Undo2, X,
+  AlertTriangle, ArrowRight, Check, Eraser, Trash2, Eye, EyeOff, Keyboard, ListOrdered, Flag, Loader2, PenLine, ThumbsDown, ThumbsUp, Undo2, X,
 } from 'lucide-react'
 import { dynamicTimeoutMs, readHandwriting } from '../lib/gemini'
 import { recognizeInk } from '../lib/inputTools'
@@ -13,6 +13,7 @@ import { useApp } from '../store'
 import { LANDSCAPE_PHONE, useLandscapePhone } from '../lib/useLandscape'
 import { StrokeOrder } from './StrokeOrder'
 import { useQuestionAside } from './questionAside'
+import { eraseStrokesAt, isPenEraser, RailButton, RailRow, WidthButton, useHandSide } from './CanvasRail'
 
 interface P {
   x: number
@@ -22,7 +23,7 @@ interface P {
 }
 type DrawStroke = P[]
 
-type Phase = 'idle' | 'checking' | 'reveal' | 'result'
+type Phase = 'idle' | 'checking' | 'reveal' | 'result' | 'practice'
 interface Result {
   correct: boolean
   read?: string
@@ -89,15 +90,18 @@ interface Props {
   nextLabel?: string
   /** Im Quiz soll das Zielwort nicht vorab sichtbar sein */
   testMode?: boolean
+  /** Nach dem Prüfen freies Nachschreiben anbieten (wenn in den Einstellungen an) */
+  practice?: boolean
 }
 
-export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = 'Weiter', testMode = false }: Props) {
+export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = 'Weiter', testMode = false, practice = false }: Props) {
   const { settings } = useApp()
   const dark = useIsDark()
   const wrapRef = useRef<HTMLDivElement>(null)
   const barRef = useRef<HTMLDivElement>(null)
   const aside = useQuestionAside()
   const landscape = useLandscapePhone()
+  const { toolsLeft } = useHandSide()
   /** Größe der Strichreihenfolge-Karte im Querformat: von der Oberkante der Schreibfläche bis zur Blase */
   const [helpBox, setHelpBox] = useState({ w: 480, h: 260, bw: 340 })
   const [helpClosing, setHelpClosing] = useState(false)
@@ -106,9 +110,10 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
     if (!showHelp && landscape && wrapRef.current) {
       const r = wrapRef.current.getBoundingClientRect()
       const bar = barRef.current?.getBoundingClientRect()
-      const right = bar ? bar.right : window.innerWidth - 12
       const bottom = bar ? bar.bottom : window.innerHeight - 12
-      setHelpBox({ w: Math.round(right - r.left), h: Math.round(bottom - r.top), bw: Math.round(bar?.width ?? 340) })
+      // Karte wächst von der Blase über die Schreibfläche – nach rechts (Blase links) oder nach links
+      const w = toolsLeft ? r.right - (bar ? bar.left : r.left) : (bar ? bar.right : window.innerWidth - 12) - r.left
+      setHelpBox({ w: Math.round(w), h: Math.round(bottom - r.top), bw: Math.round(bar?.width ?? 340) })
     }
     setShowHelp((s) => !s)
   }
@@ -128,9 +133,10 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
       if (e.key !== 'Enter' || e.isComposing || e.repeat) return
       const t = e.target as HTMLElement | null
       if (t?.closest('input, textarea, select, button, a, [role="dialog"], [role="alertdialog"]')) return
-      if (document.querySelector('[role="dialog"], [role="alertdialog"]')) return
+      // nur sichtbare Dialoge zählen (der Scanner bleibt geschlossen im Hintergrund geladen)
+      if ([...document.querySelectorAll('[role="dialog"], [role="alertdialog"]')].some((d) => d.getClientRects().length)) return
       const b = barRef.current?.querySelector<HTMLButtonElement>('[data-primary]:not(:disabled)')
-      if (b) { e.preventDefault(); b.click() }
+      if (b && b.getClientRects().length) { e.preventDefault(); b.click() }
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
@@ -153,6 +159,9 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
   const [size, setSize] = useState({ w: 600, h: 300 })
   const [strokeCount, setStrokeCount] = useState(0)
   const [width, setWidth] = useState(settings.strokeWidth)
+  /** Strich-Radierer: berührte Striche verschwinden ganz (Schalter oder Stift-Seitentaste) */
+  const [erasing, setErasing] = useState(false)
+  const eraseRef = useRef<number | null>(null)
   const [template, setTemplate] = useState(settings.showTemplate && !testMode)
   // Im Querformat zählt der Platz fürs Zeichenfeld: Strichreihenfolge erst auf Tipp
   const [showHelp, setShowHelp] = useState(settings.showStrokeOrder && !testMode && !window.matchMedia(LANDSCAPE_PHONE).matches)
@@ -220,6 +229,14 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
 
   const onDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (phase === 'checking' || phase === 'result' || pointerIdRef.current !== null) return
+    // Strich-Radierer: Schalter an oder Stift-Seitentaste gedrückt
+    if (erasing || isPenEraser(e)) {
+      e.preventDefault()
+      canvasRef.current!.setPointerCapture(e.pointerId)
+      eraseRef.current = e.pointerId
+      eraseAt(pos(e))
+      return
+    }
     if (e.pointerType === 'mouse' && e.button !== 0) return
     e.preventDefault()
     canvasRef.current!.setPointerCapture(e.pointerId)
@@ -233,7 +250,19 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
     paintStroke(ctx, currentRef.current, ink, window.devicePixelRatio || 1)
   }
 
+  const eraseAt = (p: P) => {
+    const left = eraseStrokesAt(strokesRef.current, p, Math.max(10, width * 1.5))
+    if (left.length === strokesRef.current.length) return
+    strokesRef.current = left
+    setStrokeCount(left.length)
+    redraw()
+  }
+
   const onMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (e.pointerId === eraseRef.current) {
+      for (const ev of e.nativeEvent.getCoalescedEvents?.() ?? [e.nativeEvent]) eraseAt(pos(ev))
+      return
+    }
     if (e.pointerId !== pointerIdRef.current || !currentRef.current) return
     e.preventDefault()
     const ctx = canvasRef.current!.getContext('2d')!
@@ -248,6 +277,10 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
   }
 
   const finish = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (e.pointerId === eraseRef.current) {
+      eraseRef.current = null
+      return
+    }
     if (e.pointerId !== pointerIdRef.current) return
     pointerIdRef.current = null
     document.documentElement.classList.remove('no-select')
@@ -536,6 +569,14 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
     setTyped('')
     clear()
   }
+  /** Freies Nachschreiben: leeres Feld mit Vorlage, nichts wird geprüft */
+  const practiceOn = practice && settings.practiceWriting && !keyboard && !!onNext
+  const startPractice = () => {
+    clear()
+    setTemplate(true)
+    setPhase('practice')
+  }
+  const drawing = phase === 'idle' || phase === 'practice'
 
   // ---------- Hintergrund ----------
   const line = dark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.09)'
@@ -564,45 +605,6 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
 
   return (
     <div className="space-y-3">
-      {/* Eine Werkzeugzeile: Hilfen, Zeichenwerkzeuge, Eingabeart */}
-      <div className="flex flex-wrap items-center gap-2 landscape-phone:hidden">
-        {!testMode && (
-          <button className={showHelp ? 'btn-primary' : 'btn-soft'} onClick={() => setShowHelp((s) => !s)} title="Strichreihenfolge-Hilfe" aria-label="Strichreihenfolge" aria-pressed={showHelp}>
-            <ListOrdered size={16} /> <span className="hidden lg:inline">Strichreihenfolge</span>
-          </button>
-        )}
-        {!keyboard && (
-          <>
-            <button className="btn-soft" onClick={clear} disabled={!strokeCount || phase === 'result'} title="Löschen" aria-label="Zeichnung löschen">
-              <Eraser size={16} /> <span className="hidden lg:inline">Löschen</span>
-            </button>
-            <button className="btn-soft" onClick={undo} disabled={!strokeCount || phase === 'result'} title="Rückgängig" aria-label="Letzten Strich rückgängig">
-              <Undo2 size={16} /> <span className="hidden lg:inline">Rückgängig</span>
-            </button>
-            <label className="flex min-h-11 items-center gap-2 rounded-full bg-fill-3 px-4 text-sm landscape-phone:px-3" title="Strichdicke">
-              <span className="text-label-2 landscape-phone:hidden">Strich</span>
-              <input type="range" min={2} max={16} value={width} onChange={(e) => setWidth(+e.target.value)} className="w-16 accent-blue sm:w-20" />
-            </label>
-            {!testMode && (
-              <button className={template ? 'btn-primary' : 'btn-soft'} onClick={() => setTemplate((t) => !t)} title="Blasse Vorlage" aria-label="Blasse Vorlage" aria-pressed={template}>
-                {template ? <Eye size={16} /> : <EyeOff size={16} />} <span className="hidden lg:inline">Vorlage</span>
-              </button>
-            )}
-          </>
-        )}
-        <button
-          className="btn-soft ml-auto"
-          onClick={() => {
-            setKeyboard((k) => !k)
-            retry()
-          }}
-          title={keyboard ? 'Zeichnen' : 'Tastatur statt Zeichnen'}
-          aria-label={keyboard ? 'Zeichnen' : 'Tastatur statt Zeichnen'}
-        >
-          {keyboard ? <PenLine size={16} /> : <Keyboard size={16} />}
-          <span className="hidden text-sm sm:inline landscape-phone:hidden">{keyboard ? 'Zeichnen' : 'Tastatur'}</span>
-        </button>
-      </div>
       {showHelp && (!landscape || keyboard) && <StrokeOrder text={target} mode={settings.strokeOrderStyle} />}
 
       {/* Musterlösung beim Selbst-Check */}
@@ -613,7 +615,33 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
         </div>
       )}
 
-      {/* Zeichenfläche / Tastatur */}
+      {/* Zeichenfläche / Tastatur, daneben die Werkzeuge */}
+      <RailRow
+        className="landscape-phone:block"
+        rail={
+          <div className="flex flex-col gap-1.5 landscape-phone:hidden">
+            {!keyboard && (
+              <>
+                <RailButton onClick={undo} disabled={!strokeCount || !drawing} label="Letzten Strich rückgängig"><Undo2 size={18} /></RailButton>
+                <RailButton on={erasing} onClick={() => setErasing((v) => !v)} disabled={!drawing} label="Strich-Radierer (auch mit der Stift-Seitentaste)"><Eraser size={18} /></RailButton>
+                <RailButton onClick={() => { clear(); setErasing(false) }} disabled={!strokeCount || !drawing} label="Alles löschen"><Trash2 size={18} /></RailButton>
+                <WidthButton value={width} onChange={setWidth} />
+                {(!testMode || phase === 'practice') && (
+                  <RailButton on={template} onClick={() => setTemplate((t) => !t)} label="Blasse Vorlage">{template ? <Eye size={18} /> : <EyeOff size={18} />}</RailButton>
+                )}
+              </>
+            )}
+            {!testMode && (
+              <RailButton on={showHelp} onClick={() => setShowHelp((v) => !v)} label="Strichreihenfolge"><ListOrdered size={18} /></RailButton>
+            )}
+            {phase !== 'practice' && (
+              <RailButton onClick={() => { setKeyboard((k) => !k); retry() }} label={keyboard ? 'Zeichnen' : 'Tastatur statt Zeichnen'}>
+                {keyboard ? <PenLine size={18} /> : <Keyboard size={18} />}
+              </RailButton>
+            )}
+          </div>
+        }
+      >
       {keyboard ? (
         <input
           autoFocus
@@ -630,7 +658,7 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
       ) : (
         <div
           ref={wrapRef}
-          className="no-select relative h-[300px] overflow-hidden rounded-2xl border border-separator shadow-inner sm:h-[320px] landscape-phone:h-[calc(100dvh-6.75rem)]"
+          className="no-select relative h-[320px] overflow-hidden rounded-2xl border border-separator shadow-inner sm:h-[344px] landscape-phone:h-[calc(100dvh-6.75rem)]"
           style={bgStyle}
         >
           {hangulRow && (
@@ -657,7 +685,7 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
           )}
           <canvas
             ref={canvasRef}
-            className="absolute inset-0 h-full w-full cursor-crosshair"
+            className={`absolute inset-0 h-full w-full ${erasing ? 'cursor-cell' : 'cursor-crosshair'}`}
             style={{ touchAction: 'none' }}
             onPointerDown={onDown}
             onPointerMove={onMove}
@@ -672,11 +700,17 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
           )}
         </div>
       )}
+      </RailRow>
 
-      {/* Prüfen-Blase unten rechts; Ergebnis, Musterlösung und Aktionen wachsen als Karte aus ihr heraus */}
+      {/* Prüfen-Blase auf der Seite gegenüber der Schreibhand (Rechtshänder: links), damit die Hand sie nicht antippt;
+          Ergebnis, Musterlösung und Aktionen wachsen als Karte aus ihr heraus */}
       <div
         ref={barRef}
-        className="pointer-events-none fixed inset-x-3 bottom-[calc(var(--tabbar-space)+0.5rem)] z-30 flex justify-end md:sticky md:bottom-3 landscape-phone:fixed landscape-phone:bottom-3 landscape-phone:left-auto landscape-phone:right-[max(0.75rem,env(safe-area-inset-right))]"
+        className={`pointer-events-none fixed inset-x-3 bottom-[calc(var(--tabbar-space)+0.5rem)] z-30 flex md:sticky md:bottom-3 landscape-phone:fixed landscape-phone:bottom-3 ${
+          toolsLeft
+            ? 'from-left justify-start landscape-phone:right-auto landscape-phone:left-[calc(max(0.5rem,env(safe-area-inset-left))+4.25rem)]'
+            : 'justify-end landscape-phone:left-auto landscape-phone:right-[max(0.75rem,env(safe-area-inset-right))]'
+        }`}
       >
         {helpOpen ? (
           <div
@@ -694,14 +728,17 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
             </div>
           </div>
         ) : !expanded ? (
-          <div className={`${Date.now() - helpClosedAt.current < 600 ? '' : 'bubble-in'} glass pointer-events-auto flex max-w-full items-center gap-1.5 rounded-full p-1.5 shadow-lg`}>
+          <div className={`${Date.now() - helpClosedAt.current < 600 ? '' : 'bubble-in'} glass pointer-events-auto flex max-w-full items-center gap-1.5 rounded-full p-1.5 shadow-lg ${toolsLeft ? 'flex-row-reverse' : ''}`}>
+            {phase === 'practice' && (
+              <span className="min-w-0 pl-3 pr-1 text-xs leading-tight text-label-2 sm:text-sm">Frei üben · wird nicht geprüft</span>
+            )}
             {!keyboard && phase === 'idle' && (
               <span className="truncate pl-2.5 pr-1 text-xs text-label-2 landscape-phone:hidden">
                 {firstMethod === 'inputtools' ? 'Input Tools' : firstMethod === 'gemini' ? 'Gemini' : 'Selbst-Check'}
               </span>
             )}
             {/* Querformat: Werkzeuge als kleine runde Knöpfe direkt neben „Prüfen“ */}
-            {landscape && phase === 'idle' && (
+            {landscape && drawing && (
               <div className="flex items-center gap-1">
                 {!testMode && (
                   <ToolDot on={showHelp} onClick={toggleHelp} label="Strichreihenfolge"><ListOrdered size={16} /></ToolDot>
@@ -709,22 +746,27 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
                 {!keyboard && (
                   <>
                     <ToolDot onClick={undo} disabled={!strokeCount} label="Letzten Strich rückgängig"><Undo2 size={16} /></ToolDot>
-                    <ToolDot onClick={clear} disabled={!strokeCount} label="Zeichnung löschen"><Eraser size={16} /></ToolDot>
-                    {!testMode && (
+                    <ToolDot on={erasing} onClick={() => setErasing((v) => !v)} label="Strich-Radierer"><Eraser size={16} /></ToolDot>
+                    <ToolDot onClick={() => { clear(); setErasing(false) }} disabled={!strokeCount} label="Alles löschen"><Trash2 size={16} /></ToolDot>
+                    {(!testMode || phase === 'practice') && (
                       <ToolDot on={template} onClick={() => setTemplate((t) => !t)} label="Blasse Vorlage">{template ? <Eye size={16} /> : <EyeOff size={16} />}</ToolDot>
                     )}
                   </>
                 )}
-                <ToolDot onClick={() => { setKeyboard((k) => !k); retry() }} label={keyboard ? 'Zeichnen' : 'Tastatur statt Zeichnen'}>
+                {phase !== 'practice' && <ToolDot onClick={() => { setKeyboard((k) => !k); retry() }} label={keyboard ? 'Zeichnen' : 'Tastatur statt Zeichnen'}>
                   {keyboard ? <PenLine size={16} /> : <Keyboard size={16} />}
-                </ToolDot>
+                </ToolDot>}
               </div>
             )}
-            {aside && <div className="flex">{aside}</div>}
-            <button data-primary className="btn-primary !rounded-full !px-5 !py-3 landscape-phone:!py-2" onClick={() => void check()} disabled={phase === 'checking' || (keyboard && !typed.trim())}>
+            {aside && phase !== 'practice' && <div className="flex">{aside}</div>}
+            {phase === 'practice' ? (
+              <button data-primary className="btn-primary shrink-0 whitespace-nowrap !rounded-full !px-5 !py-3 landscape-phone:!py-2" onClick={onNext}>
+                {nextLabel} <ArrowRight size={16} />
+              </button>
+            ) : <button data-primary className="btn-primary !rounded-full !px-5 !py-3 landscape-phone:!py-2" onClick={() => void check()} disabled={phase === 'checking' || (keyboard && !typed.trim())}>
               {phase === 'checking' ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
               {phase === 'checking' ? 'Prüfe…' : 'Prüfen'}
-            </button>
+            </button>}
           </div>
         ) : (
         <div
@@ -812,7 +854,9 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
                   </>
                 )}
                 {!result?.correct && <button className="btn-soft !py-3" onClick={retry}>Nochmal versuchen</button>}
-                {onNext && <button data-primary className="btn-primary ml-auto !py-3" onClick={onNext}>{nextLabel} <ArrowRight size={16} /></button>}
+                {onNext && (practiceOn
+                  ? <button data-primary className="btn-primary ml-auto !py-3" onClick={startPractice}><PenLine size={16} /> Nachschreiben</button>
+                  : <button data-primary className="btn-primary ml-auto !py-3" onClick={onNext}>{nextLabel} <ArrowRight size={16} /></button>)}
               </>
             ) : (
               <button data-primary className="btn-primary ml-auto !py-3" disabled>

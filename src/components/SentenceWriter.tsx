@@ -7,6 +7,7 @@
  */
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { ArrowRight, ChevronLeft, ChevronRight, Delete, Eraser, Keyboard, Loader2, PenLine, Space, Undo2 } from 'lucide-react'
+import { eraseStrokesAt, isPenEraser, RailButton, RailRow, useHandSide } from './CanvasRail'
 import { useApp } from '../store'
 import { bbox, readLine, readPiece, strokesToPng, type Pt, type Stroke } from '../lib/ink'
 import { useLandscapePhone } from '../lib/useLandscape'
@@ -112,6 +113,15 @@ const InkPad = forwardRef<PadHandle, PadProps>(function InkPad({ width, height, 
     },
   }), [redraw])
 
+  const erasePointer = useRef<number | null>(null)
+  const eraseAt = (p: Pt) => {
+    const left = eraseStrokesAt(strokes.current, p, Math.max(10, lineWidth * 1.5))
+    if (left.length === strokes.current.length) return
+    strokes.current = left
+    redraw()
+    onStrokeEnd?.(left)
+  }
+
   const pos = (e: PointerEvent | React.PointerEvent): Pt => {
     const r = canvas.current!.getBoundingClientRect()
     return { x: e.clientX - r.left, y: e.clientY - r.top, t: e.timeStamp }
@@ -125,6 +135,14 @@ const InkPad = forwardRef<PadHandle, PadProps>(function InkPad({ width, height, 
         className="absolute inset-0 h-full w-full cursor-crosshair text-label"
         style={{ touchAction: 'none' }}
         onPointerDown={(e) => {
+          // Strich-Radierer mit der Stift-Seitentaste: berührte Striche verschwinden ganz
+          if (pointer.current === null && isPenEraser(e)) {
+            e.preventDefault()
+            canvas.current!.setPointerCapture(e.pointerId)
+            erasePointer.current = e.pointerId
+            eraseAt(pos(e))
+            return
+          }
           if (pointer.current !== null || (e.pointerType === 'mouse' && e.button !== 0)) return
           e.preventDefault()
           canvas.current!.setPointerCapture(e.pointerId)
@@ -136,6 +154,10 @@ const InkPad = forwardRef<PadHandle, PadProps>(function InkPad({ width, height, 
           drawSegment(canvas.current!.getContext('2d')!, current.current, 0)
         }}
         onPointerMove={(e) => {
+          if (e.pointerId === erasePointer.current) {
+            for (const ev of e.nativeEvent.getCoalescedEvents?.() ?? [e.nativeEvent]) eraseAt(pos(ev))
+            return
+          }
           if (e.pointerId !== pointer.current || !current.current) return
           const ctx = canvas.current!.getContext('2d')!
           const evs = e.nativeEvent.getCoalescedEvents?.() ?? []
@@ -146,6 +168,10 @@ const InkPad = forwardRef<PadHandle, PadProps>(function InkPad({ width, height, 
           }
         }}
         onPointerUp={(e) => {
+          if (e.pointerId === erasePointer.current) {
+            erasePointer.current = null
+            return
+          }
           if (e.pointerId !== pointer.current) return
           pointer.current = null
           document.documentElement.classList.remove('no-select')
@@ -258,8 +284,16 @@ function Line({ children, muted }: { children: ReactNode; muted?: boolean }) {
   )
 }
 
-function Tools({ children }: { children: ReactNode }) {
-  return <div className="landscape-compact flex flex-wrap items-center gap-2">{children}</div>
+/** Leiste unter dem Feld: Hauptknopf auf der Seite gegenüber der Schreibhand, damit die Hand ihn nicht antippt */
+function Tools({ children, primary }: { children?: ReactNode; primary: ReactNode }) {
+  const { toolsLeft } = useHandSide()
+  return (
+    <div className={`landscape-compact flex flex-wrap items-center gap-2 ${toolsLeft ? '' : 'flex-row-reverse'}`}>
+      {primary}
+      <div className="flex-1" />
+      {children}
+    </div>
+  )
 }
 
 // ---------- Schreibband ----------
@@ -306,6 +340,11 @@ function BandWriter({ opts, expected, onSubmit, submitLabel, toKeyboard }: Write
   return (
     <div className="space-y-2">
       <Line muted={!preview}>{preview || <span className="text-base">Schreib den Satz von links nach rechts – das Feld wandert mit.</span>}</Line>
+      <RailRow rail={<>
+        <RailButton onClick={() => { pad.current?.undo(); after(pad.current?.strokes() ?? []) }} disabled={!count} label="Letzten Strich rückgängig"><Undo2 size={18} /></RailButton>
+        <RailButton onClick={() => { pad.current?.clear(); setPreview(''); setCount(0); wrapRef.current?.scrollTo({ left: 0 }) }} disabled={!count} label="Alles löschen"><Eraser size={18} /></RailButton>
+        <RailButton onClick={() => toKeyboard(preview)} label="Tastatur statt Handschrift"><Keyboard size={18} /></RailButton>
+      </>}>
       <div ref={wrapRef} className="overflow-x-auto overflow-y-hidden rounded-2xl [scrollbar-width:thin]">
         {width > 0 && (
           <InkPad
@@ -318,15 +357,14 @@ function BandWriter({ opts, expected, onSubmit, submitLabel, toKeyboard }: Write
           />
         )}
       </div>
-      <Tools>
-        <button className="btn-soft" onClick={() => scroll(-1)} aria-label="Nach links"><ChevronLeft size={16} /></button>
-        <button className="btn-soft" onClick={() => scroll(1)} aria-label="Nach rechts"><ChevronRight size={16} /></button>
-        <button className="btn-soft" onClick={() => { pad.current?.undo(); after(pad.current?.strokes() ?? []) }} disabled={!count} aria-label="Letzten Strich rückgängig"><Undo2 size={16} /></button>
-        <button className="btn-soft" onClick={() => { pad.current?.clear(); setPreview(''); setCount(0); wrapRef.current?.scrollTo({ left: 0 }) }} disabled={!count} aria-label="Alles löschen"><Eraser size={16} /></button>
-        <button className="btn-soft" onClick={() => toKeyboard(preview)} aria-label="Tastatur statt Handschrift"><Keyboard size={16} /></button>
-        <button className="btn-primary ml-auto" onClick={() => void finish()} disabled={!count || busy}>
+      </RailRow>
+      <Tools primary={
+        <button className="btn-primary" onClick={() => void finish()} disabled={!count || busy}>
           {busy ? <><Loader2 size={16} className="animate-spin" /> {opts.apiKey.trim() ? 'Gemini liest …' : 'Wird gelesen …'}</> : <>{submitLabel} <ArrowRight size={16} /></>}
         </button>
+      }>
+        <button className="btn-soft" onClick={() => scroll(-1)} aria-label="Nach links"><ChevronLeft size={16} /></button>
+        <button className="btn-soft" onClick={() => scroll(1)} aria-label="Nach rechts"><ChevronRight size={16} /></button>
       </Tools>
     </div>
   )
@@ -418,16 +456,18 @@ function WordWriter({ opts, onSubmit, submitLabel, toKeyboard, slots }: WriterPr
           ))
         ) : <span className="text-sm text-label-3">{count ? 'Kurz warten – dann Vorschlag antippen' : `Schreib Wort ${active + 1} ins Feld`}</span>}
       </div>
+      <RailRow rail={<>
+        <RailButton onClick={() => { pad.current?.undo(); after(pad.current?.strokes() ?? []) }} disabled={!count} label="Letzten Strich rückgängig"><Undo2 size={18} /></RailButton>
+        <RailButton onClick={() => { pad.current?.clear(); setCands([]); setCount(0) }} disabled={!count} label="Feld leeren"><Eraser size={18} /></RailButton>
+        <RailButton onClick={() => { setWords((ws) => ws.filter((_, i) => i !== active)); setActive((a) => Math.max(0, Math.min(a, words.length - 1))) }} disabled={!words[active] && !words.length} label="Wort löschen"><Delete size={18} /></RailButton>
+        <RailButton onClick={() => toKeyboard(text())} label="Tastatur statt Handschrift"><Keyboard size={18} /></RailButton>
+      </>}>
       <div ref={wrapRef}>
         <InkPad ref={pad} width={viewW} height={height} lineWidth={opts.lineWidth} onStrokeEnd={after} />
       </div>
-      <Tools>
-        <button className="btn-soft" onClick={() => { pad.current?.undo(); after(pad.current?.strokes() ?? []) }} disabled={!count} aria-label="Letzten Strich rückgängig"><Undo2 size={16} /></button>
-        <button className="btn-soft" onClick={() => { pad.current?.clear(); setCands([]); setCount(0) }} disabled={!count} aria-label="Feld leeren"><Eraser size={16} /></button>
-        <button className="btn-soft" onClick={() => { setWords((ws) => ws.filter((_, i) => i !== active)); setActive((a) => Math.max(0, Math.min(a, words.length - 1))) }} disabled={!words[active] && !words.length} aria-label="Wort löschen"><Delete size={16} /></button>
-        <button className="btn-soft" onClick={() => toKeyboard(text())} aria-label="Tastatur statt Handschrift"><Keyboard size={16} /></button>
+      </RailRow>
+      <Tools primary={<button className="btn-primary" onClick={() => void finish()} disabled={!words.length && !count}>{submitLabel} <ArrowRight size={16} /></button>}>
         <button className="btn-soft" onClick={() => void commitNow()} disabled={!count}>Nächstes Wort</button>
-        <button className="btn-primary ml-auto" onClick={() => void finish()} disabled={!words.length && !count}>{submitLabel} <ArrowRight size={16} /></button>
       </Tools>
     </div>
   )
@@ -496,6 +536,10 @@ function SyllableWriter({ opts, onSubmit, submitLabel, toKeyboard }: WriterProps
           </span>
         ) : <span className="text-base">Eine Silbe pro Kästchen – im nächsten Kästchen weiterschreiben übernimmt sie.</span>}
       </Line>
+      <RailRow rail={<>
+        <RailButton onClick={() => { if (count) { pad.current?.undo(); setCount((pad.current?.strokes() ?? []).length) } else setParts((p) => p.slice(0, -1)) }} disabled={!count && !parts.length} label="Zurück"><Delete size={18} /></RailButton>
+        <RailButton onClick={() => toKeyboard(text())} label="Tastatur statt Handschrift"><Keyboard size={18} /></RailButton>
+      </>}>
       <div ref={wrapRef}>
         <InkPad
           ref={pad}
@@ -516,13 +560,13 @@ function SyllableWriter({ opts, onSubmit, submitLabel, toKeyboard }: WriterProps
           }
         />
       </div>
-      <Tools>
-        <button className="btn-soft" onClick={() => { commitAll(); setParts((p) => [...p, { id: ++seq.current, text: ' ' }]) }} aria-label="Leerzeichen"><Space size={16} /> <span className="text-sm">Leerzeichen</span></button>
-        <button className="btn-soft" onClick={() => { if (count) { pad.current?.undo(); setCount((pad.current?.strokes() ?? []).length) } else setParts((p) => p.slice(0, -1)) }} disabled={!count && !parts.length} aria-label="Zurück"><Delete size={16} /></button>
-        <button className="btn-soft" onClick={() => toKeyboard(text())} aria-label="Tastatur statt Handschrift"><Keyboard size={16} /></button>
-        <button className="btn-primary ml-auto" onClick={() => { commitAll(); setSubmitting(true) }} disabled={(!parts.length && !count) || submitting}>
+      </RailRow>
+      <Tools primary={
+        <button className="btn-primary" onClick={() => { commitAll(); setSubmitting(true) }} disabled={(!parts.length && !count) || submitting}>
           {submitting ? <Loader2 size={16} className="animate-spin" /> : <>{submitLabel} <ArrowRight size={16} /></>}
         </button>
+      }>
+        <button className="btn-soft" onClick={() => { commitAll(); setParts((p) => [...p, { id: ++seq.current, text: ' ' }]) }} aria-label="Leerzeichen"><Space size={16} /> <span className="text-sm">Leerzeichen</span></button>
       </Tools>
     </div>
   )

@@ -62,6 +62,8 @@ export const DEFAULT_SETTINGS: Settings = {
   autoExamples: true,
   particleNewWords: true,
   sentenceInput: 'band',
+  handedness: 'right',
+  practiceWriting: false,
   contribute: false,
   soundEffects: true,
   soundVolume: 0.5,
@@ -133,6 +135,8 @@ interface Ctx {
   /** Neuer Ordner; liefert die ID oder null, wenn die maximale Tiefe erreicht ist */
   addFolder: (name: string, parentId: string | null) => string | null
   renameFolder: (id: string, name: string) => void
+  /** Ordner aktiv lernen an/aus */
+  setFolderPaused: (id: string, paused: boolean) => void
   /** Ordner samt Unterordnern löschen; Wörter mitlöschen oder nach „Ohne Ordner“ verschieben */
   deleteFolder: (id: string, words: 'delete' | 'move') => void
   moveWords: (ids: string[], folderId: string | null) => void
@@ -390,6 +394,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setFolders((fs) => fs.map((f) => (f.id === id ? { ...f, name: name.trim(), updatedAt: now } : f)))
   }, [])
 
+  const setFolderPaused: Ctx['setFolderPaused'] = useCallback((id, paused) => {
+    const now = stamp()
+    setFolders((fs) => fs.map((f) => (f.id === id ? { ...f, paused: paused || undefined, updatedAt: now } : f)))
+  }, [])
+
   const deleteFolder: Ctx['deleteFolder'] = useCallback(
     (id, mode) => {
       const gone = descendantIds(folders, id)
@@ -625,10 +634,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     () => ({
       words, settings, activity, deleted, applySyncPayload, updateSettings, addWord, addWords, updateWord, deleteWord,
       recordReview, reviseReview, resetStats, restoreDemo, clearAll, exportBackup, importBackup,
-      folders, deletedFolders, addFolder, renameFolder, deleteFolder, moveWords, addTagToWords, convertChapterTags, reviewLog, retention,
+      folders, deletedFolders, addFolder, renameFolder, setFolderPaused, deleteFolder, moveWords, addTagToWords, convertChapterTags, reviewLog, retention,
       particles, updateParticles,
     }),
-    [particles, updateParticles, reviewLog, retention, folders, deletedFolders, addFolder, renameFolder, deleteFolder, moveWords, addTagToWords, convertChapterTags, words, settings, activity, deleted, applySyncPayload, updateSettings, addWord, addWords, updateWord, deleteWord, recordReview, reviseReview, resetStats, restoreDemo, clearAll, exportBackup, importBackup],
+    [particles, updateParticles, reviewLog, retention, folders, deletedFolders, addFolder, renameFolder, setFolderPaused, deleteFolder, moveWords, addTagToWords, convertChapterTags, words, settings, activity, deleted, applySyncPayload, updateSettings, addWord, addWords, updateWord, deleteWord, recordReview, reviseReview, resetStats, restoreDemo, clearAll, exportBackup, importBackup],
   )
 
   return <AppCtx.Provider value={value}>{children}</AppCtx.Provider>

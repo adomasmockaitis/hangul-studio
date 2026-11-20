@@ -24,6 +24,26 @@ export interface Release {
 }
 export const RELEASES: Release[] = [
   {
+    id: '2026-11-writing-flow',
+    size: 'major',
+    title: 'Neu in Hangul Studio',
+    subtitle: 'Bequemer schreiben, weiterlernen, wo du warst',
+    features: [
+      { icon: 'pointer', color: '#007aff', title: 'Werkzeuge neben dem Feld', text: 'Rückgängig, Radierer und Strichdicke stehen jetzt neben dem Schreibfeld, der Prüfen-Knopf liegt auf der Seite gegenüber deiner Schreibhand (einstellbar). Der Strich-Radierer löscht ganze Striche, auch mit der Seitentaste deines Stifts.' },
+      { icon: 'back', color: '#34c759', title: 'Übung bleibt erhalten', text: 'Wechselst du kurz zu Start oder Einstellungen, geht die Übung danach genau dort weiter. Nur vor dem Wörterbuch fragt ein laufendes Quiz nach, weil dort die Lösungen stehen.' },
+      { icon: 'folder', color: '#ff9500', title: 'Ordner aktiv lernen', text: 'Schalte in einem Ordner „Aktiv lernen“ aus, dann lässt der Smart-Modus diese Wörter aus. Beim Lernen gibt es außerdem die Reihenfolgen Zufällig, Schwächste und Stärkste zuerst.' },
+      { icon: 'sparkles', color: '#af52de', title: 'Klügerer Scan', text: 'Der Scan läuft im Hintergrund weiter und meldet sich, wenn er fertig ist. Doppelte Bedeutungen werden markiert: Behalte eins, beide, oder lass Gemini die Übersetzungen unterscheiden.' },
+    ],
+  },
+  {
+    id: '2026-11-practice-writing',
+    size: 'minor',
+    title: 'Neu in Hangul Studio',
+    subtitle: 'Nachschreiben',
+    features: [],
+    summary: 'Neu in den Einstellungen unter Schreiben: Nach dem Prüfen ein freies Feld, um das Wort ein paar Mal nachzuschreiben.',
+  },
+  {
     id: '2026-11-motion-polish',
     size: 'minor',
     title: 'Neu in Hangul Studio',

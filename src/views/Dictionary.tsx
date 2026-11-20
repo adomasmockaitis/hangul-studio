@@ -1,10 +1,11 @@
 ﻿import { useMemo, useState } from 'react'
 import {
-  Check, ChevronLeft, ChevronRight, CircleDashed, Folder as FolderIcon, FolderInput, FolderPlus, Loader2, Pencil, Plus, ScanText, Search, Sparkles, Tag, Trash2, Volume2,
+  Check, ChevronLeft, ChevronRight, CircleDashed, Folder as FolderIcon, FolderInput, FolderPlus, GraduationCap, Loader2, Pencil, Plus, ScanText, Search, Sparkles, Tag, Trash2, Volume2,
 } from 'lucide-react'
-import { List, ListRow, PageHeader, Sheet, useConfirm } from '../components/ui'
-import { parseTags, UploadScanner } from '../components/UploadScanner'
-import { canAddSubfolder, chapterTagSuggestions, countWords, effectiveFolder, folderPath, sortFolders } from '../lib/folders'
+import { List, ListRow, PageHeader, Sheet, Toggle, useConfirm } from '../components/ui'
+import { parseTags } from '../components/UploadScanner'
+import { openScanner, useScanState } from '../components/ScanHost'
+import { canAddSubfolder, chapterTagSuggestions, countWords, effectiveFolder, folderPath, pausedFolderIds, sortFolders } from '../lib/folders'
 import { completeWord } from '../lib/gemini'
 import { navigate, useRoute } from '../lib/route'
 import { playSound } from '../lib/sounds'
@@ -61,7 +62,7 @@ function flatTree(folders: Folder[]): { f: Folder; depth: number }[] {
 
 export function Dictionary() {
   const {
-    words, settings, folders, addWord, updateWord, deleteWord, addFolder, renameFolder, deleteFolder, moveWords, addTagToWords, convertChapterTags,
+    words, settings, folders, addWord, updateWord, deleteWord, addFolder, renameFolder, setFolderPaused, deleteFolder, moveWords, addTagToWords, convertChapterTags,
   } = useApp()
   const confirm = useConfirm()
   const { sub } = useRoute()
@@ -75,7 +76,7 @@ export function Dictionary() {
   const [tag, setTag] = useState('')
   const [sort, setSort] = useState<Sort>('new')
   const [editing, setEditing] = useState<{ id: string | null; draft: Draft } | null>(null)
-  const [scanner, setScanner] = useState(false)
+  const scan = useScanState()
   const [aiBusy, setAiBusy] = useState(false)
   const [aiMsg, setAiMsg] = useState('')
   const [selecting, setSelecting] = useState(false)
@@ -88,6 +89,7 @@ export function Dictionary() {
   const [notice, setNotice] = useState('')
 
   const counts = useMemo(() => countWords(folders, words), [folders, words])
+  const paused = useMemo(() => pausedFolderIds(folders), [folders])
   const noFolderCount = useMemo(() => words.filter((w) => !effectiveFolder(w, folderIds)).length, [words, folderIds])
   const childFolders = useMemo(() => (place === NO_FOLDER ? [] : sortFolders(folders.filter((f) => f.parentId === (current?.id ?? null)))), [folders, current, place])
   const chapterTags = useMemo(() => chapterTagSuggestions(words, folderIds), [words, folderIds])
@@ -219,7 +221,7 @@ export function Dictionary() {
         right={
           <div className="flex flex-nowrap gap-2">
             {/* Auf dem Handy nur Symbole – sonst brechen die Knöpfe in zwei Zeilen um */}
-            {place === '' && <button className="btn-soft max-sm:!px-3" aria-label="Datei scannen" title="Datei scannen" onClick={() => setScanner(true)}><ScanText size={16} /> <span className="hidden sm:inline">Datei scannen</span></button>}
+            {place === '' && <button className="btn-soft max-sm:!px-3" aria-label="Datei scannen" title="Datei scannen" onClick={() => openScanner(current?.id ?? null)}><ScanText size={16} /> <span className="hidden sm:inline">Datei scannen</span></button>}
             {canSub && (
               <button className="btn-soft max-sm:!px-3" aria-label={current ? 'Unterordner anlegen' : 'Neuer Ordner'} title={current ? 'Unterordner' : 'Neuer Ordner'} onClick={() => setNameSheet({ mode: 'new', parentId: current?.id ?? null, name: '' })}>
                 <FolderPlus size={16} /> <span className="hidden sm:inline">{current ? 'Unterordner' : 'Neuer Ordner'}</span>
@@ -236,9 +238,17 @@ export function Dictionary() {
         }
       />
 
-      <Sheet open={scanner} onClose={() => setScanner(false)} title="Datei scannen" wide keepMounted>
-        <UploadScanner key={current?.id ?? 'root'} defaultFolderId={current?.id ?? null} />
-      </Sheet>
+      {/* Scan im Hintergrund: Hinweis, bis die erkannten Wörter geprüft sind */}
+      {!scan.open && (scan.busy || scan.pending > 0) && (
+        <button className="fade-up mb-4 flex w-full items-center gap-3 rounded-2xl border border-blue/30 bg-blue/10 px-4 py-3 text-left" onClick={() => openScanner()}>
+          {scan.busy ? <Loader2 size={18} className="shrink-0 animate-spin text-blue" /> : <ScanText size={18} className="shrink-0 text-blue" />}
+          <span className="min-w-0 flex-1">
+            <span className="block font-semibold">{scan.busy ? 'Datei wird gescannt …' : 'Neu eingescannt'}</span>
+            <span className="block text-sm text-label-2">{scan.busy ? 'Läuft im Hintergrund – du kannst weiterarbeiten.' : `${scan.pending} ${scan.pending === 1 ? 'Wort wartet' : 'Wörter warten'} auf deine Prüfung.`}</span>
+          </span>
+          <span className="shrink-0 text-sm font-medium text-blue">Ansehen</span>
+        </button>
+      )}
 
       {/* Einmaliges Angebot: Kapitel-Tags in Ordner umwandeln */}
       {place === '' && !offerDone && chapterTags.size > 0 && (
@@ -256,6 +266,24 @@ export function Dictionary() {
       )}
       {notice && <p className="fade-up mb-4 px-4 text-sm text-green">{notice}</p>}
 
+      {/* Aktiv lernen: pausierte Ordner nimmt der Smart-Modus nicht */}
+      {current && (
+        <List footer={
+          current.paused
+            ? 'Pausiert: Smart-Modus beim Lernen, im Quiz und im Diktat lässt diese Wörter aus. Gezielt auswählen kannst du sie weiterhin.'
+            : paused.has(current.id)
+              ? 'Ein übergeordneter Ordner ist pausiert – dessen Schalter gilt auch hier.'
+              : 'Smart-Modus wählt Wörter aus diesem Ordner aus. Schalte ihn aus, solange du die Wörter noch nicht lernen willst.'
+        }>
+          <ListRow
+            icon={<GraduationCap size={17} />}
+            iconColor={paused.has(current.id) ? '#8e8e93' : 'var(--color-green)'}
+            title="Aktiv lernen"
+            right={<Toggle checked={!paused.has(current.id)} onChange={(on) => setFolderPaused(current.id, !on)} label="Aktiv lernen" />}
+          />
+        </List>
+      )}
+
       {/* Ordner */}
       {(childFolders.length > 0 || (place === '' && folders.length > 0)) && (
         <List title={current ? 'Unterordner' : 'Ordner'}>
@@ -263,8 +291,9 @@ export function Dictionary() {
             <ListRow
               key={f.id}
               icon={<FolderIcon size={17} />}
-              iconColor="var(--color-blue)"
+              iconColor={paused.has(f.id) ? '#8e8e93' : 'var(--color-blue)'}
               title={f.name}
+              subtitle={paused.has(f.id) ? 'Pausiert – nicht im Smart-Modus' : undefined}
               value={counts.get(f.id) ?? 0}
               onClick={() => go(f.id)}
             />

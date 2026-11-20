@@ -2,7 +2,7 @@
  * Gemeinsame Wortauswahl für Lernen, Test und Diktat: einzeln, Ordner, Tags oder Smart.
  * Reine Logik ohne Oberfläche.
  */
-import { descendantIds, effectiveFolder } from './folders'
+import { activeOnly, descendantIds, effectiveFolder } from './folders'
 import { askable, cardOf, DIRS, isDueDir, retrievability, type Dir } from './fsrs'
 import type { Folder, WordItem } from '../types'
 
@@ -30,7 +30,7 @@ export function takePendingLearn(): Selection | null {
 
 /** Wörter einer festen Auswahl (Ordner inklusive Unterordner, „ohne“ = ohne Ordner) */
 export function resolveSelection(sel: Selection, words: WordItem[], folders: Folder[]): WordItem[] {
-  if (sel.mode === 'smart') return words.filter(askable)
+  if (sel.mode === 'smart') return activeOnly(words, folders).filter(askable)
   if (sel.mode === 'words') {
     const ids = new Set(sel.ids)
     return words.filter((w) => ids.has(w.id))

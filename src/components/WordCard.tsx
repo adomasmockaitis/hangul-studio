@@ -125,6 +125,7 @@ export function WordCard({ word, mode, onResult, onRevise, onNext, nextLabel }: 
           onRevise={onRevise}
           onNext={onNext}
           nextLabel={nextLabel}
+          practice
         />
       </div>
     </div>

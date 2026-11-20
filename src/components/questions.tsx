@@ -74,6 +74,7 @@ export function WriteQuestion({
           onRevise={onRevise}
           onNext={onNext}
           nextLabel={nextLabel}
+          practice
         />
       </div>
     </div>

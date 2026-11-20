@@ -124,3 +124,17 @@ export function planChapterConversion(
   }
   return { newFolders, moves }
 }
+
+/** Ordner, die gerade nicht aktiv gelernt werden (inklusive aller Unterordner pausierter Ordner) */
+export function pausedFolderIds(folders: Folder[]): Set<string> {
+  const out = new Set<string>()
+  for (const f of folders) if (f.paused) for (const id of descendantIds(folders, f.id)) out.add(id)
+  return out
+}
+
+/** Nur Wörter aus aktiv gelernten Ordnern (Wörter ohne Ordner zählen immer als aktiv) – für den Smart-Modus */
+export function activeOnly<T extends { folderId?: string }>(words: T[], folders: Folder[]): T[] {
+  const paused = pausedFolderIds(folders)
+  if (!paused.size) return words
+  return words.filter((w) => !w.folderId || !paused.has(w.folderId))
+}

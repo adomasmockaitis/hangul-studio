@@ -522,11 +522,14 @@ function GapTask({ task, onDone, last, finishLabel }: { task: Task; onDone: (a: 
 
   const finish = () => onDone({ task, ok: okList.every(Boolean), given })
 
+  const rootRef = useRef<HTMLDivElement>(null)
   // Tasten: 1–4 wählen, Enter = weiter
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement | null
       if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return
+      // ausgeblendet (anderer Tab/Übungsart): keine Tasten abfangen
+      if (!rootRef.current?.getClientRects().length) return
       if (complete && e.key === 'Enter') {
         e.preventDefault()
         finish()
@@ -545,7 +548,7 @@ function GapTask({ task, onDone, last, finishLabel }: { task: Task; onDone: (a: 
   const tips = [formTip(gap, false), task.sentence.tip, usage ?? `Gesucht: ${gapChapter.name} – ${gapChapter.short}.`].filter((t): t is string => !!t)
 
   return (
-    <div className="space-y-4">
+    <div ref={rootRef} className="space-y-4">
       <div className="card fade-up p-5 sm:p-6">
         <p className="label mb-2 text-center">
           {task.kind === 'form' ? 'Welche Form passt?' : task.kind === 'write' ? 'Schreibe die fehlende Partikel' : 'Welche Partikel gehört in die Lücke?'}

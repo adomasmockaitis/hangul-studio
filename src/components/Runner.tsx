@@ -10,6 +10,7 @@ import { useApp } from '../store'
 import { QuestionAside } from './questionAside'
 import { prepareSentences, prepareUpcomingWords } from '../lib/speech'
 import { SessionBar } from './ui'
+import { useActiveTest } from '../lib/activeTest'
 
 export interface QResult {
   correct: boolean
@@ -56,9 +57,11 @@ interface Props {
   onDashboard: () => void
   onBack: () => void
   backLabel: string
+  /** Als laufender Test anmelden (Quiz/Diktat): Wechsel ins Wörterbuch fragt dann nach */
+  test?: string
 }
 
-export function Runner({ questions, onDashboard, onBack, backLabel }: Props) {
+export function Runner({ questions, onDashboard, onBack, backLabel, test }: Props) {
   const { recordReview, reviseReview, activity, words } = useApp()
   const [qs, setQs] = useState(questions)
   const [round, setRound] = useState(0)
@@ -74,6 +77,7 @@ export function Runner({ questions, onDashboard, onBack, backLabel }: Props) {
   const [done, setDone] = useState<Done[]>([])
   /** Übersprungene Fragen (kommen am Ende noch einmal) */
   const [skipped, setSkipped] = useState<Set<string>>(new Set())
+  useActiveTest(!!test && i < qs.length, test ?? '', onBack)
   /** Aktuelle Frage beantwortet bzw. aufgegeben */
   const [answered, setAnswered] = useState(false)
   const [gaveUp, setGaveUp] = useState(false)

@@ -57,6 +57,8 @@ export interface Folder {
   id: string
   name: string
   parentId: string | null
+  /** Gerade nicht aktiv lernen: Smart-Modus lässt die Wörter (auch in Unterordnern) aus */
+  paused?: boolean
   createdAt: number
   updatedAt: number
 }
@@ -109,6 +111,10 @@ export interface Settings {
   particleNewWords: boolean
   /** Ganze Sätze von Hand schreiben: mitwanderndes Schreibband, Wort für Wort oder Silbe für Silbe */
   sentenceInput: SentenceInput
+  /** Schreibhand: Werkzeuge und Prüfen-Knopf liegen auf der anderen Seite, damit die Hand nichts antippt */
+  handedness: 'right' | 'left'
+  /** Nach dem Prüfen ein freies Schreibfeld, um das Wort ein paar Mal nachzuschreiben (ohne Prüfung) */
+  practiceWriting: boolean
   /** „App mitverbessern“: Fehlerfälle der Erkennung ohne Nutzerbezug senden (nur mit Konto) */
   contribute: boolean
   /** Dezente Klänge bei richtig/falsch usw. */

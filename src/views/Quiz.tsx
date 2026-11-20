@@ -6,6 +6,7 @@ import { SelectionPicker } from '../components/SelectionPicker'
 import { Group, Segmented } from '../components/ui'
 import { askable, fastLimit, isDueDir, type Dir } from '../lib/fsrs'
 import { resolveSelection, smartPick, SMART, type Pick, type Selection } from '../lib/selection'
+import { activeOnly } from '../lib/folders'
 import { useApp } from '../store'
 import type { WordItem } from '../types'
 
@@ -82,7 +83,7 @@ export function QuizSetup({ onDashboard }: { onDashboard: () => void }) {
   const now = Date.now()
   // Für Smart: was die App jetzt abfragen würde; sonst die feste Auswahl
   const picks: Pick[] = useMemo(() => {
-    if (selection.mode === 'smart') return smartPick(words, smartDir, count || 50, now)
+    if (selection.mode === 'smart') return smartPick(activeOnly(words, folders), smartDir, count || 50, now)
     const list = resolveSelection(selection, words, folders).filter(askable)
     return list.map((w) => ({ word: w, dir: smartDir === 'both' ? (Math.random() < 0.5 ? 'deko' : 'kode') : smartDir }) as Pick)
     // now bewusst nicht als Abhängigkeit: die Vorschau soll nicht ständig springen
@@ -100,7 +101,7 @@ export function QuizSetup({ onDashboard }: { onDashboard: () => void }) {
   }
 
   if (questions) {
-    return <Runner questions={questions} onDashboard={onDashboard} onBack={() => setQuestions(null)} backLabel="Neue Auswahl" />
+    return <Runner questions={questions} onDashboard={onDashboard} onBack={() => setQuestions(null)} backLabel="Neue Auswahl" test="Quiz" />
   }
 
   const usesChoice = direction === 'ko-de' || direction === 'mixed'

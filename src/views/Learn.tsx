@@ -5,16 +5,43 @@ import { SelectionPicker } from '../components/SelectionPicker'
 import { Sheet } from '../components/ui'
 import { WordCard } from '../components/WordCard'
 import { describeSelection, resolveSelection, smartPick, SMART, takePendingLearn, type Selection } from '../lib/selection'
+import { activeOnly } from '../lib/folders'
 import { useApp } from '../store'
 import type { Folder, WordItem } from '../types'
 import { prepareSentences, prepareUpcomingWords } from '../lib/speech'
+import { retrievability } from '../lib/fsrs'
 
-type Sort = 'old' | 'new'
+function shuffle<T>(a: T[]): T[] {
+  const r = [...a]
+  for (let i = r.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[r[i], r[j]] = [r[j], r[i]]
+  }
+  return r
+}
+
+type Sort = 'old' | 'new' | 'random' | 'weak' | 'strong'
+
+/** Wie gut du ein Wort gerade kannst (0–1): Abrufwahrscheinlichkeit beider Richtungen, nie geübt = 0 */
+function mastery(w: WordItem, now: number): number {
+  return (retrievability(w.srs?.deko, now) + retrievability(w.srs?.kode, now)) / 2
+}
 
 /** Reihenfolge einmal festlegen (sonst würde Smart beim Lernen ständig umsortieren) */
 function computeIds(sel: Selection, sort: Sort, words: WordItem[], folders: Folder[]): string[] {
-  if (sel.mode === 'smart') return smartPick(words, 'both', 20, Date.now(), 10).map((p) => p.word.id)
-  return resolveSelection(sel, words, folders)
+  if (sel.mode === 'smart') return smartPick(activeOnly(words, folders), 'both', 20, Date.now(), 10).map((p) => p.word.id)
+  const list = resolveSelection(sel, words, folders)
+  if (sort === 'random') return shuffle(list).map((w) => w.id)
+  if (sort === 'weak' || sort === 'strong') {
+    const now = Date.now()
+    const m = new Map(list.map((w) => [w.id, mastery(w, now)]))
+    const dir = sort === 'weak' ? 1 : -1
+    // gleich gut: mehr Fehler zählt als schwächer
+    return [...list]
+      .sort((a, b) => dir * (m.get(a.id)! - m.get(b.id)!) || dir * (b.stats.wrongCount - a.stats.wrongCount))
+      .map((w) => w.id)
+  }
+  return list
     .sort((a, b) => (sort === 'new' ? b.createdAt - a.createdAt : a.createdAt - b.createdAt))
     .map((w) => w.id)
 }
@@ -71,6 +98,9 @@ export function Browse({ onDashboard }: { onDashboard: () => void }) {
           <select className="input !w-auto" aria-label="Reihenfolge" value={sort} onChange={(e) => apply(selection, e.target.value as Sort)}>
             <option value="old">Älteste zuerst</option>
             <option value="new">Neueste zuerst</option>
+            <option value="random">Zufällig</option>
+            <option value="weak">Schwächste zuerst</option>
+            <option value="strong">Stärkste zuerst</option>
           </select>
         )}
         <div className="ml-auto flex items-center gap-2">

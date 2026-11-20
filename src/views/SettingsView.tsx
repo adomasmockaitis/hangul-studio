@@ -373,6 +373,16 @@ export function SettingsView({ sub = '', onRestartOnboarding, onShowWhatsNew }: 
             options={[{ value: 'band', label: 'Schreibband' }, { value: 'word', label: 'Wort für Wort' }, { value: 'syllable', label: 'Silbe für Silbe' }]}
           />
         </Row>
+        <Row title="Schreibhand" desc="Werkzeuge und der Prüfen-Knopf liegen auf der anderen Seite, damit deine Hand beim Schreiben nichts antippt.">
+          <Segmented<'right' | 'left'>
+            value={settings.handedness}
+            onChange={(handedness) => updateSettings({ handedness })}
+            options={[{ value: 'right', label: 'Rechts' }, { value: 'left', label: 'Links' }]}
+          />
+        </Row>
+        <Row title="Nach dem Prüfen nachschreiben" desc="Beim Lernen und im Quiz kommt nach dem Ergebnis ein freies Schreibfeld mit Vorlage, um das Wort ein paar Mal zu schreiben. Wird nicht geprüft.">
+          <Toggle checked={settings.practiceWriting} onChange={(practiceWriting) => updateSettings({ practiceWriting })} label="Nachschreiben" />
+        </Row>
         <Row title="Standard-Strichdicke">
           <input type="range" min={2} max={16} value={settings.strokeWidth} onChange={(e) => updateSettings({ strokeWidth: +e.target.value })} className="w-40 accent-blue" />
         </Row>

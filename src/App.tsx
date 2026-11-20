@@ -1,10 +1,11 @@
-﻿import { useEffect, useState } from 'react'
+﻿import { useEffect, useRef, useState } from 'react'
 import { BookOpen, GraduationCap, House, Settings as SettingsIcon, type LucideIcon } from 'lucide-react'
 import { AiStatusPill } from './components/AiStatusPill'
 import { isOnboarded, Onboarding } from './components/Onboarding'
 import { WhatsNew } from './components/WhatsNew'
 import { MissingTranslations } from './components/MissingTranslations'
 import { VoiceProgress } from './components/VoiceProgress'
+import { ScanHost } from './components/ScanHost'
 import { releasePopup } from './lib/releases'
 import { playSound } from './lib/sounds'
 import { warmup } from './lib/gemini'
@@ -13,7 +14,8 @@ import { AppProvider, useApp } from './store'
 import { SyncProvider } from './sync'
 import { AccountProvider } from './account'
 import { ToastProvider } from './components/Toasts'
-import { ConfirmProvider } from './components/ui'
+import { ConfirmProvider, useConfirm } from './components/ui'
+import { getActiveTest } from './lib/activeTest'
 import { Dashboard } from './views/Dashboard'
 import { Dictionary } from './views/Dictionary'
 import { Practice } from './views/Practice'
@@ -42,16 +44,49 @@ function Shell() {
     return () => clearTimeout(id)
   }, [settings.geminiApiKey])
 
-  // Beim Seitenwechsel nach oben scrollen
+  const confirm = useConfirm()
+  // Üben bleibt im Hintergrund geladen: zurück im Tab geht es genau dort weiter, wo du warst
+  const [ueben, setUeben] = useState<{ sub: string; rest: string } | null>(tab === 'ueben' ? { sub, rest } : null)
+  const [uebenKey, setUebenKey] = useState(0)
+  if (tab === 'ueben' && (ueben?.sub !== sub || ueben?.rest !== rest)) setUeben({ sub, rest })
+  const uebenScroll = useRef(0)
+  const lastTab = useRef(tab)
+
+  // Beim Seitenwechsel nach oben scrollen – außer bei der Rückkehr zu Üben (dort an die alte Stelle)
   useEffect(() => {
-    document.getElementById('main')?.scrollTo({ top: 0 })
+    const main = document.getElementById('main')
+    if (!main) return
+    const back = tab === 'ueben' && lastTab.current !== 'ueben'
+    lastTab.current = tab
+    main.scrollTo({ top: back ? uebenScroll.current : 0 })
   }, [tab, sub, navKey])
 
   const idx = NAV.findIndex((n) => n.id === tab)
-  const go = (id: Tab) => {
-    if (id === tab) setNavKey((k) => k + 1)
-    else playSound('nav')
-    navigate('/' + id)
+  const go = async (id: Tab) => {
+    if (id === tab) {
+      // Erneuter Tipp auf den aktiven Tab setzt die Seite zurück
+      if (id === 'ueben') setUebenKey((k) => k + 1)
+      else setNavKey((k) => k + 1)
+      navigate('/' + id)
+      return
+    }
+    // Im Wörterbuch stehen die Lösungen: ein laufender Test wird dafür beendet
+    const test = getActiveTest()
+    if (id === 'woerter' && test) {
+      const ok = await confirm({
+        title: `${test.label} beenden?`,
+        message: `Im Wörterbuch siehst du die Lösungen. Wenn du jetzt wechselst, wird das ${test.label} beendet. Zu Start oder Einstellungen kannst du jederzeit wechseln – dann geht es danach weiter.`,
+        confirmLabel: 'Beenden',
+        cancelLabel: 'Weiter üben',
+        destructive: true,
+      })
+      if (!ok) return
+      test.end()
+    }
+    if (tab === 'ueben') uebenScroll.current = document.getElementById('main')?.scrollTop ?? 0
+    playSound('nav')
+    if (id === 'ueben' && ueben) navigate('/ueben' + (ueben.sub ? '/' + ueben.sub : '') + (ueben.rest ? '/' + ueben.rest : ''))
+    else navigate('/' + id)
   }
 
   return (
@@ -93,16 +128,21 @@ function Shell() {
         <div key={`${tab}-${navKey}`} className="page-in">
           {tab === 'start' && <Dashboard />}
           {tab === 'woerter' && <Dictionary />}
-          {tab === 'ueben' && <Practice sub={sub} rest={rest} />}
           {tab === 'labor' && <Lab />}
           {tab === 'einstellungen' && <SettingsView sub={sub} onRestartOnboarding={() => setOnboarding(true)} onShowWhatsNew={() => setWhatsNew(true)} />}
         </div>
+        {ueben && (
+          <div key={`practice-${uebenKey}`} className={tab === 'ueben' ? 'page-in' : 'hidden'}>
+            <Practice sub={ueben.sub} rest={ueben.rest} />
+          </div>
+        )}
       </main>
 
       {!onboarding && whatsNew && <WhatsNew onClose={() => setWhatsNew(false)} />}
       {/* Nach Onboarding und Neuigkeiten: Wörter ohne Übersetzung */}
       <MissingTranslations suppressed={onboarding || whatsNew} />
       {!onboarding && <VoiceProgress />}
+      <ScanHost />
       {onboarding && <Onboarding onClose={() => { setOnboarding(false); navigate('/start') }} />}
 
       {/* Tableiste (Handy / Tablet hoch): schwebende Glas-Kapsel */}

@@ -1,5 +1,5 @@
-﻿import { Fragment, useRef, useState } from 'react'
-import { ChevronDown, FileUp, Loader2, Save, Sparkles, Trash2, Download } from 'lucide-react'
+﻿import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { Check, ChevronDown, Copy, FileUp, Loader2, Save, Sparkles, Trash2, Download } from 'lucide-react'
 import { callGeminiWithFallback, extractVocabulary, type ExtractedWord } from '../lib/gemini'
 import { fillTranslations, guessWordType, parseLooseText, translateGoogle } from '../lib/importer'
 import { ocrDataLoaded, ocrImage, pdfToText } from '../lib/ocr'
@@ -9,6 +9,7 @@ import { sanitizeWord, useApp } from '../store'
 import { CONJUGATION_KEYS, CONJUGATION_LABELS, WORD_TYPE_LABELS, type Conjugations, type WordItem, type WordType } from '../types'
 import { canAddSubfolder, folderPath, sortFolders } from '../lib/folders'
 import type { Folder } from '../types'
+import { distinguishPrompt, findDuplicates, parseDistinguish, type DupEntry, type DupGroup } from '../lib/scanDuplicates'
 
 interface Row {
   id: string
@@ -82,8 +83,16 @@ function folderTree(folders: Folder[]): { f: Folder; depth: number }[] {
 /** Dateiname ohne Endung, als Vorschlag für einen neuen Ordner */
 const baseName = (name: string) => name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim().slice(0, 60)
 
-export function UploadScanner({ defaultFolderId = null }: { defaultFolderId?: string | null }) {
-  const { words, settings, addWords, folders, addFolder } = useApp()
+export function UploadScanner({ defaultFolderId = null, onBusy, onPending, onDone, background = false }: {
+  defaultFolderId?: string | null
+  /** Rückmeldungen für den Hintergrund-Scan (ScanHost) */
+  onBusy?: (busy: boolean) => void
+  onPending?: (rows: number) => void
+  onDone?: (found: number) => void
+  /** Hinweis anzeigen, dass man das Fenster während des Scans schließen kann */
+  background?: boolean
+}) {
+  const { words, settings, addWords, updateWord, folders, addFolder } = useApp()
   /** Zielordner: '' = ohne Ordner, Ordner-ID oder NEW_FOLDER */
   const [target, setTarget] = useState<string>(defaultFolderId ?? '')
   const [newName, setNewName] = useState('')
@@ -96,6 +105,13 @@ export function UploadScanner({ defaultFolderId = null }: { defaultFolderId?: st
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [drag, setDrag] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
+  useEffect(() => onBusy?.(busy), [busy, onBusy])
+  useEffect(() => onPending?.(rows.length), [rows.length, onPending])
+  // Neuer Zielordner beim Öffnen aus einem anderen Ordner – nur solange nichts wartet
+  useEffect(() => {
+    if (!rows.length && !busy) setTarget(defaultFolderId ?? '')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [defaultFolderId])
   const hasKey = !!settings.geminiApiKey.trim()
   const confirm = useConfirm()
 
@@ -194,6 +210,7 @@ export function UploadScanner({ defaultFolderId = null }: { defaultFolderId?: st
     setStatus('')
     const newRows = toRows(filled.items)
     setRows((r) => [...r, ...newRows])
+    onDone?.(newRows.length)
     const extra = translationNote(filled.items.length - newRows.length, newRows)
     setMsg(
       problems.length
@@ -231,6 +248,7 @@ export function UploadScanner({ defaultFolderId = null }: { defaultFolderId?: st
       const filled = await complete(items).catch(() => ({ items: items.map((w) => ({ ...w, review: false })), missing: 0 }))
       const newRows = toRows(filled.items)
       setRows((r) => [...r, ...newRows])
+      onDone?.(newRows.length)
       setMsg({
         ok: newRows.length > 0 && !truncated,
         text: newRows.length
@@ -247,6 +265,44 @@ export function UploadScanner({ defaultFolderId = null }: { defaultFolderId?: st
   }
 
   const patch = (id: string, p: Partial<Row>) => setRows((rs) => rs.map((r) => (r.id === id ? { ...r, ...p } : r)))
+
+  // ---------- Gleiche Bedeutung doppelt? ----------
+  const [keepBoth, setKeepBoth] = useState<Set<string>>(new Set())
+  const [sharpening, setSharpening] = useState<string | null>(null)
+  const [sharpenError, setSharpenError] = useState('')
+  const dupGroups = useMemo(() => {
+    const scan: DupEntry[] = rows.filter((r) => r.selected && r.korean.trim()).map((r) => ({ id: r.id, source: 'scan', korean: r.korean, german: r.german }))
+    const dict: DupEntry[] = words.map((w) => ({ id: w.id, source: 'dict', korean: w.korean, german: w.german }))
+    return findDuplicates(scan, dict).filter((g) => !keepBoth.has(g.key))
+  }, [rows, words, keepBoth])
+  const dupIds = useMemo(() => new Set(dupGroups.flatMap((g) => g.entries.map((e) => e.id))), [dupGroups])
+
+  /** Nur dieses behalten: die anderen Scan-Einträge der Gruppe abwählen (Wörterbuch bleibt unverändert) */
+  const keepOnly = (g: DupGroup, e: DupEntry) =>
+    setRows((rs) => rs.map((r) => (g.entries.some((x) => x.source === 'scan' && x.id === r.id && x.id !== e.id) ? { ...r, selected: false } : r)))
+
+  /** Gemini schärft die deutschen Übersetzungen, damit man die Wörter auseinanderhalten kann */
+  const sharpen = async (g: DupGroup) => {
+    setSharpening(g.key)
+    setSharpenError('')
+    try {
+      const r = await callGeminiWithFallback(settings.geminiApiKey, settings.geminiModel, [{ text: distinguishPrompt(g.entries) }], undefined, { timeoutMs: 25_000 })
+      const out = parseDistinguish(r.text)
+      if (!out.length) throw new Error('Keine verwertbare Antwort')
+      g.entries.forEach((e, i) => {
+        const hit = out.find((o) => o.korean.replace(/\s+/g, '') === e.korean.replace(/\s+/g, '')) ?? out[i]
+        if (!hit || hit.german === e.german) return
+        if (e.source === 'scan') patch(e.id, { german: hit.german, review: true })
+        else updateWord(e.id, { german: hit.german, needsReview: true })
+      })
+      // geschärft = erledigt, auch wenn die Bedeutungen noch ähnlich klingen
+      setKeepBoth((k) => new Set(k).add(g.key))
+    } catch (err) {
+      setSharpenError(err instanceof Error ? err.message : 'Fehler')
+    } finally {
+      setSharpening(null)
+    }
+  }
   const selected = rows.filter((r) => r.selected && r.korean.trim())
 
   const saveAll = () => {
@@ -327,6 +383,46 @@ export function UploadScanner({ defaultFolderId = null }: { defaultFolderId?: st
       </div>
       {msg && <p className={`mt-3 text-sm ${msg.ok ? 'text-green' : 'text-red'}`}>{msg.text}</p>}
 
+      {background && busy && (
+        <p className="mt-3 rounded-xl bg-fill-4 px-3 py-2 text-sm text-label-2">Du kannst dieses Fenster schließen – der Scan läuft im Hintergrund weiter, und du bekommst eine Meldung, sobald er fertig ist.</p>
+      )}
+      {rows.length > 0 && dupGroups.length > 0 && (
+        <div className="fade-up mt-5 space-y-3 rounded-2xl border border-orange/40 bg-orange/10 p-3">
+          <p className="flex items-center gap-2 font-semibold"><Copy size={17} className="text-orange" /> {dupGroups.length === 1 ? 'Eine Bedeutung kommt' : `${dupGroups.length} Bedeutungen kommen`} doppelt vor</p>
+          <p className="text-sm text-label-2">Wähle, welches Wort du behalten willst, behalte beide – oder lass Gemini die Übersetzungen so schärfen, dass du sie auseinanderhalten kannst.</p>
+          {dupGroups.map((g) => (
+            <div key={g.key} className="space-y-2 rounded-xl bg-surface p-3">
+              <p className="text-xs text-label-2">
+                {g.kind === 'german' ? <>Gleiche Bedeutung: <span className="font-semibold text-label">„{g.entries[0].german}“</span></> : <>Gleiches Wort: <span lang="ko" className="font-semibold text-label">{g.shared}</span></>}
+              </p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {g.entries.map((e) => (
+                  <div key={e.id} className="flex items-center gap-2 rounded-xl border border-separator p-2.5">
+                    <div className="min-w-0 flex-1">
+                      <p lang="ko" className="text-lg font-semibold leading-tight">{e.korean}</p>
+                      <p className="truncate text-sm text-label-2">{e.german || '–'}</p>
+                      <p className="text-[11px] text-label-3">{e.source === 'scan' ? 'neu im Scan' : 'schon im Wörterbuch'}</p>
+                    </div>
+                    <button className="btn-soft shrink-0 !px-3 text-sm" onClick={() => keepOnly(g, e)} title={e.source === 'dict' ? 'Die neuen Einträge nicht speichern' : 'Nur dieses speichern'}>
+                      <Check size={15} /> Nur das
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {hasKey && (
+                  <button className="btn-soft text-sm" onClick={() => void sharpen(g)} disabled={sharpening !== null}>
+                    {sharpening === g.key ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />} Übersetzungen unterscheiden
+                  </button>
+                )}
+                <button className="btn-soft text-sm" onClick={() => setKeepBoth((k) => new Set(k).add(g.key))}>Beide behalten</button>
+              </div>
+            </div>
+          ))}
+          {sharpenError && <p className="text-sm text-red">Gemini konnte die Übersetzungen nicht schärfen: {sharpenError}</p>}
+          {!hasKey && <p className="text-xs text-label-3">Mit Gemini-Key kann die App die Übersetzungen auch automatisch unterscheiden.</p>}
+        </div>
+      )}
       {rows.length > 0 && (
         <div className="fade-up mt-5 space-y-3">
           <div className="flex flex-wrap items-end gap-3">
@@ -358,6 +454,7 @@ export function UploadScanner({ defaultFolderId = null }: { defaultFolderId?: st
                         <td className="p-1">
                           <input className={`${cell} text-base font-semibold`} lang="ko" value={r.korean} onChange={(e) => patch(r.id, { korean: e.target.value })} />
                           {r.duplicate && <span className="px-2 text-[10px] font-medium text-orange">bereits vorhanden</span>}
+                          {!r.duplicate && dupIds.has(r.id) && <span className="px-2 text-[10px] font-medium text-orange">ähnliche Bedeutung – siehe oben</span>}
                         </td>
                         <td className="p-1">
                           <input className={`${cell} ${r.review ? 'bg-yellow/15' : ''}`} value={r.german} placeholder="Übersetzung fehlt" onChange={(e) => patch(r.id, { german: e.target.value, review: false })} />

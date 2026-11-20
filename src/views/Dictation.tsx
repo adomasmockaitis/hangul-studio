@@ -6,6 +6,7 @@ import { SelectionPicker } from '../components/SelectionPicker'
 import { Group, Segmented } from '../components/ui'
 import { askable, fastLimit, isDueDir, type Dir } from '../lib/fsrs'
 import { resolveSelection, smartPick, SMART, type Selection } from '../lib/selection'
+import { activeOnly } from '../lib/folders'
 import { useApp } from '../store'
 import type { WordItem } from '../types'
 
@@ -61,7 +62,7 @@ export function DictationSetup({ onDashboard }: { onDashboard: () => void }) {
   const dir = DIR_OF[variant]
 
   const pool: WordItem[] = useMemo(() => {
-    if (selection.mode === 'smart') return smartPick(words, dir, count || 50, Date.now()).map((p) => p.word)
+    if (selection.mode === 'smart') return smartPick(activeOnly(words, folders), dir, count || 50, Date.now()).map((p) => p.word)
     return resolveSelection(selection, words, folders).filter(askable)
   }, [words, folders, selection, dir, count])
   const dueCount = useMemo(() => words.filter((w) => askable(w) && isDueDir(w, dir, Date.now())).length, [words, dir])
@@ -72,7 +73,7 @@ export function DictationSetup({ onDashboard }: { onDashboard: () => void }) {
     setQuestions(chosen.map((w, n) => makeQuestion(w, variant, n)))
   }
 
-  if (questions) return <Runner questions={questions} onDashboard={onDashboard} onBack={() => setQuestions(null)} backLabel="Neue Auswahl" />
+  if (questions) return <Runner questions={questions} onDashboard={onDashboard} onBack={() => setQuestions(null)} backLabel="Neue Auswahl" test="Diktat" />
 
   return (
     <div className="space-y-6">

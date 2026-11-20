@@ -222,6 +222,24 @@ select option, select optgroup { background-color: var(--color-surface); color: 
 .bubble-close > * { animation: bubble-content-out .14s ease-in both; }
 @keyframes bubble-in { 0% { opacity: 0; transform: scale(.6); } 100% { opacity: 1; transform: none; } }
 .bubble-in { transform-origin: 100% 100%; animation: bubble-in .35s cubic-bezier(.3, 1.35, .5, 1) both; }
+/* Blase links (Rechtshänder): dieselben Bewegungen gespiegelt, sie wachsen aus der linken unteren Ecke */
+@keyframes bubble-grow-l {
+  0% { clip-path: inset(calc(100% - 3.5rem) calc(100% - 9rem) 0 0 round 999px); }
+  100% { clip-path: inset(0 0 0 0 round 22px); }
+}
+@keyframes bubble-open-l {
+  0% { clip-path: inset(calc(100% - 3.25rem) calc(100% - var(--bw, 21rem)) 0 0 round 999px); }
+  100% { clip-path: inset(0 0 0 0 round 22px); }
+}
+@keyframes bubble-close-l {
+  0% { clip-path: inset(0 0 0 0 round 22px); opacity: 1; }
+  80% { opacity: 1; }
+  100% { clip-path: inset(calc(100% - 3.25rem) calc(100% - var(--bw, 21rem)) 0 0 round 999px); opacity: .4; }
+}
+.from-left .bubble-grow { animation-name: bubble-grow-l; }
+.from-left .bubble-open { animation-name: bubble-open-l; }
+.from-left .bubble-close { animation-name: bubble-close-l; }
+.from-left .bubble-in { transform-origin: 0 100%; }
 /* Während des Zeichnens nichts markieren (iOS) */
 .no-select, .no-select * { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 @keyframes alert-in { from { opacity: 0; transform: scale(1.08); } to { opacity: 1; transform: none; } }
