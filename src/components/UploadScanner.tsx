@@ -10,7 +10,7 @@ import { CONJUGATION_KEYS, CONJUGATION_LABELS, WORD_TYPE_LABELS, type Conjugatio
 import { canAddSubfolder, folderPath, sortFolders } from '../lib/folders'
 import type { Folder } from '../types'
 import { findDuplicates, type DupEntry, type DupGroup } from '../lib/scanDuplicates'
-import { DuplicateGroups, sharpenTranslations } from './DuplicateGroups'
+import { DuplicateGroups } from './DuplicateGroups'
 
 interface Row {
   id: string
@@ -269,8 +269,6 @@ export function UploadScanner({ defaultFolderId = null, onBusy, onPending, onDon
 
   // ---------- Gleiche Bedeutung doppelt? ----------
   const [keepBoth, setKeepBoth] = useState<Set<string>>(new Set())
-  const [sharpening, setSharpening] = useState<string | null>(null)
-  const [sharpenError, setSharpenError] = useState('')
   const dupGroups = useMemo(() => {
     const scan: DupEntry[] = rows.filter((r) => r.selected && r.korean.trim()).map((r) => ({ id: r.id, source: 'scan', korean: r.korean, german: r.german }))
     const dict: DupEntry[] = words.map((w) => ({ id: w.id, source: 'dict', korean: w.korean, german: w.german }))
@@ -282,25 +280,15 @@ export function UploadScanner({ defaultFolderId = null, onBusy, onPending, onDon
   const keepOnly = (g: DupGroup, e: DupEntry) =>
     setRows((rs) => rs.map((r) => (g.entries.some((x) => x.source === 'scan' && x.id === r.id && x.id !== e.id) ? { ...r, selected: false } : r)))
 
-  /** Gemini schärft die deutschen Übersetzungen, damit man die Wörter auseinanderhalten kann */
-  const sharpen = async (g: DupGroup) => {
-    setSharpening(g.key)
-    setSharpenError('')
-    try {
-      const changes = await sharpenTranslations(settings.geminiApiKey, settings.geminiModel, g.entries)
-      for (const e of g.entries) {
-        const german = changes.get(e.id)
-        if (!german) continue
-        if (e.source === 'scan') patch(e.id, { german, review: true })
-        else updateWord(e.id, { german, needsReview: true })
-      }
-      // geschärft = erledigt, auch wenn die Bedeutungen noch ähnlich klingen
-      setKeepBoth((k) => new Set(k).add(g.key))
-    } catch (err) {
-      setSharpenError(err instanceof Error ? err.message : 'Fehler')
-    } finally {
-      setSharpening(null)
+  /** Bestätigte Gemini-Vorschläge übernehmen (Wörter im Wörterbuch werden erst jetzt geändert) */
+  const applyChanges = (g: DupGroup, changes: Map<string, string>) => {
+    for (const e of g.entries) {
+      const german = changes.get(e.id)
+      if (!german) continue
+      if (e.source === 'scan') patch(e.id, { german, review: false })
+      else updateWord(e.id, { german })
     }
+    setKeepBoth((k) => new Set(k).add(g.key))
   }
   const selected = rows.filter((r) => r.selected && r.korean.trim())
 
@@ -388,15 +376,14 @@ export function UploadScanner({ defaultFolderId = null, onBusy, onPending, onDon
       {rows.length > 0 && dupGroups.length > 0 && (
         <div className="fade-up mt-5 space-y-3 rounded-2xl border border-orange/40 bg-orange/10 p-3">
           <p className="flex items-center gap-2 font-semibold"><Copy size={17} className="text-orange" /> {dupGroups.length === 1 ? 'Eine Bedeutung kommt' : `${dupGroups.length} Bedeutungen kommen`} doppelt vor</p>
-          <p className="text-sm text-label-2">Wähle, welches Wort du behalten willst, behalte beide – oder lass Gemini die Übersetzungen so schärfen, dass du sie auseinanderhalten kannst.</p>
+          <p className="text-sm text-label-2">Wähle, welches Wort du speichern willst („Nur das“ wählt die anderen neuen Wörter nur ab), behalte beide – oder lass dir von Gemini Unterschiede vorschlagen. Geändert wird erst, wenn du zustimmst.</p>
           <DuplicateGroups
             groups={dupGroups}
-            hasKey={hasKey}
-            sharpening={sharpening}
-            error={sharpenError}
+            apiKey={hasKey ? settings.geminiApiKey : ''}
+            model={settings.geminiModel}
             onKeepOnly={keepOnly}
             onKeepBoth={(g) => setKeepBoth((k) => new Set(k).add(g.key))}
-            onSharpen={(g) => void sharpen(g)}
+            onApply={applyChanges}
             sourceLabel={(e) => (e.source === 'scan' ? 'neu im Scan' : 'schon im Wörterbuch')}
           />
         </div>

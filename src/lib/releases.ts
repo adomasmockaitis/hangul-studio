@@ -37,7 +37,7 @@ export const RELEASES: Release[] = [
     title: 'Neu in Hangul Studio',
     subtitle: 'Doppelte Bedeutungen',
     features: [],
-    summary: 'Das Wörterbuch prüft einmal alle Wörter auf gleiche Bedeutungen und zeigt sie nebeneinander – eins behalten, beide oder von Gemini unterscheiden lassen.',
+    summary: 'Das Wörterbuch prüft einmal alle Wörter auf gleiche Bedeutungen und zeigt sie nebeneinander – eins behalten, beide oder von Gemini Unterschiede vorschlagen lassen. Geändert wird erst, wenn du zustimmst.',
   },
   {
     id: '2026-11-extra-round',

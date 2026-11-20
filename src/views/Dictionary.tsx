@@ -5,7 +5,7 @@ import {
 import { List, ListRow, PageHeader, Sheet, Toggle, useConfirm } from '../components/ui'
 import { parseTags } from '../components/UploadScanner'
 import { openScanner, useScanState } from '../components/ScanHost'
-import { DuplicateGroups, sharpenTranslations } from '../components/DuplicateGroups'
+import { DuplicateGroups } from '../components/DuplicateGroups'
 import { findDictDuplicates, type DupEntry, type DupGroup } from '../lib/scanDuplicates'
 import { canAddSubfolder, chapterTagSuggestions, countWords, effectiveFolder, folderPath, pausedFolderIds, sortFolders } from '../lib/folders'
 import { completeWord } from '../lib/gemini'
@@ -79,8 +79,6 @@ export function Dictionary() {
     return n
   })
   const [dupOpen, setDupOpen] = useState(false)
-  const [dupBusy, setDupBusy] = useState<string | null>(null)
-  const [dupError, setDupError] = useState('')
   const dupGroups = useMemo(
     () => findDictDuplicates(words.map((w) => ({ id: w.id, source: 'dict' as const, korean: w.korean, german: w.german }))).filter((g) => !kept.has(g.key)),
     [words, kept],
@@ -95,18 +93,10 @@ export function Dictionary() {
     })
     if (ok) others.forEach((x) => deleteWord(x.id))
   }
-  const sharpenDict = async (g: DupGroup) => {
-    setDupBusy(g.key)
-    setDupError('')
-    try {
-      const changes = await sharpenTranslations(settings.geminiApiKey, settings.geminiModel, g.entries)
-      changes.forEach((german, id) => updateWord(id, { german, needsReview: true }))
-      keep([g.key])
-    } catch (err) {
-      setDupError(err instanceof Error ? err.message : 'Fehler')
-    } finally {
-      setDupBusy(null)
-    }
+  /** Bestätigte Gemini-Vorschläge übernehmen */
+  const applyDict = (g: DupGroup, changes: Map<string, string>) => {
+    changes.forEach((german, id) => updateWord(id, { german }))
+    keep([g.key])
   }
   const { sub } = useRoute()
   const folderIds = useMemo(() => new Set(folders.map((f) => f.id)), [folders])
@@ -308,15 +298,14 @@ export function Dictionary() {
         </div>
       )}
       <Sheet open={dupOpen && dupGroups.length > 0} onClose={() => setDupOpen(false)} title="Doppelte Bedeutungen" wide>
-        <p className="mb-3 text-sm text-label-2">Behalte eins (die anderen werden gelöscht), behalte beide – oder lass Gemini die Übersetzungen so schärfen, dass du sie auseinanderhalten kannst.</p>
+        <p className="mb-3 text-sm text-label-2">Behalte eins (vor dem Löschen wirst du gefragt), behalte beide – oder lass dir von Gemini Unterschiede vorschlagen. Geändert wird erst, wenn du zustimmst.</p>
         <DuplicateGroups
           groups={dupGroups}
-          hasKey={!!settings.geminiApiKey.trim()}
-          sharpening={dupBusy}
-          error={dupError}
+          apiKey={settings.geminiApiKey}
+          model={settings.geminiModel}
           onKeepOnly={(g, e) => void keepOnlyDict(g, e)}
           onKeepBoth={(g) => keep([g.key])}
-          onSharpen={(g) => void sharpenDict(g)}
+          onApply={applyDict}
           sourceLabel={(e) => folderName(words.find((w) => w.id === e.id)!) || 'Ohne Ordner'}
         />
       </Sheet>
