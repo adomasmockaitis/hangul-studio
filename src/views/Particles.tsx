@@ -8,7 +8,7 @@ import {
   PenLine, RotateCcw, Shuffle, Snail, Sparkles, Volume2, X,
 } from 'lucide-react'
 import { HangulCanvas } from '../components/HangulCanvas'
-import { Segmented, Sheet } from '../components/ui'
+import { Group, Segmented, Sheet } from '../components/ui'
 import { SentenceWriter, type SentenceResult } from '../components/SentenceWriter'
 import { sameSentence } from '../lib/ink'
 import { useToast } from '../components/Toasts'
@@ -65,19 +65,10 @@ function Hub() {
 
   const toggle = (p: ParticleId) => setSel((s) => (s.includes(p) ? s.filter((x) => x !== p) : [...s, p]))
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <LevelCard />
 
-      <div className="card space-y-3 p-4">
-        <div className="flex items-start gap-3">
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-purple/15 text-purple"><Shuffle size={20} /></span>
-          <div className="min-w-0 flex-1">
-            <p className="font-semibold">Gemischt üben</p>
-            <p className="text-sm text-label-2">
-              Wähle unten mehrere Partikeln aus (Kreis antippen) oder mische alle gelernten. Schwache Partikeln und Verwechslungen kommen öfter.
-            </p>
-          </div>
-        </div>
+      <Group title="Gemischt üben" footer="Wähle unten mehrere Partikeln aus (Kreis antippen) oder mische alle gelernten. Schwache Partikeln und Verwechslungen kommen öfter.">
         <div className="flex flex-wrap gap-2">
           <button className="btn-primary" disabled={!sel.length} onClick={() => setSession(sel)}>
             <Play size={16} /> {sel.length ? `${sel.length} ausgewählte üben` : 'Partikeln auswählen'}
@@ -87,10 +78,10 @@ function Hub() {
           </button>
           {sel.length > 0 && <button className="btn-soft" onClick={() => setSel([])}>Auswahl aufheben</button>}
         </div>
-      </div>
+      </Group>
 
       <div>
-        <p className="label mb-2 px-1">Kapitel · empfohlene Reihenfolge</p>
+        <h2 className="mb-1.5 px-4 text-[13px] font-medium text-label-2">Kapitel · empfohlene Reihenfolge</h2>
         <div className="stagger space-y-2">
           {CHAPTERS.map((c) => {
             const cp = chapterProgress(particles, c.id)
@@ -149,16 +140,15 @@ function LevelCard() {
   const win = particles.recent.slice(-20)
   const rate = win.length ? Math.round((win.filter((r) => r.ok).length / win.length) * 100) : null
   return (
-    <div className="card space-y-3 p-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <p className="font-semibold">Schwierigkeit</p>
-          <p className="text-sm text-label-2">
-            {particles.level === 'auto' ? `Auto · zurzeit Stufe ${lvl} (${LEVEL_NAMES[lvl - 1]})` : `Stufe ${lvl} (${LEVEL_NAMES[lvl - 1]})`}
-            {rate !== null && ` · zuletzt ${rate} % richtig`}
-          </p>
-        </div>
-      </div>
+    <Group
+      title="Schwierigkeit"
+      footer="1 Einsteiger · 2 Anfänger · 3 Mittel · 4 Fortgeschritten · 5 Profi. Auto steigt bei über 85 % richtig und sinkt unter 60 % (letzte 20 Aufgaben)."
+      className="space-y-3"
+    >
+      <p className="text-[15px]">
+        {particles.level === 'auto' ? <>Auto · zurzeit <b>Stufe {lvl}</b> ({LEVEL_NAMES[lvl - 1]})</> : <><b>Stufe {lvl}</b> ({LEVEL_NAMES[lvl - 1]})</>}
+        {rate !== null && <span className="text-label-2"> · zuletzt {rate} % richtig</span>}
+      </p>
       <div className="overflow-x-auto">
         <Segmented<string>
           label="Schwierigkeit"
@@ -167,10 +157,7 @@ function LevelCard() {
           options={[{ value: 'auto', label: 'Auto' }, ...[1, 2, 3, 4, 5].map((n) => ({ value: String(n), label: String(n) }))]}
         />
       </div>
-      <p className="text-xs text-label-3">
-        1 Einsteiger · 2 Anfänger · 3 Mittel · 4 Fortgeschritten · 5 Profi. Auto steigt bei über 85 % richtig und sinkt unter 60 % (letzte 20 Aufgaben).
-      </p>
-    </div>
+    </Group>
   )
 }
 

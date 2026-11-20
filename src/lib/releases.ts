@@ -24,6 +24,14 @@ export interface Release {
 }
 export const RELEASES: Release[] = [
   {
+    id: '2026-11-design-cleanup',
+    size: 'minor',
+    title: 'Neu in Hangul Studio',
+    subtitle: 'Aufgeräumtes Layout',
+    summary: 'Alle Seiten haben jetzt dieselbe Breite, Abschnitte stehen überall gleich (Überschrift über der Karte, Erklärung darunter), der Umschalter unter „Üben“ hat eine eigene Zeile, und die Wörter-Seite ist auf dem Handy kompakter.',
+    features: [],
+  },
+  {
     id: '2026-11-particles-write-fix',
     size: 'minor',
     title: 'Neu in Hangul Studio',

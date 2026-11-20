@@ -88,7 +88,33 @@ export function Segmented<T extends string>({
  * Großer Seitentitel. Scrollt er aus dem Bild, erscheint oben eine kleine Glas-Kapsel mit dem Titel
  * (abschaltbar mit collapsible={false}, z. B. wenn die Seite selbst etwas oben anheftet).
  */
-export function PageHeader({ title, subtitle, right, collapsible = true }: { title: string; subtitle?: string; right?: ReactNode; collapsible?: boolean }) {
+/**
+ * Gruppe nach Apple-Art: Überschrift über der Karte, Erklärung darunter (wie in den Einstellungen).
+ * So stehen Abschnittstitel überall gleich – nicht mal innerhalb, mal außerhalb der Karte.
+ */
+export function Group({ title, footer, children, className = '', bare = false }: {
+  title?: ReactNode
+  footer?: ReactNode
+  children: ReactNode
+  className?: string
+  /** ohne Kartenhintergrund (z. B. wenn der Inhalt selbst Karten enthält) */
+  bare?: boolean
+}) {
+  return (
+    <section>
+      {title && <h2 className="mb-1.5 px-4 text-[13px] font-medium text-label-2">{title}</h2>}
+      <div className={bare ? className : `card p-4 ${className}`}>{children}</div>
+      {footer && <p className="mt-1.5 px-4 text-[13px] text-label-2">{footer}</p>}
+    </section>
+  )
+}
+
+export function PageHeader({ title, subtitle, right, below, collapsible = true }: {
+  title: string; subtitle?: string; right?: ReactNode
+  /** Eigene Zeile unter dem Titel (z. B. Umschalter) */
+  below?: ReactNode
+  collapsible?: boolean
+}) {
   const h1 = useRef<HTMLHeadingElement>(null)
   const [away, setAway] = useState(false)
   useEffect(() => {
@@ -110,12 +136,15 @@ export function PageHeader({ title, subtitle, right, collapsible = true }: { tit
           </div>
         </div>
       )}
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 ref={h1} className="text-3xl font-bold tracking-tight">{title}</h1>
-          {subtitle && <p className="mt-1 text-sm text-label-2">{subtitle}</p>}
+      <div className="mb-6">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div className="min-w-0">
+            <h1 ref={h1} className="text-[2.125rem] font-bold leading-tight tracking-tight">{title}</h1>
+            {subtitle && <p className="mt-0.5 text-[15px] text-label-2">{subtitle}</p>}
+          </div>
+          {right}
         </div>
-        {right}
+        {below && <div className="mt-4">{below}</div>}
       </div>
     </>
   )
@@ -209,9 +238,9 @@ export const Modal = Sheet
 export function List({ title, footer, children }: { title?: string; footer?: ReactNode; children: ReactNode }) {
   return (
     <section className="mb-6">
-      {title && <h2 className="mb-1.5 px-4 text-xs font-medium text-label-2">{title}</h2>}
+      {title && <h2 className="mb-1.5 px-4 text-[13px] font-medium text-label-2">{title}</h2>}
       <div className="card divide-y divide-separator overflow-hidden">{children}</div>
-      {footer && <p className="mt-1.5 px-4 text-xs text-label-2">{footer}</p>}
+      {footer && <p className="mt-1.5 px-4 text-[13px] text-label-2">{footer}</p>}
     </section>
   )
 }

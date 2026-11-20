@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Check, CircleDashed, Folder as FolderIcon, Search, Sparkles } from 'lucide-react'
+import { Check, CircleDashed, Folder as FolderIcon, Search } from 'lucide-react'
 import { countWords, effectiveFolder, sortFolders } from '../lib/folders'
 import { NO_FOLDER, type Selection } from '../lib/selection'
 import type { Folder, WordItem } from '../types'
@@ -78,7 +78,7 @@ export function SelectionPicker({
         value={value.mode}
         onChange={setMode}
         options={[
-          { value: 'smart', label: <><Sparkles size={14} /> Smart</> },
+          { value: 'smart', label: 'Smart' },
           { value: 'folders', label: 'Ordner' },
           { value: 'tags', label: 'Tags' },
           { value: 'words', label: 'Einzeln' },

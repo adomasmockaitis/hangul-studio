@@ -3,7 +3,7 @@ import { Play } from 'lucide-react'
 import { ChoiceQuestion, TypeQuestion, WriteQuestion } from '../components/questions'
 import { Runner, type Q } from '../components/Runner'
 import { SelectionPicker } from '../components/SelectionPicker'
-import { Segmented } from '../components/ui'
+import { Group, Segmented } from '../components/ui'
 import { askable, fastLimit, isDueDir, type Dir } from '../lib/fsrs'
 import { resolveSelection, smartPick, SMART, type Pick, type Selection } from '../lib/selection'
 import { useApp } from '../store'
@@ -67,12 +67,7 @@ function makeQuestion(word: WordItem, kind: Kind, answerType: AnswerType, all: W
 }
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <div className="card p-4">
-      <p className="label mb-2">{title}</p>
-      {children}
-    </div>
-  )
+  return <Group title={title}>{children}</Group>
 }
 
 export function QuizSetup({ onDashboard }: { onDashboard: () => void }) {
@@ -110,7 +105,7 @@ export function QuizSetup({ onDashboard }: { onDashboard: () => void }) {
 
   const usesChoice = direction === 'ko-de' || direction === 'mixed'
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <Section title="Welche Wörter?">
         <SelectionPicker
           value={selection}

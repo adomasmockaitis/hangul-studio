@@ -191,7 +191,7 @@ export function SettingsView({ sub = '', onRestartOnboarding, onShowWhatsNew }: 
   }
 
   return (
-    <div className="mx-auto max-w-2xl">
+    <div className="mx-auto w-full max-w-3xl">
       {page ? (
         <>
           <button className="-ml-2 mb-1 flex min-h-11 items-center gap-0.5 rounded-full px-2 text-base font-medium text-blue transition hover:bg-fill-4" onClick={() => { playSound('nav'); navigate('/einstellungen') }}>

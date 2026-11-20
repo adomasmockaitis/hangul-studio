@@ -1,4 +1,3 @@
-import { Ear, Layers, Puzzle, Repeat2, Trophy } from 'lucide-react'
 import { PageHeader, Segmented } from '../components/ui'
 import { navigate } from '../lib/route'
 import { useApp } from '../store'
@@ -26,22 +25,23 @@ export function Practice({ sub, rest = '' }: { sub: string; rest?: string }) {
   const toStart = () => navigate('/start')
 
   return (
-    <div className={`mx-auto ${mode === 'beugung' ? 'max-w-2xl' : 'max-w-3xl'}`}>
+    <div className="mx-auto w-full max-w-3xl">
       <PageHeader
         title="Üben"
         subtitle={SUBTITLE[mode]}
         collapsible={false}
-        right={
+        below={
+          // Nur Text (Apple: in einem Umschalter nicht Symbole und Text mischen)
           <Segmented<Mode>
             label="Übungsart"
             value={mode}
             onChange={(m) => navigate(m === 'lernen' ? '/ueben' : `/ueben/${m}`)}
             options={[
-              { value: 'lernen', label: <><Layers size={15} className="hidden sm:block" /> Lernen</> },
-              { value: 'quiz', label: <><Trophy size={15} className="hidden sm:block" /> Quiz</> },
-              { value: 'diktat', label: <><Ear size={15} className="hidden sm:block" /> Diktat</> },
-              { value: 'partikel', label: <><Puzzle size={15} className="hidden sm:block" /> Partikel</> },
-              { value: 'beugung', label: <><Repeat2 size={15} className="hidden sm:block" /> Beugung</> },
+              { value: 'lernen', label: 'Lernen' },
+              { value: 'quiz', label: 'Quiz' },
+              { value: 'diktat', label: 'Diktat' },
+              { value: 'partikel', label: 'Partikel' },
+              { value: 'beugung', label: 'Beugung' },
             ]}
           />
         }

@@ -1,10 +1,10 @@
 ﻿import { useMemo, useState } from 'react'
-import { ArrowLeft, ArrowRight, GraduationCap, Play, Volume2 } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Play, Volume2 } from 'lucide-react'
 import { HangulCanvas } from '../components/HangulCanvas'
 import { DoneCard } from '../components/DoneCard'
 import { WriteQuestion } from '../components/questions'
 import { Runner, type Q } from '../components/Runner'
-import { Segmented } from '../components/ui'
+import { Group, Segmented } from '../components/ui'
 import { speak, prepareSentences } from '../lib/speech'
 import { useApp } from '../store'
 import { CONJUGATION_KEYS, CONJUGATION_LABELS, type ConjugationKey, type WordItem } from '../types'
@@ -156,17 +156,15 @@ export function ConjugationTrainer({ onDashboard }: { onDashboard: () => void })
   // ---------- Konfiguration ----------
   return (
     <div>
-      <div className="space-y-4">
-        <div className="card p-4">
-          <p className="label mb-2">Modus</p>
+      <div className="space-y-6">
+        <Group title="Modus">
           <Segmented<Mode>
             value={mode}
             onChange={setMode}
-            options={[{ value: 'test', label: <><Play size={14} /> Testmodus</> }, { value: 'learn', label: <><GraduationCap size={14} /> Lernmodus</> }]}
+            options={[{ value: 'test', label: 'Testmodus' }, { value: 'learn', label: 'Lernmodus' }]}
           />
-        </div>
-        <div className="card p-4">
-          <p className="label mb-2">Beugungsformen</p>
+        </Group>
+        <Group title="Beugungsformen">
           <div className="grid gap-2 sm:grid-cols-2">
             {CONJUGATION_KEYS.map((k) => (
               <label key={k} className="flex cursor-pointer items-center gap-3 rounded-xl bg-fill-4 px-3 py-2.5">
@@ -178,9 +176,9 @@ export function ConjugationTrainer({ onDashboard }: { onDashboard: () => void })
               </label>
             ))}
           </div>
-        </div>
-        <div className="card p-4">
-          <p className="label mb-2">Grundwort in der Frage</p>
+        </Group>
+        <Group title={mode === 'test' ? 'Frage und Anzahl' : 'Grundwort in der Frage'}>
+          <p className="mb-2 text-[13px] text-label-2">Grundwort in der Frage</p>
           <Segmented<Show>
             value={show}
             onChange={setShow}
@@ -188,7 +186,7 @@ export function ConjugationTrainer({ onDashboard }: { onDashboard: () => void })
           />
           {mode === 'test' && (
             <>
-              <p className="label mb-2 mt-4">Anzahl Aufgaben</p>
+              <p className="mb-2 mt-4 text-[13px] text-label-2">Anzahl Aufgaben</p>
               <Segmented<string>
                 value={String(count)}
                 onChange={(v) => setCount(Number(v))}
@@ -196,7 +194,7 @@ export function ConjugationTrainer({ onDashboard }: { onDashboard: () => void })
               />
             </>
           )}
-        </div>
+        </Group>
 
         {pool.length === 0 ? (
           <div className="card p-5 text-center text-sm text-label-2">

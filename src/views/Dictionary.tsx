@@ -207,7 +207,7 @@ export function Dictionary() {
   const backTo = path.length > 1 ? path[path.length - 2] : null
 
   return (
-    <div className="mx-auto max-w-4xl pb-24">
+    <div className="mx-auto w-full max-w-3xl pb-24">
       {place !== '' && (
         <button className="-ml-2 mb-1 flex min-h-11 items-center gap-0.5 rounded-full px-2 text-base font-medium text-blue transition hover:bg-fill-4" onClick={() => go(backTo?.id ?? '')}>
           <ChevronLeft size={22} /> {backTo?.name ?? 'Wörter'}
@@ -217,11 +217,12 @@ export function Dictionary() {
         title={title}
         subtitle={`${list.length} ${list.length === 1 ? 'Wort' : 'Wörter'}${place === '' && folders.length ? ` · ${folders.length} ${folders.length === 1 ? 'Ordner' : 'Ordner'}` : ''}`}
         right={
-          <div className="flex flex-wrap gap-2">
-            {place === '' && <button className="btn-soft" onClick={() => setScanner(true)}><ScanText size={16} /> Datei scannen</button>}
+          <div className="flex flex-nowrap gap-2">
+            {/* Auf dem Handy nur Symbole – sonst brechen die Knöpfe in zwei Zeilen um */}
+            {place === '' && <button className="btn-soft max-sm:!px-3" aria-label="Datei scannen" title="Datei scannen" onClick={() => setScanner(true)}><ScanText size={16} /> <span className="hidden sm:inline">Datei scannen</span></button>}
             {canSub && (
-              <button className="btn-soft" onClick={() => setNameSheet({ mode: 'new', parentId: current?.id ?? null, name: '' })}>
-                <FolderPlus size={16} /> {current ? 'Unterordner' : 'Neuer Ordner'}
+              <button className="btn-soft max-sm:!px-3" aria-label={current ? 'Unterordner anlegen' : 'Neuer Ordner'} title={current ? 'Unterordner' : 'Neuer Ordner'} onClick={() => setNameSheet({ mode: 'new', parentId: current?.id ?? null, name: '' })}>
+                <FolderPlus size={16} /> <span className="hidden sm:inline">{current ? 'Unterordner' : 'Neuer Ordner'}</span>
               </button>
             )}
             {current && (
@@ -275,8 +276,8 @@ export function Dictionary() {
       )}
 
       {/* Suche und Filter */}
-      <div className="mb-3 flex flex-wrap gap-2">
-        <div className="relative w-full sm:w-auto sm:flex-1 sm:basis-48">
+      <div className="mb-3 grid grid-cols-2 gap-2 sm:flex">
+        <div className="relative col-span-2 sm:flex-1">
           <Search size={17} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-label-2" />
           <input
             type="search"
@@ -287,11 +288,11 @@ export function Dictionary() {
             onChange={(e) => setQ(e.target.value)}
           />
         </div>
-        <select aria-label="Nach Tag filtern" className="input !w-auto flex-1 sm:flex-none" value={tag} onChange={(e) => setTag(e.target.value)}>
+        <select aria-label="Nach Tag filtern" className="input min-w-0 sm:!w-auto" value={tag} onChange={(e) => setTag(e.target.value)}>
           <option value="">Alle Tags</option>
           {tags.map((t) => <option key={t}>{t}</option>)}
         </select>
-        <select aria-label="Sortierung" className="input !w-auto flex-1 sm:flex-none" value={sort} onChange={(e) => setSort(e.target.value as Sort)}>
+        <select aria-label="Sortierung" className="input min-w-0 sm:!w-auto" value={sort} onChange={(e) => setSort(e.target.value as Sort)}>
           <option value="new">Neueste zuerst</option>
           <option value="old">Älteste zuerst</option>
           <option value="errors">Höchste Fehlerquote</option>

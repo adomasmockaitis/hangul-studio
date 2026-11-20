@@ -3,7 +3,7 @@ import { Ear, PenLine, Play, Type } from 'lucide-react'
 import { ListenTypeQuestion, WriteQuestion } from '../components/questions'
 import { Runner, type Q } from '../components/Runner'
 import { SelectionPicker } from '../components/SelectionPicker'
-import { Segmented } from '../components/ui'
+import { Group, Segmented } from '../components/ui'
 import { askable, fastLimit, isDueDir, type Dir } from '../lib/fsrs'
 import { resolveSelection, smartPick, SMART, type Selection } from '../lib/selection'
 import { useApp } from '../store'
@@ -48,12 +48,7 @@ function makeQuestion(word: WordItem, variant: Variant, n: number): Q {
 }
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <div className="card p-4">
-      <p className="label mb-2">{title}</p>
-      {children}
-    </div>
-  )
+  return <Group title={title}>{children}</Group>
 }
 
 /** Diktat: Koreanisch hören und aufschreiben bzw. die Bedeutung tippen */
@@ -80,7 +75,7 @@ export function DictationSetup({ onDashboard }: { onDashboard: () => void }) {
   if (questions) return <Runner questions={questions} onDashboard={onDashboard} onBack={() => setQuestions(null)} backLabel="Neue Auswahl" />
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <Section title="Was möchtest du üben?">
         <div className="grid gap-2 sm:grid-cols-2">
           {([
