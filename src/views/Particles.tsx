@@ -404,12 +404,16 @@ interface Answered {
 interface TranslationAnswer {
   task: Task
   answer: string
+  /** Ohne Key: eigene Einschätzung nach dem Vergleich mit dem Mustersatz */
+  selfOk?: boolean
 }
 
 /** Eine Folge von Aufgaben. Übersetzungen werden nur gesammelt (Bewertung macht der Aufrufer). */
 function Session({
-  tasks, title, subtitle, onFinish, onCancel, finishLabel,
+  tasks, title, subtitle, onFinish, onCancel, finishLabel, selfCheck = false,
 }: {
+  /** Übersetzungen ohne Key: Selbstkontrolle mit Mustersatz */
+  selfCheck?: boolean
   tasks: Task[]
   title: string
   subtitle?: string
@@ -463,7 +467,7 @@ function Session({
       {pending.length ? (
         <div className="card p-8 text-center text-sm text-label-3">Neues Wort …</div>
       ) : task.kind === 'translate' ? (
-        <TranslateTask key={task.key} task={task} onDone={(answer) => next(null, { task, answer })} last={i + 1 >= tasks.length} finishLabel={finishLabel} />
+        <TranslateTask key={task.key} task={task} selfCheck={selfCheck} onDone={(answer, selfOk) => next(null, { task, answer, selfOk })} last={i + 1 >= tasks.length} finishLabel={finishLabel} />
       ) : (
         <GapTask key={task.key} task={task} onDone={(a) => next(a)} last={i + 1 >= tasks.length} finishLabel={finishLabel} />
       )}
@@ -707,9 +711,41 @@ function SentenceView({ parsed, ask, current, given, okList, complete, newWords 
   )
 }
 
-function TranslateTask({ task, onDone, last, finishLabel }: { task: Task; onDone: (answer: string) => void; last: boolean; finishLabel?: string }) {
+function TranslateTask({ task, onDone, last, finishLabel, selfCheck }: {
+  task: Task; onDone: (answer: string, selfOk?: boolean) => void; last: boolean; finishLabel?: string; selfCheck?: boolean
+}) {
   const [text, setText] = useState('')
   const [tip, setTip] = useState(false)
+  /** Selbstkontrolle: abgegebene Antwort, danach Mustersatz und eigene Einschätzung */
+  const [submitted, setSubmitted] = useState<string | null>(null)
+  const submit = (answer: string) => {
+    if (!selfCheck) return onDone(answer)
+    setSubmitted(answer)
+    speak(fillSentence(task.sentence.ko))
+  }
+  if (submitted !== null) {
+    const model = fillSentence(task.sentence.ko)
+    return (
+      <div className="card fade-up space-y-4 p-5 sm:p-6">
+        <p className="label text-center">Vergleiche mit dem Mustersatz</p>
+        <p className="text-center text-lg text-label-2">{task.sentence.de}</p>
+        <div className="space-y-2 rounded-2xl bg-fill-4 p-4">
+          <p className="text-xs text-label-3">Deine Antwort</p>
+          <p lang="ko" className="text-xl">{submitted || '(keine Antwort)'}</p>
+          <p className="pt-2 text-xs text-label-3">Mustersatz</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <button lang="ko" className="flex items-center gap-2 text-left text-xl font-semibold" onClick={() => speak(model)}>{model} <Volume2 size={16} className="text-label-3" /></button>
+            <SlowButton text={model} className="btn-soft !min-h-9 !px-2.5 !py-1 text-xs" />
+          </div>
+          <p className="text-xs text-label-3">Andere Wortstellung oder Wörter können auch richtig sein – wichtig sind die Partikeln.</p>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <button className="btn-red !py-3" onClick={() => onDone(submitted, false)}><X size={16} /> Nicht ganz</button>
+          <button className="btn-green !py-3" onClick={() => onDone(submitted, true)} autoFocus><Check size={16} /> {last ? 'Richtig · Auswertung' : 'Hatte ich richtig'}</button>
+        </div>
+      </div>
+    )
+  }
   const particles = [...new Set(parseSentence(task.sentence.ko).gaps.map((g) => chapterOf(g.particle).forms))]
   useEffect(() => {
     speakGerman(task.sentence.de)
@@ -718,7 +754,7 @@ function TranslateTask({ task, onDone, last, finishLabel }: { task: Task; onDone
   }, [])
   return (
     <div className="card fade-up space-y-4 p-5 sm:p-6">
-      <p className="label text-center">Übersetze ins Koreanische · wird am Ende gesammelt bewertet</p>
+      <p className="label text-center">Übersetze ins Koreanische · {selfCheck ? 'danach vergleichst du mit dem Mustersatz' : 'wird am Ende gesammelt bewertet'}</p>
       <p className="text-center text-2xl font-semibold">{task.sentence.de}</p>
       {task.newWords?.length ? (
         <p className="text-center text-xs text-label-3">Neue Wörter: <span lang="ko">{task.newWords.map((v) => `${v.ko} = ${v.de}`).join(' · ')}</span></p>
@@ -731,7 +767,7 @@ function TranslateTask({ task, onDone, last, finishLabel }: { task: Task; onDone
         placeholder="한국어로 …"
         value={text}
         onChange={(e) => setText(e.target.value)}
-        onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); onDone(text.trim()) } }}
+        onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); submit(text.trim()) } }}
         aria-label="Koreanische Übersetzung"
       />
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -741,8 +777,8 @@ function TranslateTask({ task, onDone, last, finishLabel }: { task: Task; onDone
           <button className="text-sm font-medium text-blue" onClick={() => setTip(true)}><Lightbulb size={14} className="inline" /> Tipp anzeigen</button>
         )}
         <div className="flex gap-2">
-          <button className="btn-soft" onClick={() => onDone('')}>Weiß ich nicht</button>
-          <button className="btn-primary" onClick={() => onDone(text.trim())} disabled={!text.trim()}>{last ? finishLabel ?? 'Auswertung' : 'Weiter'} <ArrowRight size={16} /></button>
+          <button className="btn-soft" onClick={() => submit('')}>Weiß ich nicht</button>
+          <button className="btn-primary" onClick={() => submit(text.trim())} disabled={!text.trim()}>{selfCheck ? 'Vergleichen' : last ? finishLabel ?? 'Auswertung' : 'Weiter'} <ArrowRight size={16} /></button>
         </div>
       </div>
     </div>
@@ -817,12 +853,14 @@ function TrainSession({ particles: selection, onExit }: { particles: ParticleId[
   }, [round])
 
   const finish = (results: TaskResult[], ans: Answered[], tr: TranslationAnswer[]) => {
-    updateParticles((s) => recordResults(s, results))
+    // Ohne Key: Übersetzungen nach eigener Einschätzung werten
+    const self = tr.filter((t) => t.selfOk !== undefined).map((t) => ({ sentence: t.task.sentence, ok: !!t.selfOk, level: t.task.level }))
+    updateParticles((s) => recordResults(s, [...results, ...self]))
     setAnswered(ans)
     setTranslations(tr)
     setGrades(null)
     setPhase('done')
-    if (tr.length && key) {
+    if (tr.length && key && tr.every((t) => t.selfOk === undefined)) {
       setGrading(true)
       gradeTranslations(key, tr.map((t) => ({ de: t.task.sentence.de, expected: fillSentence(t.task.sentence.ko), answer: t.answer })))
         .then((g) => {
@@ -884,7 +922,7 @@ function TrainSession({ particles: selection, onExit }: { particles: ParticleId[
         {!key && round === 0 && (
           <div className="flex items-center gap-2 rounded-2xl bg-fill-4 px-3 py-2 text-xs text-label-2">
             <KeyRound size={14} className="shrink-0" />
-            <span className="flex-1">Sätze aus dem eingebauten Pool. Mit Gemini-Key entstehen Sätze aus deinen eigenen Wörtern und Übersetzungsaufgaben.</span>
+            <span className="flex-1">Sätze aus dem eingebauten Pool, Übersetzungen prüfst du selbst. Mit Gemini-Key entstehen Sätze aus deinen eigenen Wörtern, und Gemini bewertet deine Übersetzungen.</span>
             <button className="font-medium text-blue" onClick={() => navigate('/einstellungen/ki')}>Key hinzufügen</button>
           </div>
         )}
@@ -895,12 +933,13 @@ function TrainSession({ particles: selection, onExit }: { particles: ParticleId[
           subtitle={`Stufe ${level}`}
           onFinish={finish}
           onCancel={onExit}
+          selfCheck={!key}
         />
       </div>
     )
   }
 
-  const okCount = answered.filter((a) => a.ok).length + (grades ? grades.filter((g) => g.ok).length : 0)
+  const okCount = answered.filter((a) => a.ok).length + (grades ? grades.filter((g) => g.ok).length : translations.filter((t) => t.selfOk).length)
   const total = answered.length + translations.length
   const wrong = answered.filter((a) => !a.ok)
   return (
@@ -909,7 +948,7 @@ function TrainSession({ particles: selection, onExit }: { particles: ParticleId[
         <div className="pop-in mx-auto flex size-14 items-center justify-center rounded-full bg-blue/15 text-blue"><Sparkles size={26} /></div>
         <p className="text-3xl font-bold tabular-nums">{okCount} / {total}</p>
         <p className="text-sm text-label-2">
-          {grading ? 'Übersetzungen werden bewertet …' : translations.length && !grades ? 'Übersetzungen nicht bewertet' : 'richtig'}
+          {grading ? 'Übersetzungen werden bewertet …' : translations.length && !grades && key ? 'Übersetzungen nicht bewertet' : 'richtig'}
           {' · '}Stufe jetzt {effectiveLevel(particles)} ({LEVEL_NAMES[effectiveLevel(particles) - 1]})
           {effectiveLevel(particles) !== level && (effectiveLevel(particles) > level ? ' – aufgestiegen!' : ' – etwas leichter')}
         </p>
@@ -919,7 +958,7 @@ function TrainSession({ particles: selection, onExit }: { particles: ParticleId[
         <div className="card divide-y divide-separator">
           <p className="label px-5 pt-4 pb-2">Übersetzungen</p>
           {translations.map((t, k) => {
-            const g = grades?.[k]
+            const g = grades?.[k] ?? (t.selfOk !== undefined ? { ok: t.selfOk, feedback: 'Selbst eingeschätzt' } as TranslationGrade : undefined)
             return (
               <div key={t.task.key} className="space-y-1 px-5 py-3 text-sm">
                 <p className="font-medium">{t.task.sentence.de}</p>

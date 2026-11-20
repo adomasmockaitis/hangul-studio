@@ -131,11 +131,10 @@ describe('Runden und Fortschritt', () => {
     expect(gapsToAsk(s, 3)).toEqual([1])
     expect(gapsToAsk(s, 4)).toEqual([0, 1])
   })
-  it('Übersetzen nur mit Key und ab Stufe 3', () => {
+  it('ganze Sätze übersetzen ab Stufe 2, mit der Stufe zunehmend (auch ohne Key)', () => {
     const st = emptyParticleState()
-    expect(buildRound(st, ['ga'], { level: 3, hasKey: false, rnd: seeded() }).some((t) => t.kind === 'translate')).toBe(false)
-    expect(buildRound(st, ['ga'], { level: 2, hasKey: true, rnd: seeded() }).some((t) => t.kind === 'translate')).toBe(false)
-    expect(buildRound(st, ['ga'], { level: 4, hasKey: true, rnd: seeded() }).filter((t) => t.kind === 'translate')).toHaveLength(2)
+    const count = (level: 1 | 2 | 3 | 4 | 5) => buildRound(st, ['ga'], { level, hasKey: false, rnd: seeded() }).filter((t) => t.kind === 'translate').length
+    expect([count(1), count(2), count(3), count(4), count(5)]).toEqual([0, 1, 2, 3, 4])
   })
   it('Check, Aufwärmen und Mini-Test haben die richtige Länge', () => {
     const st = emptyParticleState()

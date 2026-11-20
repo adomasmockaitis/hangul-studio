@@ -299,6 +299,10 @@ export function pickSentences(
   return out
 }
 
+/** Ganze Sätze zum Übersetzen pro Runde je Stufe */
+export const TRANSLATE_PER_ROUND: Record<Level, number> = { 1: 0, 2: 1, 3: 2, 4: 3, 5: 4 }
+const fillLen = (t: Task) => t.sentence.ko.replace(/\{[^}]*\}/g, 'x').length
+
 /** Eine Trainingsrunde */
 export function buildRound(
   state: ParticleState, particles: ParticleId[],
@@ -310,13 +314,15 @@ export function buildRound(
   const learned = PARTICLE_IDS.filter((p) => !particles.includes(p) && isLearned(chapterProgress(state, p).status))
   const tasks = sentences.map((s) =>
     makeTask(s, level, kindFor(level, s, rnd), { rnd, focus: particles, allowed: particles, fallback: learned, newWords: opts.vocab?.newOf(s) ?? undefined }))
-  // Übersetzen (gesammelte Bewertung am Ende) nur mit Key, ab Stufe 3
-  if (opts.hasKey && opts.translate !== false && level >= 3 && tasks.length >= 4) {
-    const k = level === 3 ? 1 : 2
-    for (let i = 0; i < k; i++) {
-      const idx = tasks.length - 1 - i * 3
-      tasks[idx] = { ...tasks[idx], kind: 'translate', options: [] }
-    }
+  // Ganze Sätze übersetzen (Deutsch → Koreanisch), ab Stufe 2 und mit der Stufe zunehmend.
+  // Mit Key bewertet Gemini am Ende gesammelt, ohne Key gibt es Selbstkontrolle.
+  const k = Math.min(TRANSLATE_PER_ROUND[level], Math.floor(tasks.length / 2))
+  if (opts.translate !== false && k > 0) {
+    // Stufe 2: der kürzeste Satz; sonst über die Runde verteilt, nach hinten hin
+    const idxs = level === 2
+      ? [tasks.reduce((best, t, i) => (fillLen(t) < fillLen(tasks[best]) ? i : best), 0)]
+      : Array.from({ length: k }, (_, i) => tasks.length - 1 - i * 2)
+    for (const idx of idxs) tasks[idx] = { ...tasks[idx], kind: 'translate', options: [] }
   }
   return tasks
 }

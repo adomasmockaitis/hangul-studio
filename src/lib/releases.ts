@@ -24,6 +24,14 @@ export interface Release {
 }
 export const RELEASES: Release[] = [
   {
+    id: '2026-11-particles-translate',
+    size: 'minor',
+    title: 'Neu in Hangul Studio',
+    subtitle: 'Ganze Sätze übersetzen',
+    summary: 'Im Partikel-Training übersetzt du jetzt schon ab Stufe 2 ganze Sätze ins Koreanische – 1 pro Runde, bis zu 4 auf Profi. Mit Key bewertet Gemini, ohne Key vergleichst du selbst mit dem Mustersatz.',
+    features: [],
+  },
+  {
     id: '2026-11-particles-newword-popup',
     size: 'minor',
     title: 'Neu in Hangul Studio',
