@@ -1,4 +1,4 @@
-import { BookCheck, Flame, Gauge, Play, Plus, Target } from 'lucide-react'
+import { BookCheck, Flame, Gauge, Play, Plus, RotateCcw, Target } from 'lucide-react'
 import { List, ListRow, PageHeader } from '../components/ui'
 import { navigate } from '../lib/route'
 import { useMemo } from 'react'
@@ -69,12 +69,18 @@ export function Dashboard() {
             </h2>
             <p className="mt-1 max-w-md text-sm text-label-2">
               {due === 0
-                ? 'Gerade ist nichts fällig. Neue Wörter oder pausierte Ordner kannst du im Wörterbuch aktivieren.'
+                ? 'Gerade ist nichts dran. Mit „Nochmal wiederholen“ übst du die Wörter, die du am häufigsten falsch machst.'
                 : <>{smartSummary(ready)}{due > SMART_MAX ? ` – das Smart-Quiz nimmt die ${SMART_MAX} dringendsten zuerst.` : '.'} Nur Ordner, die du aktiv lernst.</>}
             </p>
-            <button className="btn-primary mt-5 !px-6 !text-base" onClick={() => navigate('/ueben/quiz')}>
-              <Play size={18} fill="currentColor" /> Test starten
-            </button>
+            {due === 0 ? (
+              <button className="btn-primary mt-5 !px-6 !text-base" onClick={() => navigate('/ueben/quiz/extra')}>
+                <RotateCcw size={18} /> Nochmal wiederholen
+              </button>
+            ) : (
+              <button className="btn-primary mt-5 !px-6 !text-base" onClick={() => navigate('/ueben/quiz')}>
+                <Play size={18} fill="currentColor" /> Test starten
+              </button>
+            )}
           </>
         )}
       </section>

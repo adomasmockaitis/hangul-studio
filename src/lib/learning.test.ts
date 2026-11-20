@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { cardOf, gradeFrom, isDue, personalRetention, retrievability, schedule, seedFromLegacy, type ReviewLogEntry, type SrsCard } from './fsrs'
 import { computeLevel, SECURE_DAYS } from './level'
 import { mergeWord } from './merge'
-import { NO_FOLDER, resolveSelection, smartPick } from './selection'
+import { NO_FOLDER, resolveSelection, smartPick, weakestPick } from './selection'
 import { activeOnly } from './folders'
 import type { Folder, WordItem } from '../types'
 
@@ -104,6 +104,13 @@ describe('Smart: bereite Wörter', () => {
     const fine = word('f', { stats: { correctCount: 5, wrongCount: 0, lastReviewed: NOW - 2 * DAY, streak: 5, easeFactor: 2.5 }, srs: { deko: card(notDue) } })
     const picks = smartPick([fine, old, errors], 'deko', 40, NOW)
     expect(picks.map((p) => [p.word.id, p.reason])).toEqual([['e', 'errors'], ['o', 'old']])
+  })
+  it('Extra-Runde: schwächste zuerst, auch wenn nichts fällig ist', () => {
+    // gerade eben geübt: Smart wartet noch, die Extra-Runde nimmt es trotzdem
+    const bad = word('b', { stats: { correctCount: 1, wrongCount: 4, lastReviewed: NOW - DAY / 10, streak: 0, easeFactor: 2.5 }, srs: { deko: card({ ...notDue, last: NOW - DAY / 10 }) } })
+    const good = word('g', { stats: { correctCount: 6, wrongCount: 0, lastReviewed: NOW - DAY, streak: 6, easeFactor: 2.5 }, srs: { deko: card(notDue) } })
+    expect(smartPick([good, bad], 'deko', 40, NOW)).toEqual([])
+    expect(weakestPick([good, bad], 'deko', 10, NOW).map((p) => p.word.id)).toEqual(['b', 'g'])
   })
   it('nur aktiv gelernte Ordner', () => {
     const folders: Folder[] = [{ id: 'p', name: 'Neu', parentId: null, createdAt: 1, updatedAt: 1, paused: true }, { id: 'c', name: 'Unter', parentId: 'p', createdAt: 1, updatedAt: 1 }]

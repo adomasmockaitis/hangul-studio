@@ -34,7 +34,7 @@ export function Practice({ sub, rest = '' }: { sub: string; rest?: string }) {
     : words.length === 0 ? <div className="card p-8 text-center text-label-2">Noch keine Vokabeln – füge unter „Wörter“ welche hinzu.</div>
     : m === 'lernen' ? <Browse onDashboard={toStart} />
     : m === 'diktat' ? <DictationSetup onDashboard={toStart} />
-    : <QuizSetup onDashboard={toStart} />
+    : <QuizSetup onDashboard={toStart} extra={rest === 'extra'} />
 
   return (
     <div className="mx-auto w-full max-w-3xl">

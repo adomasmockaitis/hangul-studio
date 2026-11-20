@@ -1,11 +1,12 @@
-import { useMemo, useState, type ReactNode } from 'react'
-import { Play } from 'lucide-react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { Play, RotateCcw } from 'lucide-react'
 import { ChoiceQuestion, TypeQuestion, WriteQuestion } from '../components/questions'
 import { Runner, type Q } from '../components/Runner'
 import { SelectionPicker } from '../components/SelectionPicker'
 import { Group, Segmented } from '../components/ui'
 import { askable, fastLimit, type Dir } from '../lib/fsrs'
-import { resolveSelection, smartPick, smartSummary, SMART, SMART_MAX, type Pick, type Selection } from '../lib/selection'
+import { EXTRA_SIZE, resolveSelection, smartPick, smartSummary, SMART, SMART_MAX, weakestPick, type Pick, type Selection } from '../lib/selection'
+import { navigate } from '../lib/route'
 import { activeOnly } from '../lib/folders'
 import { useApp } from '../store'
 import type { WordItem } from '../types'
@@ -71,7 +72,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   return <Group title={title}>{children}</Group>
 }
 
-export function QuizSetup({ onDashboard }: { onDashboard: () => void }) {
+export function QuizSetup({ onDashboard, extra = false }: { onDashboard: () => void; /** von der Startseite: gleich eine Extra-Runde starten */ extra?: boolean }) {
   const { words, folders } = useApp()
   const [selection, setSelection] = useState<Selection>(SMART)
   const [count, setCount] = useState(10)
@@ -100,6 +101,19 @@ export function QuizSetup({ onDashboard }: { onDashboard: () => void }) {
     const chosen = selection.mode === 'smart' ? shuffle(picks) : shuffle(picks).slice(0, count || picks.length)
     setQuestions(chosen.map((p, n) => makeQuestion(p.word, kindOfDir(p.dir), answerType, words, n)))
   }
+  /** Nichts dran: Extra-Runde mit den Wörtern, die du am schlechtesten kannst */
+  const startExtra = () => {
+    const chosen = shuffle(weakestPick(activeOnly(words, folders), smartDir, EXTRA_SIZE, Date.now()))
+    if (chosen.length) setQuestions(chosen.map((p, n) => makeQuestion(p.word, kindOfDir(p.dir), answerType, words, n)))
+  }
+  const smartEmpty = selection.mode === 'smart' && ready.length === 0
+  useEffect(() => {
+    if (!extra) return
+    navigate('/ueben/quiz', true)
+    if (!questions) startExtra()
+    // nur beim Aufruf von der Startseite
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [extra])
 
   if (questions) {
     return <Runner questions={questions} onDashboard={onDashboard} onBack={() => setQuestions(null)} backLabel="Neue Auswahl" test="Quiz" />
@@ -154,9 +168,18 @@ export function QuizSetup({ onDashboard }: { onDashboard: () => void }) {
         )}
       </Section>
 
-      <button className="btn-primary w-full !py-3.5 !text-base" disabled={!total} onClick={start}>
-        <Play size={18} fill="currentColor" /> Quiz starten ({total} {total === 1 ? 'Frage' : 'Fragen'})
-      </button>
+      {smartEmpty ? (
+        <>
+          <button className="btn-primary w-full !py-3.5 !text-base" onClick={startExtra} disabled={!activeOnly(words, folders).some(askable)}>
+            <RotateCcw size={18} /> Nochmal wiederholen ({Math.min(EXTRA_SIZE, activeOnly(words, folders).filter(askable).length)} schwächste)
+          </button>
+          <p className="text-center text-xs text-label-2">Alles wiederholt – die Extra-Runde nimmt die Wörter, die du am häufigsten falsch machst.</p>
+        </>
+      ) : (
+        <button className="btn-primary w-full !py-3.5 !text-base" disabled={!total} onClick={start}>
+          <Play size={18} fill="currentColor" /> Quiz starten ({total} {total === 1 ? 'Frage' : 'Fragen'})
+        </button>
+      )}
     </div>
   )
 }

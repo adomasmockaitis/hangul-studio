@@ -106,6 +106,37 @@ export function smartPick(words: WordItem[], dir: Dir | 'both', size: number = S
   return [...ready.map((x) => x.p), ...fresh.slice(0, maxNew)].slice(0, size)
 }
 
+/** Größe einer Extra-Runde, wenn gerade nichts dran ist */
+export const EXTRA_SIZE = 10
+
+/**
+ * „Nochmal wiederholen“, wenn nichts dran ist: die Wörter, die du am schlechtesten kannst –
+ * oft falsch, am ehesten vergessen, zuletzt falsch –, auch wenn sie noch nicht fällig sind.
+ * Ohne bisher geübte Wörter: die ältesten neuen.
+ */
+export function weakestPick(words: WordItem[], dir: Dir | 'both', size: number = EXTRA_SIZE, now: number = Date.now()): Pick[] {
+  const dirs = dir === 'both' ? DIRS : [dir]
+  const scored: { p: Pick; score: number }[] = []
+  const fresh: Pick[] = []
+  for (const w of words) {
+    if (!askable(w)) continue
+    const err = errorRate(w) || (w.stats.wrongCount > 0 ? w.stats.wrongCount / Math.max(1, w.stats.correctCount + w.stats.wrongCount) : 0)
+    const lastWrong = w.stats.streak === 0 && w.stats.wrongCount > 0 ? 1 : 0
+    let best: { p: Pick; score: number } | null = null
+    for (const d of dirs) {
+      const c = cardOf(w, d)
+      if (!c) continue
+      const score = 0.45 * err + 0.4 * (1 - retrievability(c, now)) + 0.15 * lastWrong
+      if (!best || score > best.score) best = { p: { word: w, dir: d, reason: 'errors' }, score }
+    }
+    if (best) scored.push(best)
+    else fresh.push({ word: w, dir: dirs[0], reason: 'new' })
+  }
+  scored.sort((a, b) => b.score - a.score)
+  fresh.sort((a, b) => a.word.createdAt - b.word.createdAt)
+  return [...scored.map((x) => x.p), ...fresh].slice(0, size)
+}
+
 /** Was Smart gerade abfragen würde, zusammengefasst (für Startseite und Hinweise) */
 export function smartSummary(picks: Pick[]): string {
   const n = (r: SmartReason) => picks.filter((p) => p.reason === r).length

@@ -24,6 +24,14 @@ export interface Release {
 }
 export const RELEASES: Release[] = [
   {
+    id: '2026-11-extra-round',
+    size: 'minor',
+    title: 'Neu in Hangul Studio',
+    subtitle: 'Nochmal wiederholen',
+    features: [],
+    summary: 'Alles wiederholt? „Nochmal wiederholen“ startet eine Extra-Runde mit den 10 Wörtern, die du am häufigsten falsch machst.',
+  },
+  {
     id: '2026-11-smart-v2',
     size: 'major',
     title: 'Neu in Hangul Studio',
