@@ -271,6 +271,33 @@ export function regenerateWords(words: { korean: string; german: string }[]) {
   regenerateClips(voiceItems(words))
 }
 
+export type VoicePart = 'ko' | 'de' | 'slow'
+
+/** Ein Teil der Aussprache eines Wortes abspielen: Koreanisch, Deutsch oder langsam */
+export function playWordPart(word: { korean: string; german: string }, part: VoicePart) {
+  if (part === 'slow') speakSlow(word.korean)
+  else speakWord(word, part)
+}
+
+/** Ob sich dieser Teil mit der Gemini-Stimme neu erzeugen lässt */
+export function canRegeneratePart(word: { korean: string; german: string }, part: VoicePart): boolean {
+  if (!geminiVoiceActive()) return false
+  const t = voiceTexts(word)
+  return part === 'de' ? !!t.de : !!t.ko && (part === 'ko' || cfg.slowMode === 'gemini')
+}
+
+/** Eine Aufnahme eines einzelnen Wortes neu erzeugen und danach abspielen; false = ging nicht */
+export async function regenerateWordPart(word: { korean: string; german: string }, part: VoicePart): Promise<boolean> {
+  if (!canRegeneratePart(word, part)) return false
+  const t = voiceTexts(word)
+  const text = part === 'de' ? t.de! : t.ko!
+  const voice = part === 'slow' ? slowVoice(currentGeminiVoice()) : undefined
+  const clip = await requestClip(text, part === 'de' ? 'de' : 'ko', 'now', { voice, regenerate: true })
+  if (!clip) return false
+  playWordPart(word, part)
+  return true
+}
+
 /** Wort vorlesen: je nach Einstellung Koreanisch, Deutsch (gekürzt) oder beides nacheinander */
 export function speakWord(word: { korean: string; german: string }, mode: SpeechMode) {
   const items: Item[] = []

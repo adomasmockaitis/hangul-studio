@@ -24,6 +24,14 @@ export interface Release {
 }
 export const RELEASES: Release[] = [
   {
+    id: '2026-11-word-voice-regen',
+    size: 'minor',
+    title: 'Neu in Hangul Studio',
+    subtitle: 'Einzelne Aufnahmen neu erzeugen',
+    features: [],
+    summary: 'Klingt ein Wort komisch? Im Wörterbuch beim Wort unten unter „Aussprache“ Koreanisch, Deutsch oder langsam anhören und einzeln neu erzeugen – nach einer Rückfrage.',
+  },
+  {
     id: '2026-11-sync-review-log',
     size: 'minor',
     title: 'Neu in Hangul Studio',

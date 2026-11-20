@@ -6,6 +6,7 @@ import { List, ListRow, PageHeader, Sheet, Toggle, useConfirm } from '../compone
 import { parseTags } from '../components/UploadScanner'
 import { openScanner, useScanState } from '../components/ScanHost'
 import { DuplicateGroups } from '../components/DuplicateGroups'
+import { WordVoiceRows } from '../components/WordVoiceRows'
 import { findDictDuplicates, type DupEntry, type DupGroup } from '../lib/scanDuplicates'
 import { canAddSubfolder, chapterTagSuggestions, countWords, effectiveFolder, folderPath, pausedFolderIds, sortFolders } from '../lib/folders'
 import { completeWord } from '../lib/gemini'
@@ -599,6 +600,11 @@ export function Dictionary() {
                 ))}
               </div>
             )}
+            {/* Aussprache anhören und einzelne Aufnahmen neu erzeugen (gespeicherter Stand) */}
+            {editing?.id && (() => {
+              const saved = words.find((w) => w.id === editing.id)
+              return saved ? <WordVoiceRows word={saved} /> : null
+            })()}
             <div className="flex flex-wrap justify-end gap-2 pt-2">
               {editing?.id && (
                 <button
