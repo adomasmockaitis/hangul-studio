@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { findDuplicates, germanMeanings, parseDistinguish, type DupEntry } from './scanDuplicates'
+import { findDictDuplicates, findDuplicates, germanMeanings, parseDistinguish, type DupEntry } from './scanDuplicates'
 
 const s = (id: string, korean: string, german: string): DupEntry => ({ id, source: 'scan', korean, german })
 const d = (id: string, korean: string, german: string): DupEntry => ({ id, source: 'dict', korean, german })
@@ -33,6 +33,10 @@ describe('scanDuplicates', () => {
 
   it('gleiches Wort mit gleicher Bedeutung ist kein Konflikt', () => {
     expect(findDuplicates([s('1', '집', 'Haus')], [d('a', '집', 'Haus')])).toHaveLength(0)
+  })
+
+  it('prüft auch das bestehende Wörterbuch allein', () => {
+    expect(findDictDuplicates([d('a', '집', 'Haus'), d('b', '가옥', 'Haus'), d('c', '물', 'Wasser')])).toHaveLength(1)
   })
 
   it('liest die Gemini-Antwort', () => {

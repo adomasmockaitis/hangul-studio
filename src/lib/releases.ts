@@ -24,6 +24,14 @@ export interface Release {
 }
 export const RELEASES: Release[] = [
   {
+    id: '2026-11-dict-duplicates',
+    size: 'minor',
+    title: 'Neu in Hangul Studio',
+    subtitle: 'Doppelte Bedeutungen',
+    features: [],
+    summary: 'Das Wörterbuch prüft einmal alle Wörter auf gleiche Bedeutungen und zeigt sie nebeneinander – eins behalten, beide oder von Gemini unterscheiden lassen.',
+  },
+  {
     id: '2026-11-extra-round',
     size: 'minor',
     title: 'Neu in Hangul Studio',

@@ -44,7 +44,10 @@ const ko = (s: string) => s.normalize('NFC').replace(/\s+/g, '').trim()
  * (Doppelungen nur im Wörterbuch betreffen diesen Upload nicht). Klammerzusätze unterscheiden:
  * „Haus (Gebäude)“ und „Haus (Zuhause)“ gelten als verschieden.
  */
-export function findDuplicates(scan: DupEntry[], dict: DupEntry[]): DupGroup[] {
+/** Alle Doppelungen innerhalb des Wörterbuchs (für die einmalige Prüfung bestehender Wörter) */
+export const findDictDuplicates = (dict: DupEntry[]) => findDuplicates(dict, [], true)
+
+export function findDuplicates(scan: DupEntry[], dict: DupEntry[], any = false): DupGroup[] {
   const all = [...scan, ...dict]
   const groups: DupGroup[] = []
   const seen = new Set<string>()
@@ -60,7 +63,7 @@ export function findDuplicates(scan: DupEntry[], dict: DupEntry[]): DupGroup[] {
     const distinct = new Map<string, DupEntry>()
     for (const e of list) if (!distinct.has(ko(e.korean))) distinct.set(ko(e.korean), e)
     const entries = [...distinct.values()]
-    if (entries.length < 2 || !entries.some((e) => e.source === 'scan')) continue
+    if (entries.length < 2 || (!any && !entries.some((e) => e.source === 'scan'))) continue
     const sig = 'g:' + entries.map((e) => e.id).sort().join('|')
     if (seen.has(sig)) continue
     seen.add(sig)
@@ -75,7 +78,7 @@ export function findDuplicates(scan: DupEntry[], dict: DupEntry[]): DupGroup[] {
     byKorean.set(k, [...(byKorean.get(k) ?? []), e])
   }
   for (const [k, list] of byKorean) {
-    if (!list.some((e) => e.source === 'scan')) continue
+    if (!any && !list.some((e) => e.source === 'scan')) continue
     const meanings = new Set(list.map((e) => germanMeanings(e.german).join(', ')))
     if (list.length < 2 || meanings.size < 2) continue
     const sig = 'k:' + list.map((e) => e.id).sort().join('|')

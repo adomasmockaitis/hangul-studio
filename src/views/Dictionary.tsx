@@ -1,10 +1,12 @@
 ﻿import { useMemo, useState } from 'react'
 import {
-  Check, ChevronLeft, ChevronRight, CircleDashed, Folder as FolderIcon, FolderInput, FolderPlus, GraduationCap, Loader2, Pencil, Plus, ScanText, Search, Sparkles, Tag, Trash2, Volume2,
+  Check, ChevronLeft, ChevronRight, CircleDashed, Copy, Folder as FolderIcon, FolderInput, FolderPlus, GraduationCap, Loader2, Pencil, Plus, ScanText, Search, Sparkles, Tag, Trash2, Volume2,
 } from 'lucide-react'
 import { List, ListRow, PageHeader, Sheet, Toggle, useConfirm } from '../components/ui'
 import { parseTags } from '../components/UploadScanner'
 import { openScanner, useScanState } from '../components/ScanHost'
+import { DuplicateGroups, sharpenTranslations } from '../components/DuplicateGroups'
+import { findDictDuplicates, type DupEntry, type DupGroup } from '../lib/scanDuplicates'
 import { canAddSubfolder, chapterTagSuggestions, countWords, effectiveFolder, folderPath, pausedFolderIds, sortFolders } from '../lib/folders'
 import { completeWord } from '../lib/gemini'
 import { navigate, useRoute } from '../lib/route'
@@ -65,6 +67,47 @@ export function Dictionary() {
     words, settings, folders, addWord, updateWord, deleteWord, addFolder, renameFolder, setFolderPaused, deleteFolder, moveWords, addTagToWords, convertChapterTags,
   } = useApp()
   const confirm = useConfirm()
+
+  // ---------- Einmalige Prüfung: gleiche Bedeutung doppelt im Wörterbuch? ----------
+  const KEPT = 'hangul-studio:dup-kept'
+  const [kept, setKept] = useState<Set<string>>(() => {
+    try { return new Set(JSON.parse(localStorage.getItem(KEPT) ?? '[]') as string[]) } catch { return new Set() }
+  })
+  const keep = (keys: string[]) => setKept((k) => {
+    const n = new Set([...k, ...keys])
+    try { localStorage.setItem(KEPT, JSON.stringify([...n])) } catch { /* privat */ }
+    return n
+  })
+  const [dupOpen, setDupOpen] = useState(false)
+  const [dupBusy, setDupBusy] = useState<string | null>(null)
+  const [dupError, setDupError] = useState('')
+  const dupGroups = useMemo(
+    () => findDictDuplicates(words.map((w) => ({ id: w.id, source: 'dict' as const, korean: w.korean, german: w.german }))).filter((g) => !kept.has(g.key)),
+    [words, kept],
+  )
+  const keepOnlyDict = async (g: DupGroup, e: DupEntry) => {
+    const others = g.entries.filter((x) => x.id !== e.id)
+    const ok = await confirm({
+      title: others.length === 1 ? `„${others[0].korean}“ löschen?` : `${others.length} Wörter löschen?`,
+      message: `Behalten wird ${e.korean} (${e.german}). Gelöscht ${others.length === 1 ? 'wird' : 'werden'}: ${others.map((x) => `${x.korean} (${x.german})`).join(', ')} – samt Lernstand.`,
+      confirmLabel: 'Löschen',
+      destructive: true,
+    })
+    if (ok) others.forEach((x) => deleteWord(x.id))
+  }
+  const sharpenDict = async (g: DupGroup) => {
+    setDupBusy(g.key)
+    setDupError('')
+    try {
+      const changes = await sharpenTranslations(settings.geminiApiKey, settings.geminiModel, g.entries)
+      changes.forEach((german, id) => updateWord(id, { german, needsReview: true }))
+      keep([g.key])
+    } catch (err) {
+      setDupError(err instanceof Error ? err.message : 'Fehler')
+    } finally {
+      setDupBusy(null)
+    }
+  }
   const { sub } = useRoute()
   const folderIds = useMemo(() => new Set(folders.map((f) => f.id)), [folders])
   // Ort: '' = Übersicht, 'ohne' = ohne Ordner, sonst Ordner-ID
@@ -249,6 +292,34 @@ export function Dictionary() {
           <span className="shrink-0 text-sm font-medium text-blue">Ansehen</span>
         </button>
       )}
+
+      {/* Einmalige Prüfung: Wörter mit gleicher Bedeutung */}
+      {place === '' && dupGroups.length > 0 && (
+        <div className="card fade-up mb-6 p-5">
+          <p className="flex items-center gap-2 font-semibold"><Copy size={18} className="text-orange" /> {dupGroups.length === 1 ? 'Eine Bedeutung kommt' : `${dupGroups.length} Bedeutungen kommen`} doppelt vor</p>
+          <p className="mt-1 text-sm text-label-2">
+            Ich habe dein Wörterbuch durchgesehen. Manche Wörter haben dieselbe deutsche Übersetzung (oder dasselbe koreanische Wort steht mit verschiedenen Bedeutungen da), z. B.{' '}
+            {dupGroups.slice(0, 2).map((g) => g.entries.map((e) => e.korean).join(' / ')).join(', ')}. Im Quiz ist dann unklar, welches gemeint ist.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button className="btn-primary" onClick={() => setDupOpen(true)}>Ansehen</button>
+            <button className="btn-soft" onClick={() => keep(dupGroups.map((g) => g.key))}>Alle so lassen</button>
+          </div>
+        </div>
+      )}
+      <Sheet open={dupOpen && dupGroups.length > 0} onClose={() => setDupOpen(false)} title="Doppelte Bedeutungen" wide>
+        <p className="mb-3 text-sm text-label-2">Behalte eins (die anderen werden gelöscht), behalte beide – oder lass Gemini die Übersetzungen so schärfen, dass du sie auseinanderhalten kannst.</p>
+        <DuplicateGroups
+          groups={dupGroups}
+          hasKey={!!settings.geminiApiKey.trim()}
+          sharpening={dupBusy}
+          error={dupError}
+          onKeepOnly={(g, e) => void keepOnlyDict(g, e)}
+          onKeepBoth={(g) => keep([g.key])}
+          onSharpen={(g) => void sharpenDict(g)}
+          sourceLabel={(e) => folderName(words.find((w) => w.id === e.id)!) || 'Ohne Ordner'}
+        />
+      </Sheet>
 
       {/* Einmaliges Angebot: Kapitel-Tags in Ordner umwandeln */}
       {place === '' && !offerDone && chapterTags.size > 0 && (

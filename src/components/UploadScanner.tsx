@@ -1,5 +1,5 @@
 ﻿import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
-import { Check, ChevronDown, Copy, FileUp, Loader2, Save, Sparkles, Trash2, Download } from 'lucide-react'
+import { ChevronDown, Copy, FileUp, Loader2, Save, Sparkles, Trash2, Download } from 'lucide-react'
 import { callGeminiWithFallback, extractVocabulary, type ExtractedWord } from '../lib/gemini'
 import { fillTranslations, guessWordType, parseLooseText, translateGoogle } from '../lib/importer'
 import { ocrDataLoaded, ocrImage, pdfToText } from '../lib/ocr'
@@ -9,7 +9,8 @@ import { sanitizeWord, useApp } from '../store'
 import { CONJUGATION_KEYS, CONJUGATION_LABELS, WORD_TYPE_LABELS, type Conjugations, type WordItem, type WordType } from '../types'
 import { canAddSubfolder, folderPath, sortFolders } from '../lib/folders'
 import type { Folder } from '../types'
-import { distinguishPrompt, findDuplicates, parseDistinguish, type DupEntry, type DupGroup } from '../lib/scanDuplicates'
+import { findDuplicates, type DupEntry, type DupGroup } from '../lib/scanDuplicates'
+import { DuplicateGroups, sharpenTranslations } from './DuplicateGroups'
 
 interface Row {
   id: string
@@ -286,15 +287,13 @@ export function UploadScanner({ defaultFolderId = null, onBusy, onPending, onDon
     setSharpening(g.key)
     setSharpenError('')
     try {
-      const r = await callGeminiWithFallback(settings.geminiApiKey, settings.geminiModel, [{ text: distinguishPrompt(g.entries) }], undefined, { timeoutMs: 25_000 })
-      const out = parseDistinguish(r.text)
-      if (!out.length) throw new Error('Keine verwertbare Antwort')
-      g.entries.forEach((e, i) => {
-        const hit = out.find((o) => o.korean.replace(/\s+/g, '') === e.korean.replace(/\s+/g, '')) ?? out[i]
-        if (!hit || hit.german === e.german) return
-        if (e.source === 'scan') patch(e.id, { german: hit.german, review: true })
-        else updateWord(e.id, { german: hit.german, needsReview: true })
-      })
+      const changes = await sharpenTranslations(settings.geminiApiKey, settings.geminiModel, g.entries)
+      for (const e of g.entries) {
+        const german = changes.get(e.id)
+        if (!german) continue
+        if (e.source === 'scan') patch(e.id, { german, review: true })
+        else updateWord(e.id, { german, needsReview: true })
+      }
       // geschärft = erledigt, auch wenn die Bedeutungen noch ähnlich klingen
       setKeepBoth((k) => new Set(k).add(g.key))
     } catch (err) {
@@ -390,37 +389,16 @@ export function UploadScanner({ defaultFolderId = null, onBusy, onPending, onDon
         <div className="fade-up mt-5 space-y-3 rounded-2xl border border-orange/40 bg-orange/10 p-3">
           <p className="flex items-center gap-2 font-semibold"><Copy size={17} className="text-orange" /> {dupGroups.length === 1 ? 'Eine Bedeutung kommt' : `${dupGroups.length} Bedeutungen kommen`} doppelt vor</p>
           <p className="text-sm text-label-2">Wähle, welches Wort du behalten willst, behalte beide – oder lass Gemini die Übersetzungen so schärfen, dass du sie auseinanderhalten kannst.</p>
-          {dupGroups.map((g) => (
-            <div key={g.key} className="space-y-2 rounded-xl bg-surface p-3">
-              <p className="text-xs text-label-2">
-                {g.kind === 'german' ? <>Gleiche Bedeutung: <span className="font-semibold text-label">„{g.entries[0].german}“</span></> : <>Gleiches Wort: <span lang="ko" className="font-semibold text-label">{g.shared}</span></>}
-              </p>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {g.entries.map((e) => (
-                  <div key={e.id} className="flex items-center gap-2 rounded-xl border border-separator p-2.5">
-                    <div className="min-w-0 flex-1">
-                      <p lang="ko" className="text-lg font-semibold leading-tight">{e.korean}</p>
-                      <p className="truncate text-sm text-label-2">{e.german || '–'}</p>
-                      <p className="text-[11px] text-label-3">{e.source === 'scan' ? 'neu im Scan' : 'schon im Wörterbuch'}</p>
-                    </div>
-                    <button className="btn-soft shrink-0 !px-3 text-sm" onClick={() => keepOnly(g, e)} title={e.source === 'dict' ? 'Die neuen Einträge nicht speichern' : 'Nur dieses speichern'}>
-                      <Check size={15} /> Nur das
-                    </button>
-                  </div>
-                ))}
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {hasKey && (
-                  <button className="btn-soft text-sm" onClick={() => void sharpen(g)} disabled={sharpening !== null}>
-                    {sharpening === g.key ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />} Übersetzungen unterscheiden
-                  </button>
-                )}
-                <button className="btn-soft text-sm" onClick={() => setKeepBoth((k) => new Set(k).add(g.key))}>Beide behalten</button>
-              </div>
-            </div>
-          ))}
-          {sharpenError && <p className="text-sm text-red">Gemini konnte die Übersetzungen nicht schärfen: {sharpenError}</p>}
-          {!hasKey && <p className="text-xs text-label-3">Mit Gemini-Key kann die App die Übersetzungen auch automatisch unterscheiden.</p>}
+          <DuplicateGroups
+            groups={dupGroups}
+            hasKey={hasKey}
+            sharpening={sharpening}
+            error={sharpenError}
+            onKeepOnly={keepOnly}
+            onKeepBoth={(g) => setKeepBoth((k) => new Set(k).add(g.key))}
+            onSharpen={(g) => void sharpen(g)}
+            sourceLabel={(e) => (e.source === 'scan' ? 'neu im Scan' : 'schon im Wörterbuch')}
+          />
         </div>
       )}
       {rows.length > 0 && (
