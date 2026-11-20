@@ -223,6 +223,7 @@ describe('Eigene Wörter und neue Wörter', () => {
     expect(covers('한국어를', { ko: '하다', kind: 'verb' })).toBe(false)
     expect(covers('이름이', { ko: '이', kind: 'noun' })).toBe(false)
     expect(covers('오늘', { ko: '오다', kind: 'verb' })).toBe(false)
+    expect(covers('저', { ko: '젖다', kind: 'verb' })).toBe(false)
     // echte Beugungen bleiben erkannt
     for (const [t, l] of [['해요', '하다'], ['했어요', '하다'], ['합니다', '하다'], ['와요', '오다'], ['봐요', '보다'], ['줘요', '주다'], ['써요', '쓰다'],
       ['바빠요', '바쁘다'], ['추워요', '춥다'], ['몰라요', '모르다'], ['돼요', '되다'], ['갔어요', '가다'], ['먹는', '먹다'], ['살아요', '살다']] as const) {

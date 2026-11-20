@@ -1,4 +1,5 @@
 ﻿export type WordType = 'verb' | 'adjective' | 'noun' | 'other'
+export type SentenceInput = 'band' | 'word' | 'syllable'
 
 export type ConjugationKey = 'presentPolite' | 'presentFormal' | 'pastPolite' | 'futurePolite'
 
@@ -106,6 +107,8 @@ export interface Settings {
   autoExamples: boolean
   /** Partikel-Trainer: KI darf neue Wörter in Übungssätze einbauen */
   particleNewWords: boolean
+  /** Ganze Sätze von Hand schreiben: mitwanderndes Schreibband, Wort für Wort oder Silbe für Silbe */
+  sentenceInput: SentenceInput
   /** „App mitverbessern“: Fehlerfälle der Erkennung ohne Nutzerbezug senden (nur mit Konto) */
   contribute: boolean
   /** Dezente Klänge bei richtig/falsch usw. */

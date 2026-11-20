@@ -14,7 +14,7 @@ import { useSync } from '../sync'
 import { StorageChooser } from '../components/StorageChooser'
 import { useStorageMode } from '../account'
 import { accountsAvailable, loadContributions } from '../lib/firebase'
-import { CONJUGATION_KEYS, CONJUGATION_LABELS, type CanvasBackground, type CheckMethod, type SpeechMode, type StrokeStyleMode, type ThemeMode } from '../types'
+import { CONJUGATION_KEYS, CONJUGATION_LABELS, type CanvasBackground, type CheckMethod, type SentenceInput, type SpeechMode, type StrokeStyleMode, type ThemeMode } from '../types'
 import { VoicePicker } from '../components/VoicePicker'
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
@@ -366,6 +366,13 @@ export function SettingsView({ sub = '', onRestartOnboarding, onShowWhatsNew }: 
             />
           </Row>
         )}
+        <Row title="Ganze Sätze schreiben" desc="Wie du im Partikel-Trainer ganze Sätze von Hand schreibst. Die Tastatur bleibt immer als Ausweich." stack>
+          <Segmented<SentenceInput>
+            value={settings.sentenceInput}
+            onChange={(sentenceInput) => updateSettings({ sentenceInput })}
+            options={[{ value: 'band', label: 'Schreibband' }, { value: 'word', label: 'Wort für Wort' }, { value: 'syllable', label: 'Silbe für Silbe' }]}
+          />
+        </Row>
         <Row title="Standard-Strichdicke">
           <input type="range" min={2} max={16} value={settings.strokeWidth} onChange={(e) => updateSettings({ strokeWidth: +e.target.value })} className="w-40 accent-blue" />
         </Row>

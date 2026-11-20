@@ -9,6 +9,8 @@ import {
 } from 'lucide-react'
 import { HangulCanvas } from '../components/HangulCanvas'
 import { Segmented, Sheet } from '../components/ui'
+import { SentenceWriter, type SentenceResult } from '../components/SentenceWriter'
+import { sameSentence } from '../lib/ink'
 import { useToast } from '../components/Toasts'
 import { newStats } from '../data/demo'
 import { computeLevel } from '../lib/level'
@@ -568,7 +570,7 @@ function GapTask({ task, onDone, last, finishLabel }: { task: Task; onDone: (a: 
           {task.kind === 'form' ? 'Welche Form passt?' : task.kind === 'write' ? 'Schreibe die fehlende Partikel' : 'Welche Partikel gehört in die Lücke?'}
           {task.ask.length > 1 && !complete && ` · Lücke ${step + 1} von ${task.ask.length}`}
         </p>
-        <SentenceView parsed={parsed} ask={task.ask} current={complete ? -1 : gapIndex} given={given} okList={okList} complete={complete} newWords={task.newWords} />
+        <SentenceView parsed={parsed} ask={task.ask} current={complete ? -1 : gapIndex} given={given} okList={okList} complete={complete} newWords={task.newWords} wholeWord={task.kind === 'write'} />
         <p className="mt-3 text-center text-label-2">{task.sentence.de}</p>
         {task.newWords?.length ? <p className="mt-1 text-center text-xs text-label-3">Unterstrichen = neues Wort, antippen für die Bedeutung</p> : null}
         {!complete && (
@@ -597,16 +599,17 @@ function GapTask({ task, onDone, last, finishLabel }: { task: Task; onDone: (a: 
 
       {!complete && task.kind === 'write' && (
         <div className="card p-4 sm:p-5">
+          <p className="mb-2 text-center text-sm text-label-2">Schreib das ganze Wort mit Partikel{gap.base ? '' : <> – <span lang="ko" className="font-semibold text-label">{gap.noun}</span> + ?</>}</p>
           <HangulCanvas
             key={`${task.key}-${step}`}
-            target={gap.answer}
+            target={gap.base ? gap.answer : gap.noun + gap.answer}
             testMode
             onResult={(correct) => { setWriteDone(true); writeOk.current = correct }}
             onNext={() => answer(gap.answer, writeOk.current)}
             nextLabel={step + 1 < task.ask.length ? 'Nächste Lücke' : 'Auswertung'}
           />
           {writeDone && gap.accept.length > 1 && (
-            <p className="mt-2 text-center text-xs text-label-2">Auch richtig: <span lang="ko">{gap.accept.filter((a) => a !== gap.answer).join(', ')}</span></p>
+            <p className="mt-2 text-center text-xs text-label-2">Auch richtig: <span lang="ko">{gap.accept.filter((a) => a !== gap.answer).map((a) => (gap.base ? a : gap.noun + a)).join(', ')}</span></p>
           )}
         </div>
       )}
@@ -681,29 +684,43 @@ function MarkedText({ text, words }: { text: string; words?: NewWord[] }) {
   )
 }
 
-function SentenceView({ parsed, ask, current, given, okList, complete, newWords }: {
+function SentenceView({ parsed, ask, current, given, okList, complete, newWords, wholeWord }: {
   parsed: ReturnType<typeof parseSentence>; ask: number[]; current: number; given: string[]; okList: boolean[]; complete: boolean; newWords?: NewWord[]
+  /** Schreib-Aufgabe: das Wort vor der Lücke wird mitgeschrieben und steht deshalb in der Lücke */
+  wholeWord?: boolean
 }) {
+  /** Steht vor diesem Textteil eine abgefragte Lücke, deren Wort mitgeschrieben wird? → Wort aus dem Text nehmen */
+  const nounOfNext = (k: number) => {
+    const next = parsed.parts[k + 1]
+    if (!wholeWord || !next || !('gap' in next) || !ask.includes(next.gap)) return ''
+    const g = parsed.gaps[next.gap]
+    return g.base ? '' : g.noun
+  }
   return (
     <p lang="ko" className="text-center text-2xl font-semibold leading-[2.6rem] sm:text-3xl sm:leading-[3rem]">
       {parsed.parts.map((part, k) => {
-        if ('text' in part) return <span key={k}><MarkedText text={part.text} words={newWords} /></span>
+        if ('text' in part) {
+          const noun = nounOfNext(k)
+          const text = noun && part.text.endsWith(noun) ? part.text.slice(0, -noun.length) : part.text
+          return <span key={k}><MarkedText text={text} words={newWords} /></span>
+        }
         const g = parsed.gaps[part.gap]
         const pos = ask.indexOf(part.gap)
         if (pos < 0) return <span key={k} className="text-label-2">{g.answer}</span>
+        const word = wholeWord && !g.base ? g.noun : ''
         const ans = given[pos]
         if (ans !== undefined) {
           const ok = okList[pos]
           return (
             <span key={k} className={`mx-0.5 rounded-lg px-1.5 ${ok ? 'bg-green/15 text-green' : 'bg-red/15 text-red'}`}>
-              {ok ? g.answer : <><s className="opacity-60">{ans}</s>{complete && <span className="ml-1 text-green">{g.answer}</span>}</>}
+              {ok ? word + g.answer : <><s className="opacity-60">{word}{ans}</s>{complete && <span className="ml-1 text-green">{word}{g.answer}</span>}</>}
             </span>
           )
         }
         const active = part.gap === current
         return (
           <span key={k} className={`mx-0.5 inline-flex min-w-12 items-center justify-center rounded-lg border-2 border-dashed px-1.5 align-middle text-base leading-8 ${active ? 'border-blue bg-blue/10 text-blue' : 'border-separator text-label-3'}`}>
-            {g.base ? `${g.base} + ${g.particle === 'ga' ? '가' : '의'}` : '?'}
+            {g.base ? `${g.base} + ${g.particle === 'ga' ? '가' : '의'}` : word ? `${word} + ?` : '?'}
           </span>
         )
       })}
@@ -714,14 +731,14 @@ function SentenceView({ parsed, ask, current, given, okList, complete, newWords 
 function TranslateTask({ task, onDone, last, finishLabel, selfCheck }: {
   task: Task; onDone: (answer: string, selfOk?: boolean) => void; last: boolean; finishLabel?: string; selfCheck?: boolean
 }) {
-  const [text, setText] = useState('')
   const [tip, setTip] = useState(false)
-  /** Selbstkontrolle: abgegebene Antwort, danach Mustersatz und eigene Einschätzung */
-  const [submitted, setSubmitted] = useState<string | null>(null)
-  const submit = (answer: string) => {
-    if (!selfCheck) return onDone(answer)
-    setSubmitted(answer)
-    speak(fillSentence(task.sentence.ko))
+  /** Selbstkontrolle: abgegebene Antwort (mit Bild der Handschrift), danach Mustersatz und eigene Einschätzung */
+  const [submitted, setSubmitted] = useState<SentenceResult | null>(null)
+  const model = fillSentence(task.sentence.ko)
+  const submit = (r: SentenceResult) => {
+    if (!selfCheck) return onDone(r.text)
+    setSubmitted(r)
+    speak(model)
   }
   const particles = [...new Set(parseSentence(task.sentence.ko).gaps.map((g) => chapterOf(g.particle).forms))]
   useEffect(() => {
@@ -730,45 +747,49 @@ function TranslateTask({ task, onDone, last, finishLabel, selfCheck }: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   if (submitted !== null) {
-    const model = fillSentence(task.sentence.ko)
+    const exact = sameSentence(submitted.text, model)
     return (
       <div className="card fade-up space-y-4 p-5 sm:p-6">
-        <p className="label text-center">Vergleiche mit dem Mustersatz</p>
+        <p className="label text-center">{exact ? 'Genau wie der Mustersatz' : 'Vergleiche mit dem Mustersatz'}</p>
         <p className="text-center text-lg text-label-2">{task.sentence.de}</p>
         <div className="space-y-2 rounded-2xl bg-fill-4 p-4">
-          <p className="text-xs text-label-3">Deine Antwort</p>
-          <p lang="ko" className="text-xl">{submitted || '(keine Antwort)'}</p>
+          <p className="text-xs text-label-3">Deine Antwort{submitted.via === 'inputtools' ? ' (so gelesen)' : ''}</p>
+          {submitted.text ? (
+            <p lang="ko" className={`text-xl ${exact ? 'font-semibold text-green' : ''}`}>{submitted.text}</p>
+          ) : (
+            <p className="text-sm text-label-2">{submitted.via === 'none' ? 'Deine Schrift ließ sich gerade nicht lesen – vergleiche selbst.' : '(keine Antwort)'}</p>
+          )}
+          {submitted.image && !exact && <img src={submitted.image} alt="Deine Handschrift" className="max-h-24 rounded-lg bg-white p-1" />}
           <p className="pt-2 text-xs text-label-3">Mustersatz</p>
           <div className="flex flex-wrap items-center gap-2">
             <button lang="ko" className="flex items-center gap-2 text-left text-xl font-semibold" onClick={() => speak(model)}>{model} <Volume2 size={16} className="text-label-3" /></button>
             <SlowButton text={model} className="btn-soft !min-h-9 !px-2.5 !py-1 text-xs" />
           </div>
-          <p className="text-xs text-label-3">Andere Wortstellung oder Wörter können auch richtig sein – wichtig sind die Partikeln.</p>
+          {!exact && <p className="text-xs text-label-3">Andere Wortstellung oder Wörter können auch richtig sein – wichtig sind die Partikeln. Falsch gelesen? Dann zählt, was du gemeint hast.</p>}
         </div>
-        <div className="grid grid-cols-2 gap-2">
-          <button className="btn-red !py-3" onClick={() => onDone(submitted, false)}><X size={16} /> Nicht ganz</button>
-          <button className="btn-green !py-3" onClick={() => onDone(submitted, true)} autoFocus><Check size={16} /> {last ? 'Richtig · Auswertung' : 'Hatte ich richtig'}</button>
-        </div>
+        {exact ? (
+          <button className="btn-green w-full !py-3" onClick={() => onDone(submitted.text, true)} autoFocus><Check size={16} /> {last ? 'Richtig · Auswertung' : 'Richtig · weiter'}</button>
+        ) : (
+          <div className="grid grid-cols-2 gap-2">
+            <button className="btn-red !py-3" onClick={() => onDone(submitted.text, false)}><X size={16} /> Nicht ganz</button>
+            <button className="btn-green !py-3" onClick={() => onDone(submitted.text, true)} autoFocus><Check size={16} /> {last ? 'Richtig · Auswertung' : 'Hatte ich richtig'}</button>
+          </div>
+        )}
       </div>
     )
   }
   return (
     <div className="card fade-up space-y-4 p-5 sm:p-6">
-      <p className="label text-center">Übersetze ins Koreanische · {selfCheck ? 'danach vergleichst du mit dem Mustersatz' : 'wird am Ende gesammelt bewertet'}</p>
+      <p className="label text-center">Schreib den Satz auf Koreanisch · {selfCheck ? 'danach vergleichst du mit dem Mustersatz' : 'Gemini bewertet am Ende'}</p>
       <p className="text-center text-2xl font-semibold">{task.sentence.de}</p>
       {task.newWords?.length ? (
         <p className="text-center text-xs text-label-3">Neue Wörter: <span lang="ko">{task.newWords.map((v) => `${v.ko} = ${v.de}`).join(' · ')}</span></p>
       ) : null}
-      <textarea
-        autoFocus
-        lang="ko"
-        rows={2}
-        className="input text-center !text-xl"
-        placeholder="한국어로 …"
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); submit(text.trim()) } }}
-        aria-label="Koreanische Übersetzung"
+      <SentenceWriter
+        expected={model}
+        onSubmit={submit}
+        submitLabel={selfCheck ? 'Vergleichen' : last ? finishLabel ?? 'Auswertung' : 'Weiter'}
+        slots={task.level <= 3 ? model.split(/\s+/).filter(Boolean).length : undefined}
       />
       <div className="flex flex-wrap items-center justify-between gap-2">
         {tip ? (
@@ -776,10 +797,7 @@ function TranslateTask({ task, onDone, last, finishLabel, selfCheck }: {
         ) : (
           <button className="text-sm font-medium text-blue" onClick={() => setTip(true)}><Lightbulb size={14} className="inline" /> Tipp anzeigen</button>
         )}
-        <div className="flex gap-2">
-          <button className="btn-soft" onClick={() => submit('')}>Weiß ich nicht</button>
-          <button className="btn-primary" onClick={() => submit(text.trim())} disabled={!text.trim()}>{selfCheck ? 'Vergleichen' : last ? finishLabel ?? 'Auswertung' : 'Weiter'} <ArrowRight size={16} /></button>
-        </div>
+        <button className="text-sm font-medium text-label-2" onClick={() => submit({ text: '', via: 'keyboard' })}>Weiß ich nicht</button>
       </div>
     </div>
   )

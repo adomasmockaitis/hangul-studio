@@ -183,12 +183,13 @@ function kindFor(level: Level, s: PoolSentence, rnd: () => number): TaskKind {
   const { gaps } = parseSentence(s.ko)
   const alt = gaps.some((g) => isAlternating(g.particle) || !!g.base)
   const r = rnd()
+  // Schreiben steht im Mittelpunkt (Wort + Partikel von Hand); Antippen nur noch für den Einstieg
   switch (level) {
-    case 1: return alt && r < 0.5 ? 'form' : 'choice'
-    case 2: return alt && r < 0.3 ? 'form' : 'choice'
-    case 3: return r < 0.5 ? 'choice' : 'write'
-    case 4: return r < 0.5 ? 'choice' : 'write'
-    default: return r < 0.3 ? 'choice' : 'write'
+    case 1: return r < 0.25 ? 'write' : alt && r < 0.6 ? 'form' : 'choice'
+    case 2: return r < 0.6 ? 'write' : alt && r < 0.75 ? 'form' : 'choice'
+    case 3: return r < 0.75 ? 'write' : 'choice'
+    case 4: return r < 0.85 ? 'write' : 'choice'
+    default: return r < 0.9 ? 'write' : 'choice'
   }
 }
 

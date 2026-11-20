@@ -97,11 +97,19 @@ export function covers(token: string, lemma: Lemma): boolean {
   const syl = token[head.length]
   if (!inflects(syl, last)) return false
   const rest = token.slice(head.length + 1)
-  return !rest || VERB_ENDING_START.has(rest[0])
+  if (rest) return VERB_ENDING_START.has(rest[0])
+  // Ohne Endung nur echte Kurzformen: 해, 와, 봐, 갈, 간, 갔 … – nicht 저 ← 젖다 (Auslaut einfach weg)
+  const a = jamo(syl)!
+  const b = jamo(last)!
+  if (b.jong === 8) return true // ㄹ-Stamm: 만들 (수), 마 (← 말다)
+  return syl === last ? !b.jong : a.jung !== b.jung || (a.jong !== 0 && a.jong !== b.jong)
 }
 
 /** Bestes (längstes) passendes Grundwort für eine Wortgruppe */
 export function coveringLemma(token: string, lemmas: Lemma[]): Lemma | null {
+  // Genau dieses Wort (z. B. 저) geht vor jeder Beugungs-Vermutung
+  const exact = lemmas.find((l) => l.ko === token && l.kind !== 'verb')
+  if (exact) return exact
   let best: Lemma | null = null
   for (const l of lemmas) if (covers(token, l) && (!best || l.ko.length > best.ko.length)) best = l
   return best

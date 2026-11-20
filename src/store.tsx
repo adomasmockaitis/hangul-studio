@@ -61,6 +61,7 @@ export const DEFAULT_SETTINGS: Settings = {
   systemVoiceDe: '',
   autoExamples: true,
   particleNewWords: true,
+  sentenceInput: 'band',
   contribute: false,
   soundEffects: true,
   soundVolume: 0.5,

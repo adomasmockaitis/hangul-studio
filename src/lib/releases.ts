@@ -24,6 +24,32 @@ export interface Release {
 }
 export const RELEASES: Release[] = [
   {
+    id: '2026-11-handwriting-sentences',
+    size: 'major',
+    title: 'Neu in Hangul Studio',
+    subtitle: 'Ganze Sätze von Hand',
+    features: [
+      {
+        icon: 'pointer',
+        color: '#0a84ff',
+        title: 'Sätze von Hand schreiben',
+        text: 'Deutsche Sätze schreibst du im Partikel-Trainer jetzt komplett auf Koreanisch von Hand – im mitwandernden Schreibband, Wort für Wort oder Silbe für Silbe. Die Art wählst du in den Einstellungen (Schreiben), die Tastatur bleibt als Ausweich.',
+      },
+      {
+        icon: 'check',
+        color: '#30d158',
+        title: 'Lesen und prüfen',
+        text: 'Mit Key liest Gemini deine Schrift, sonst Google Input Tools. Stimmt der Satz genau, zählt er sofort; sonst bewertet Gemini oder du vergleichst selbst mit dem Mustersatz.',
+      },
+      {
+        icon: 'puzzle',
+        color: '#ff9f0a',
+        title: 'Wort + Partikel schreiben',
+        text: 'Bei Lücken schreibst du das ganze Wort mit Partikel (친구가 statt nur 가). Ab Stufe 2 wird überwiegend geschrieben statt angetippt.',
+      },
+    ],
+  },
+  {
     id: '2026-11-particles-translate',
     size: 'minor',
     title: 'Neu in Hangul Studio',
