@@ -15,14 +15,15 @@ import { computeLevel } from '../lib/level'
 import { navigate } from '../lib/route'
 import { playSound } from '../lib/sounds'
 import { prepareSentences, speak, speakGerman } from '../lib/speech'
-import { generateSentences, gradeTranslations, newWordLimits, pickVocab, type TranslationGrade } from '../lib/particles/ai'
+import { generateSentences, gradeTranslations, pickVocab, type TranslationGrade } from '../lib/particles/ai'
+import { covers, makeRoundVocab, newWordBudget, vocabSize, type NewWord } from '../lib/particles/vocab'
+import { GLOSSARY } from '../lib/particles/glossary'
 import { CHAPTERS, LEVEL_NAMES, chapterOf, type Level, type ParticleChapter } from '../lib/particles/content'
 import {
   MAX_AI, PASS_MARK, accuracy, buildCheck, buildMiniTest, buildRound, buildWarmup, chapterProgress, effectiveLevel, isLearned,
   levelFromLearnLevel, recordResults, setStatus, type ChapterStatus, type Task, type TaskResult,
 } from '../lib/particles/engine'
 import { PARTICLE_IDS, checkGap, familyOf, fillSentence, formTip, parseSentence, type Gap, type ParticleId } from '../lib/particles/forms'
-import type { PoolSentence } from '../lib/particles/pool'
 import { useApp } from '../store'
 import type { WordItem } from '../types'
 import { SlowButton } from '../components/SlowButton'
@@ -524,13 +525,9 @@ function GapTask({ task, onDone, last, finishLabel }: { task: Task; onDone: (a: 
           {task.kind === 'form' ? 'Welche Form passt?' : task.kind === 'write' ? 'Schreibe die fehlende Partikel' : 'Welche Partikel gehört in die Lücke?'}
           {task.ask.length > 1 && !complete && ` · Lücke ${step + 1} von ${task.ask.length}`}
         </p>
-        <SentenceView parsed={parsed} ask={task.ask} current={complete ? -1 : gapIndex} given={given} okList={okList} complete={complete} />
+        <SentenceView parsed={parsed} ask={task.ask} current={complete ? -1 : gapIndex} given={given} okList={okList} complete={complete} newWords={task.newWords} />
         <p className="mt-3 text-center text-label-2">{task.sentence.de}</p>
-        {task.sentence.vocab?.length ? (
-          <p className="mt-2 text-center text-xs text-label-3">
-            Neue Wörter: {task.sentence.vocab.map((v) => <span key={v.ko} className="mr-2"><span lang="ko" className="font-medium text-label-2">{v.ko}</span> = {v.de}</span>)}
-          </p>
-        ) : null}
+        {task.newWords?.length ? <p className="mt-1 text-center text-xs text-label-3">Unterstrichen = neues Wort, antippen für die Bedeutung</p> : null}
         {!complete && (
           <div className="mt-3 text-center">
             {showTip ? (
@@ -604,13 +601,50 @@ function explainGap(g: Gap, given: string): string {
   return `Richtig ist ${right}${g.accept.length > 1 ? ` (auch: ${g.accept.filter((a) => a !== g.answer).join(', ')})` : ''}. ${why}`
 }
 
-function SentenceView({ parsed, ask, current, given, okList, complete }: {
-  parsed: ReturnType<typeof parseSentence>; ask: number[]; current: number; given: string[]; okList: boolean[]; complete: boolean
+/** Neues Wort im Satz: gepunktet unterstrichen, Antippen zeigt die Bedeutung */
+function NewWordMark({ text, word }: { text: string; word: NewWord }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <span className="relative inline-block">
+      <button
+        type="button"
+        className="underline decoration-blue decoration-dotted decoration-2 underline-offset-[6px]"
+        onClick={() => setOpen((o) => !o)}
+        aria-label={`${word.ko}: ${word.de}`}
+      >
+        {text}
+      </button>
+      {open && (
+        <span className="fade-up absolute bottom-full left-1/2 z-10 mb-1 -translate-x-1/2 whitespace-nowrap rounded-xl bg-label px-2.5 py-1 text-sm font-medium text-page shadow-lg">
+          {word.ko} = {word.de}
+        </span>
+      )}
+    </span>
+  )
+}
+
+/** Text eines Satzteils, neue Wörter markiert */
+function MarkedText({ text, words }: { text: string; words?: NewWord[] }) {
+  if (!words?.length) return <>{text}</>
+  const lemmas = words.map((w) => ({ w, l: { ko: w.ko, kind: w.kind } }))
+  return (
+    <>
+      {text.split(/(\s+)/).map((t, i) => {
+        const clean = t.replace(/[.,!?]/g, '')
+        const hit = clean && lemmas.find((x) => covers(clean, x.l))
+        return hit ? <NewWordMark key={i} text={t} word={hit.w} /> : <span key={i}>{t}</span>
+      })}
+    </>
+  )
+}
+
+function SentenceView({ parsed, ask, current, given, okList, complete, newWords }: {
+  parsed: ReturnType<typeof parseSentence>; ask: number[]; current: number; given: string[]; okList: boolean[]; complete: boolean; newWords?: NewWord[]
 }) {
   return (
     <p lang="ko" className="text-center text-2xl font-semibold leading-[2.6rem] sm:text-3xl sm:leading-[3rem]">
       {parsed.parts.map((part, k) => {
-        if ('text' in part) return <span key={k}>{part.text}</span>
+        if ('text' in part) return <span key={k}><MarkedText text={part.text} words={newWords} /></span>
         const g = parsed.gaps[part.gap]
         const pos = ask.indexOf(part.gap)
         if (pos < 0) return <span key={k} className="text-label-2">{g.answer}</span>
@@ -647,8 +681,8 @@ function TranslateTask({ task, onDone, last, finishLabel }: { task: Task; onDone
     <div className="card fade-up space-y-4 p-5 sm:p-6">
       <p className="label text-center">Übersetze ins Koreanische · wird am Ende gesammelt bewertet</p>
       <p className="text-center text-2xl font-semibold">{task.sentence.de}</p>
-      {task.sentence.vocab?.length ? (
-        <p className="text-center text-xs text-label-3">Wörter: {task.sentence.vocab.map((v) => `${v.ko} = ${v.de}`).join(' · ')}</p>
+      {task.newWords?.length ? (
+        <p className="text-center text-xs text-label-3">Neue Wörter: <span lang="ko">{task.newWords.map((v) => `${v.ko} = ${v.de}`).join(' · ')}</span></p>
       ) : null}
       <textarea
         autoFocus
@@ -678,15 +712,18 @@ function TranslateTask({ task, onDone, last, finishLabel }: { task: Task; onDone
 
 // ---------- Training mit KI-Sätzen, Auswertung, neuen Wörtern ----------
 
-const NEW_WORDS_FOLDER = 'Aus Partikel-Übungen'
+const NEW_WORDS_FOLDER = 'Partikel-Trainer'
 
 function TrainSession({ particles: selection, onExit }: { particles: ParticleId[]; onExit: () => void }) {
   const app = useApp()
-  const { particles, updateParticles, settings, words, reviewLog } = app
+  const { particles, updateParticles, settings, words } = app
   const toast = useToast()
   const key = settings.geminiApiKey.trim()
   const level = effectiveLevel(particles)
-  const [phase, setPhase] = useState<'prepare' | 'run' | 'done'>('prepare')
+  const [phase, setPhase] = useState<'prepare' | 'intro' | 'run' | 'done'>('prepare')
+  // Wortschatz-Regeln dieser Runde: nur eigene Wörter, neue Wörter je Stufe begrenzt (Aufbau-Modus bei kleinem Wortschatz)
+  const size = vocabSize(words)
+  const budget = settings.particleNewWords ? newWordBudget(level, size) : { perRound: 0, perSentence: 1, buildUp: false }
   const [tasks, setTasks] = useState<Task[]>([])
   const [round, setRound] = useState(0)
   const [answered, setAnswered] = useState<Answered[]>([])
@@ -699,19 +736,21 @@ function TrainSession({ particles: selection, onExit }: { particles: ParticleId[
   // Vorbereiten: mit Key bei Bedarf neue Sätze erzeugen (eine Anfrage), sonst direkt aus dem Pool
   useEffect(() => {
     let alive = true
+    const rv = makeRoundVocab(words, GLOSSARY, budget)
     const build = (st = stateRef.current) => {
       if (!alive) return
-      setTasks(buildRound(st, selection, { n: 10, level, hasKey: !!key }))
-      setPhase('run')
+      const t = buildRound(st, selection, { n: 10, level, hasKey: !!key, vocab: rv })
+      setTasks(t)
+      // Jedes neue Wort wird vor der Runde vorgestellt
+      setPhase(t.some((x) => x.newWords?.length) ? 'intro' : 'run')
     }
-    const unseen = stateRef.current.ai.filter((s) => selection.includes(s.particle) && s.level === level && !stateRef.current.stats[s.id]).length
-    if (!key || unseen >= 5) {
+    const unseen = stateRef.current.ai.filter((s) => selection.includes(s.particle) && s.level === level && !stateRef.current.stats[s.id] && rv.newOf(s)).length
+    if (!key || unseen >= 8) {
       build()
       return
     }
-    const learnLevel = computeLevel(words, reviewLog).level
-    const limits = settings.particleNewWords ? newWordLimits(learnLevel, words.length) : { perSentence: 0, perRound: 0 }
-    generateSentences(key, { particles: selection, level, count: 10, vocab: pickVocab(words), newWords: limits })
+    // Mehr Sätze anfordern als nötig: was die Wortprüfung nicht besteht, fällt weg
+    generateSentences(key, { particles: selection, level, count: 15, vocab: pickVocab(words), newWords: { ...budget, need: size.need } })
       .then(({ sentences }) => {
         if (!alive) return
         let next = stateRef.current
@@ -761,9 +800,70 @@ function TrainSession({ particles: selection, onExit }: { particles: ParticleId[
     )
   }
 
+  // Alle neuen Wörter dieser Runde (für Vorstellung und „Behalten?“)
+  const roundNew: NewWord[] = []
+  for (const t of tasks) for (const w of t.newWords ?? []) if (!roundNew.some((x) => x.ko === w.ko)) roundNew.push(w)
+
+  const buildUpNote = budget.buildUp && (
+    <div className="flex items-start gap-2 rounded-2xl bg-blue/10 px-3 py-2.5 text-sm">
+      <Sparkles size={16} className="mt-0.5 shrink-0 text-blue" />
+      <span>
+        Dein Wortschatz ist noch klein ({size.total} Wörter, {size.nouns} Nomen, {size.verbs} Verben/Adjektive). Für gute Sätze braucht es etwa 40 –
+        deshalb kommen in jeder Runde ein paar neue Wörter dazu{size.need === 'verb' ? ', vor allem Verben' : size.need === 'noun' ? ', vor allem Nomen' : ''}.
+      </span>
+    </div>
+  )
+
+  if (phase === 'run' && !tasks.length) {
+    return (
+      <div className="card fade-up space-y-3 p-6 text-center">
+        <p className="font-semibold">Keine passenden Sätze</p>
+        <p className="text-sm text-label-2">
+          Für diese Auswahl gibt es gerade keinen Satz, der nur aus deinen Wörtern besteht
+          {settings.particleNewWords ? '.' : ' – und neue Wörter sind ausgeschaltet (Einstellungen → Partikel-Trainer).'}
+          {' '}Füge mehr Wörter hinzu oder wähle weitere Partikeln.
+        </p>
+        <button className="btn-soft mx-auto" onClick={onExit}>Zurück</button>
+      </div>
+    )
+  }
+
+  if (phase === 'intro') {
+    return (
+      <div className="space-y-3">
+        {buildUpNote}
+        <div className="card fade-up space-y-4 p-5 sm:p-6">
+          <div className="text-center">
+            <p className="label">Bevor es losgeht</p>
+            <p className="text-xl font-bold">Neue Wörter in dieser Runde</p>
+            <p className="text-sm text-label-2">Im Satz sind sie unterstrichen – antippen zeigt die Bedeutung.</p>
+          </div>
+          <div className="divide-y divide-separator rounded-2xl bg-fill-4">
+            {roundNew.map((w) => (
+              <div key={w.ko} className="flex items-center gap-3 px-4 py-3">
+                <span lang="ko" className="text-2xl font-bold">{w.ko}</span>
+                <span className="min-w-0 flex-1 text-label-2">{w.de}</span>
+                <button className="btn-soft !p-2.5" onClick={() => speak(w.ko)} aria-label={`${w.ko} anhören`}><Volume2 size={18} /></button>
+              </div>
+            ))}
+          </div>
+          <div className="flex justify-end">
+            <button className="btn-primary" onClick={() => setPhase('run')} autoFocus>Los geht's <ArrowRight size={16} /></button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   if (phase === 'run') {
     return (
       <div className="space-y-3">
+        {!roundNew.length && buildUpNote}
+        {tasks.length < 10 && (
+          <div className="rounded-2xl bg-fill-4 px-3 py-2 text-xs text-label-2">
+            Nur {tasks.length} passende {tasks.length === 1 ? 'Satz' : 'Sätze'} aus deinen Wörtern – mit mehr Wörtern im Wörterbuch werden die Runden länger.
+          </div>
+        )}
         {!key && round === 0 && (
           <div className="flex items-center gap-2 rounded-2xl bg-fill-4 px-3 py-2 text-xs text-label-2">
             <KeyRound size={14} className="shrink-0" />
@@ -833,7 +933,7 @@ function TrainSession({ particles: selection, onExit }: { particles: ParticleId[
         </div>
       )}
 
-      <NewWords sentences={[...answered.map((a) => a.task.sentence), ...translations.map((t) => t.task.sentence)]} />
+      <NewWords candidates={roundNew} />
 
       <div className="flex flex-wrap justify-end gap-2">
         <button className="btn-soft" onClick={onExit}>Fertig</button>
@@ -843,16 +943,15 @@ function TrainSession({ particles: selection, onExit }: { particles: ParticleId[
   )
 }
 
-/** Neue Wörter aus KI-Sätzen per Häkchen in den Ordner „Aus Partikel-Übungen“ übernehmen */
-function NewWords({ sentences }: { sentences: PoolSentence[] }) {
+/** Neue Wörter dieser Runde behalten: alle vorausgewählt, Ordner „Partikel-Trainer“ */
+function NewWords({ candidates: all }: { candidates: NewWord[] }) {
   const { words, folders, addFolder, addWords } = useApp()
-  const known = useMemo(() => new Set(words.map((w) => w.korean)), [words])
   const candidates = useMemo(() => {
-    const m = new Map<string, string>()
-    for (const s of sentences) for (const v of s.vocab ?? []) if (!known.has(v.ko) && !m.has(v.ko)) m.set(v.ko, v.de)
-    return [...m.entries()].map(([ko, de]) => ({ ko, de }))
+    const known = new Set(words.map((w) => w.korean))
+    return all.filter((c) => !known.has(c.ko))
+    // nur beim Erscheinen
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sentences])
+  }, [all])
   const [picked, setPicked] = useState<Set<string>>(() => new Set(candidates.map((c) => c.ko)))
   const [saved, setSaved] = useState(0)
   if (!candidates.length) return null
@@ -862,14 +961,15 @@ function NewWords({ sentences }: { sentences: PoolSentence[] }) {
     if (!folderId) folderId = addFolder(NEW_WORDS_FOLDER, null)
     const now = Date.now()
     const items: WordItem[] = candidates.filter((c) => picked.has(c.ko)).map((c) => ({
-      id: crypto.randomUUID(), korean: c.ko, german: c.de, wordType: /다$/.test(c.ko) ? 'verb' : 'noun', tags: ['partikel-übung'],
+      id: crypto.randomUUID(), korean: c.ko, german: c.de, wordType: c.kind === 'verb' ? 'verb' : c.kind === 'noun' ? 'noun' : 'other', tags: ['partikel-übung'],
       createdAt: now, updatedAt: now, stats: newStats(), folderId: folderId ?? undefined,
     }))
     setSaved(addWords(items) || items.length)
   }
   return (
     <div className="card space-y-3 p-5">
-      <p className="label">Neue Wörter aus dieser Runde</p>
+      <p className="label">Neue Wörter behalten?</p>
+      <p className="text-sm text-label-2">Sie kommen in den Ordner „{NEW_WORDS_FOLDER}“ und zählen ab dann als deine Wörter.</p>
       <div className="space-y-1">
         {candidates.map((c) => (
           <label key={c.ko} className="flex cursor-pointer items-center gap-3 rounded-xl px-2 py-1.5 hover:bg-fill-4">

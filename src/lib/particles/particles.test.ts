@@ -6,7 +6,12 @@ import {
 } from './engine'
 import { PARTICLE_IDS, checkGap, choiceOptions, endsInConsonant, fillSentence, formFor, parseSentence, specialForm } from './forms'
 import { POOL } from './pool'
-import { newWordLimits, parseGenerated, parseGrades } from './ai'
+import { parseGenerated, parseGrades } from './ai'
+import { GLOSSARY } from './glossary'
+import { POOL as POOL_ALL } from './pool'
+import { checkVocab, covers, knownLemmas, makeRoundVocab, newWordBudget, tokensOf, vocabSize } from './vocab'
+import { restrictGaps, choiceOptions as choiceOpts, parseSentence as parseS } from './forms'
+import { buildRound as buildR, emptyParticleState as emptyPS } from './engine'
 
 /** Fester Zufall für reproduzierbare Tests */
 function seeded(seed = 42) {
@@ -169,7 +174,7 @@ describe('KI-Sätze und Bewertung', () => {
       { ko: '물{을} 마셔요.', de: 'Ich trinke Wasser.', particle: 'reul', lesson: 'gibtsnicht' },
     ]) + '\n```'
     const r = parseGenerated(text, ['ga', 'reul'], 2, 100)
-    expect(r.sentences.map((s) => s.ko)).toEqual(['친구{가} 학교{에} 가요.', '물{을} 마셔요.'])
+    expect(r.sentences.map((s) => s.ko)).toEqual(['친구{가} 학교에 가요.', '물{을} 마셔요.']) // fremde Lücke {에} wird zu Text
     expect(r.sentences[1].lesson).toBe('basis') // unbekannte Lektion → erste
     expect(r.sentences[0].vocab).toEqual([{ ko: '학교', de: 'Schule' }])
     expect(r.rejected).toBe(2)
@@ -181,10 +186,63 @@ describe('KI-Sätze und Bewertung', () => {
     ])
     expect(parseGrades('[{"ok":true}]', 2)).toBeNull()
   })
-  it('neue Wörter: wenige bei niedrigem Lernstand', () => {
-    expect(newWordLimits(2, 100).perRound).toBe(0)
-    expect(newWordLimits(2, 10).perRound).toBe(3)
-    expect(newWordLimits(9, 10)).toEqual({ perSentence: 2, perRound: 8 })
+})
+
+describe('Nur gewählte Partikeln', () => {
+  it('füllt fremde Lücken aus', () => {
+    expect(restrictGaps('친구{가} 학교{에서} 공부{를} 해요.', ['ga', 'reul'])).toBe('친구{가} 학교에서 공부{를} 해요.')
+    expect(restrictGaps('{저+가=제가} 갈게요.', ['reul'])).toBe('제가 갈게요.')
+    expect(restrictGaps('오늘{은|도} 가요.', ['ga'])).toBe('오늘은 가요.')
+  })
+  it('Ablenker nur aus der Auswahl', () => {
+    const gap = parseS('학교{에} 가요.').gaps[0]
+    const opts = choiceOpts(gap, 4, { allowed: ['e', 'ga'], rnd: () => 0.3 })
+    expect(opts).toContain('에')
+    expect(opts.every((o) => ['에', '이', '가'].includes(o))).toBe(true)
+  })
+  it('eine Runde fragt nie nicht gewählte Partikeln ab', () => {
+    const tasks = buildR(emptyPS(), ['ga', 'reul'], { n: 10, level: 5, rnd: () => 0.42 })
+    expect(tasks.length).toBeGreaterThan(0)
+    for (const t of tasks) {
+      const gaps = parseS(t.sentence.ko).gaps
+      expect(gaps.every((g) => g.particle === 'ga' || g.particle === 'reul')).toBe(true)
+    }
+  })
+})
+
+describe('Eigene Wörter und neue Wörter', () => {
+  it('erkennt Grundformen in gebeugten Wortgruppen', () => {
+    expect(tokensOf('친구{가} 학교에서 {저+가=제가} 와요.')).toEqual(['친구', '학교에서', '저', '와요'])
+    expect(covers('마셔요', { ko: '마시다', kind: 'verb' })).toBe(true)
+    expect(covers('들어요', { ko: '듣다', kind: 'verb' })).toBe(true)
+    expect(covers('공부해요', { ko: '공부하다', kind: 'verb' })).toBe(true)
+    expect(covers('학생이에요', { ko: '학생', kind: 'noun' })).toBe(true)
+    expect(covers('학교에', { ko: '학생', kind: 'noun' })).toBe(false)
+    expect(covers('가방', { ko: '가다', kind: 'verb' })).toBe(true) // bekannte Grenze: lieber großzügig beim Stamm
+  })
+  it('zählt Wörter, die nicht im Wörterbuch stehen', () => {
+    const known = knownLemmas([{ korean: '친구', wordType: 'noun' }, { korean: '오다', wordType: 'verb' }])
+    expect(checkVocab('친구{가} 와요.', known, [])).toEqual({ newWords: [], unknown: [] })
+    expect(checkVocab('친구{가} 학교에 와요.', known, [{ ko: '학교', kind: 'noun' }])).toEqual({ newWords: ['학교'], unknown: [] })
+    expect(checkVocab('친구{가} 학교에 와요.', known, []).unknown).toEqual(['학교에'])
+  })
+  it('Grenzen je Stufe und Aufbau-Modus', () => {
+    const big = vocabSize(Array.from({ length: 40 }, (_, i) => ({ korean: `가${i}`, wordType: i < 20 ? 'noun' as const : 'verb' as const })))
+    expect(big.enough).toBe(true)
+    expect(newWordBudget(1, big).perRound).toBe(0)
+    expect(newWordBudget(3, big).perRound).toBe(2)
+    expect(newWordBudget(5, big)).toEqual({ perRound: 6, perSentence: 2, buildUp: false })
+    const small = vocabSize([{ korean: '친구', wordType: 'noun' }])
+    expect(small.enough).toBe(false)
+    expect(small.need).toBe('noun')
+    expect(newWordBudget(1, small).buildUp).toBe(true)
+    expect(newWordBudget(1, small).perRound).toBeGreaterThanOrEqual(3)
+  })
+  it('eine Runde hält die Grenze für neue Wörter ein', () => {
+    const v = makeRoundVocab([{ korean: '친구', wordType: 'noun' }], [{ ko: '오다', de: 'kommen', kind: 'verb' }, { ko: '비', de: 'Regen', kind: 'noun' }], { perRound: 1, perSentence: 1 })
+    expect(v.newOf({ id: 'a', ko: '친구{가} 와요.' })).toEqual([{ ko: '오다', de: 'kommen', kind: 'verb' }])
+    expect(v.newOf({ id: 'b', ko: '비{가} 와요.' })?.length).toBe(2)
+    expect(v.newOf({ id: 'c', ko: '고양이{가} 와요.' })).toBeNull()
   })
 })
 
@@ -214,5 +272,39 @@ describe('Abgleich des Partikel-Fortschritts', () => {
     const s = sanitizeParticleState({ level: 9, ai: [{ id: 'x', ko: '친구{이} 와요.', de: 'x', particle: 'ga', lesson: 'basis' }] })
     expect(s.level).toBe('auto')
     expect(s.ai).toEqual([])
+  })
+})
+
+describe('Wortliste der eingebauten Sätze', () => {
+  it('deckt jede Wortgruppe aller Pool-Sätze ab', () => {
+    const gloss = GLOSSARY.map((g) => ({ ko: g.ko, kind: g.kind }))
+    const missing = POOL_ALL.flatMap((s) => checkVocab(s.ko, [], gloss).unknown.map((t) => `${t} (${s.ko})`))
+    expect(missing).toEqual([])
+  })
+  it('hat zu jedem Wort eine deutsche Bedeutung', () => {
+    expect(GLOSSARY.filter((g) => !g.de.trim())).toEqual([])
+  })
+})
+
+describe('Runde mit kleinem Wortschatz (Demo-Wörter)', () => {
+  it('nur eigene plus vorgestellte Wörter, Grenzen eingehalten', async () => {
+    const { createDemoWords } = await import('../../data/demo')
+    const demo = createDemoWords()
+    const size = vocabSize(demo)
+    for (const level of [1, 3, 5] as const) {
+      const budget = newWordBudget(level, size)
+      const rv = makeRoundVocab(demo, GLOSSARY, budget)
+      let seed = 7
+      const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647)
+      const tasks = buildR(emptyPS(), ['ga', 'reul'], { n: 10, level, rnd, vocab: rv })
+      const intro = new Set(tasks.flatMap((t) => (t.newWords ?? []).map((w) => w.ko)))
+      expect(intro.size).toBeLessThanOrEqual(budget.perRound)
+      const known = [...knownLemmas(demo), ...[...intro].map((ko) => ({ ko, kind: (/다$/.test(ko) ? 'verb' : 'noun') as 'verb' | 'noun' }))]
+      for (const t of tasks) {
+        expect((t.newWords ?? []).length).toBeLessThanOrEqual(budget.perSentence)
+        expect(checkVocab(t.sentence.ko, known, []).unknown).toEqual([])
+        expect(parseS(t.sentence.ko).gaps.every((g) => g.particle === 'ga' || g.particle === 'reul')).toBe(true)
+      }
+    }
   })
 })

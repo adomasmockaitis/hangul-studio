@@ -24,6 +24,32 @@ export interface Release {
 }
 export const RELEASES: Release[] = [
   {
+    id: '2026-11-particles-strict',
+    size: 'major',
+    title: 'Neu in Hangul Studio',
+    subtitle: 'Partikel-Training nach deinen Regeln',
+    features: [
+      {
+        icon: 'puzzle',
+        color: '#0a84ff',
+        title: 'Nur deine Partikeln',
+        text: 'Abgefragt werden nur die Partikeln, die du ausgewählt hast – auch auf Profi. Andere stehen schon ausgefüllt im Satz, und die Antwortknöpfe zeigen nur deine Partikeln.',
+      },
+      {
+        icon: 'check',
+        color: '#30d158',
+        title: 'Sätze aus deinen Wörtern',
+        text: 'Die App prüft jeden Satz gegen dein Wörterbuch. Neue Wörter gibt es nur wenige: auf Stufe 1–2 keine, dann 2, 4 und auf Profi höchstens 6 pro Runde.',
+      },
+      {
+        icon: 'sparkles',
+        color: '#ff9f0a',
+        title: 'Neue Wörter vorgestellt',
+        text: 'Vor der Runde siehst du jedes neue Wort mit Bedeutung, im Satz ist es unterstrichen. Bei kleinem Wortschatz kommen pro Runde ein paar Grundwörter dazu – behalten landet im Ordner „Partikel-Trainer“.',
+      },
+    ],
+  },
+  {
     id: '2026-11-landscape-strip',
     size: 'minor',
     title: 'Neu in Hangul Studio',

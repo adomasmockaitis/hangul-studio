@@ -4,10 +4,11 @@
  */
 import { CHAPTERS, type Level } from './content'
 import {
-  NO_E_TIME_WORDS, PARTICLE_IDS, choiceOptions, familyOf, formFor, isAlternating, parseSentence, shuffle, wrongForm,
+  NO_E_TIME_WORDS, PARTICLE_IDS, choiceOptions, familyOf, formFor, isAlternating, parseSentence, restrictGaps, shuffle, wrongForm,
   type Gap, type ParticleId,
 } from './forms'
 import { POOL, type PoolSentence } from './pool'
+import type { NewWord, RoundVocab } from './vocab'
 
 // ---------- Zustand ----------
 
@@ -154,6 +155,8 @@ export interface Task {
   /** Form-Tipp direkt zeigen (Einsteiger, Aufwärmen) */
   showTip: boolean
   level: Level
+  /** Wörter, die nicht im eigenen Wörterbuch stehen (vorher vorgestellt, im Satz unterstrichen) */
+  newWords?: NewWord[]
 }
 
 /** Welche Lücken werden gefragt? Bis Stufe 3 nur die der geübten Partikel, ab Stufe 4 alle */
@@ -166,13 +169,13 @@ export function gapsToAsk(s: PoolSentence, level: Level, focus?: ParticleId[]): 
   return level <= 2 ? pick.slice(0, 1) : pick.slice(0, 2)
 }
 
-function optionsFor(gap: Gap, kind: TaskKind, n: number, contrast: boolean, rnd: () => number): string[] {
+function optionsFor(gap: Gap, kind: TaskKind, n: number, contrast: boolean, rnd: () => number, allowed?: ParticleId[]): string[] {
   if (kind === 'form') {
-    if (gap.base) return choiceOptions(gap, 3, { rnd })
+    if (gap.base) return choiceOptions(gap, 3, { rnd, allowed })
     const wf = wrongForm(gap.particle, gap.noun)
     return shuffle(wf ? [gap.answer, wf] : [gap.answer], rnd)
   }
-  return choiceOptions(gap, n, { contrast, rnd })
+  return choiceOptions(gap, n, { contrast, rnd, allowed })
 }
 
 /** Aufgabenart je Stufe */
@@ -189,20 +192,39 @@ function kindFor(level: Level, s: PoolSentence, rnd: () => number): TaskKind {
   }
 }
 
-export function makeTask(s: PoolSentence, level: Level, kind: TaskKind, opts: { showTip?: boolean; focus?: ParticleId[]; rnd?: () => number } = {}): Task {
+export function makeTask(
+  s: PoolSentence, level: Level, kind: TaskKind,
+  opts: { showTip?: boolean; focus?: ParticleId[]; rnd?: () => number; allowed?: ParticleId[]; fallback?: ParticleId[]; newWords?: NewWord[] } = {},
+): Task {
   const rnd = opts.rnd ?? Math.random
   const { gaps } = parseSentence(s.ko)
   const ask = gapsToAsk(s, level, opts.focus)
   const n = level <= 1 ? 3 : 4
+  const build = (allowed?: ParticleId[]) => (kind === 'choice' || kind === 'form' ? ask.map((i) => optionsFor(gaps[i], kind, n, !!s.contrast, rnd, allowed)) : [])
+  let options = build(opts.allowed)
+  // Nur eine gewählte Partikel ohne zweite Form (z. B. nur 도): erst schon gelernte Partikeln als Ablenker, sonst schreiben
+  if (options.some((o) => o.length < 2) && opts.fallback?.length) options = build([...(opts.allowed ?? []), ...opts.fallback])
+  if (options.some((o) => o.length < 2)) {
+    kind = 'write'
+    options = []
+  }
   return {
     key: `${s.id}-${kind}-${Math.floor(rnd() * 1e9)}`,
     sentence: s,
     kind,
     ask,
-    options: kind === 'choice' || kind === 'form' ? ask.map((i) => optionsFor(gaps[i], kind, n, !!s.contrast, rnd)) : [],
+    options,
     showTip: opts.showTip ?? level === 1,
     level,
+    ...(opts.newWords?.length ? { newWords: opts.newWords } : {}),
   }
+}
+
+/** Satz auf die gewählten Partikeln beschränken (andere Lücken werden ausgefüllt); null, wenn keine Lücke bleibt */
+export function restrictSentence(s: PoolSentence, allowed: ParticleId[]): PoolSentence | null {
+  const ko = restrictGaps(s.ko, allowed)
+  if (ko === s.ko) return s
+  return ko.includes('{') ? { ...s, ko } : null
 }
 
 /** Alle Sätze (Pool + KI) */
@@ -216,11 +238,17 @@ export function allSentences(s: ParticleState): PoolSentence[] {
  */
 export function pickSentences(
   state: ParticleState, particles: ParticleId[], level: Level, n: number,
-  opts: { now?: number; rnd?: () => number; lessons?: string[]; exclude?: Set<string> } = {},
+  opts: { now?: number; rnd?: () => number; lessons?: string[]; exclude?: Set<string>; vocab?: RoundVocab } = {},
 ): PoolSentence[] {
   const now = opts.now ?? Date.now()
   const rnd = opts.rnd ?? Math.random
-  const pool = allSentences(state).filter((x) => particles.includes(x.particle) && (!opts.lessons || opts.lessons.includes(x.lesson)) && !opts.exclude?.has(x.id))
+  // Nur gewählte Partikeln: andere Lücken werden ausgefüllt, Sätze ohne verbleibende Lücke fallen weg
+  const pool = allSentences(state)
+    .filter((x) => particles.includes(x.particle) && (!opts.lessons || opts.lessons.includes(x.lesson)) && !opts.exclude?.has(x.id))
+    .map((x) => restrictSentence(x, particles))
+    .filter((x): x is PoolSentence => !!x)
+  const vocab = opts.vocab
+  const introduced = new Set<string>()
   const weightOf = (x: PoolSentence) => {
     const dist = Math.abs(x.level - level)
     if (dist > 1) return 0
@@ -254,6 +282,16 @@ export function pickSentences(
       if (r <= 0) break
     }
     const chosen = from[idx]
+    if (vocab) {
+      // Neue Wörter: höchstens perSentence je Satz und perRound in der ganzen Runde (schon eingeführte zählen nicht doppelt)
+      const nw = vocab.newOf(chosen.x)
+      const fresh = nw ? nw.filter((w) => !introduced.has(w.ko)) : []
+      if (!nw || nw.length > vocab.perSentence || introduced.size + fresh.length > vocab.perRound) {
+        cand.splice(cand.indexOf(chosen), 1)
+        continue
+      }
+      fresh.forEach((w) => introduced.add(w.ko))
+    }
     out.push(chosen.x)
     per.set(chosen.x.particle, (per.get(chosen.x.particle) ?? 0) + 1)
     cand.splice(cand.indexOf(chosen), 1)
@@ -263,12 +301,15 @@ export function pickSentences(
 
 /** Eine Trainingsrunde */
 export function buildRound(
-  state: ParticleState, particles: ParticleId[], opts: { n?: number; level?: Level; hasKey?: boolean; translate?: boolean; rnd?: () => number; now?: number } = {},
+  state: ParticleState, particles: ParticleId[],
+  opts: { n?: number; level?: Level; hasKey?: boolean; translate?: boolean; rnd?: () => number; now?: number; vocab?: RoundVocab } = {},
 ): Task[] {
   const rnd = opts.rnd ?? Math.random
   const level = opts.level ?? effectiveLevel(state)
-  const sentences = pickSentences(state, particles, level, opts.n ?? 10, { rnd, now: opts.now })
-  const tasks = sentences.map((s) => makeTask(s, level, kindFor(level, s, rnd), { rnd, focus: particles }))
+  const sentences = pickSentences(state, particles, level, opts.n ?? 10, { rnd, now: opts.now, vocab: opts.vocab })
+  const learned = PARTICLE_IDS.filter((p) => !particles.includes(p) && isLearned(chapterProgress(state, p).status))
+  const tasks = sentences.map((s) =>
+    makeTask(s, level, kindFor(level, s, rnd), { rnd, focus: particles, allowed: particles, fallback: learned, newWords: opts.vocab?.newOf(s) ?? undefined }))
   // Übersetzen (gesammelte Bewertung am Ende) nur mit Key, ab Stufe 3
   if (opts.hasKey && opts.translate !== false && level >= 3 && tasks.length >= 4) {
     const k = level === 3 ? 1 : 2

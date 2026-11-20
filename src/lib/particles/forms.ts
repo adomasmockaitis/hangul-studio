@@ -148,6 +148,25 @@ export function parseSentence(ko: string): Parsed {
   return { parts, gaps }
 }
 
+/** Partikel einer Lücke ({가}, {은|도}, {저+가=제가}) */
+function gapParticle(inner: string): ParticleId | null {
+  const sp = inner.match(/^[가-힣]+\+([가-힣]+)=[가-힣]+$/)
+  return familyOf(sp ? sp[1] : inner.split('|')[0].trim())
+}
+
+/**
+ * Nur gewählte Partikeln abfragen: Lücken anderer Partikeln werden zu normalem Text
+ * (sie stehen dann schon ausgefüllt im Satz).
+ */
+export function restrictGaps(ko: string, allowed: ParticleId[]): string {
+  return ko.replace(/\{([^}]+)\}/g, (all, inner: string) => {
+    const p = gapParticle(inner)
+    if (p && allowed.includes(p)) return all
+    const sp = inner.match(/=([가-힣]+)$/)
+    return sp ? sp[1] : inner.split('|')[0]
+  })
+}
+
 /** Satz mit eingesetzten Lösungen (für Anzeige und Vorlesen) */
 export function fillSentence(ko: string): string {
   return ko.replace(/\{([^}]+)\}/g, (_, inner: string) => {
@@ -202,9 +221,11 @@ function interchangeable(p: ParticleId, c: ParticleId, contrast: boolean): boole
  * verwechselbare Partikeln in passender Form. Keine Option ist zugleich eine richtige Antwort.
  * Die deutsche Übersetzung legt die Bedeutung fest (도 = auch, 만 = nur).
  */
-export function choiceOptions(gap: Gap, n: number, opts: { contrast?: boolean; rnd?: () => number } = {}): string[] {
+export function choiceOptions(gap: Gap, n: number, opts: { contrast?: boolean; rnd?: () => number; allowed?: ParticleId[] } = {}): string[] {
   const rnd = opts.rnd ?? Math.random
-  if (gap.base) return specialOptions(gap, n, rnd)
+  /** Ablenker nur aus diesen Partikeln (die gewählten) – ohne Angabe alle */
+  const ok = (c: ParticleId) => !opts.allowed || opts.allowed.includes(c)
+  if (gap.base) return specialOptions(gap, n, rnd, ok)
   const out: string[] = []
   const add = (f: string | null) => {
     if (f && !out.includes(f) && !gap.accept.includes(f)) out.push(f)
@@ -212,12 +233,12 @@ export function choiceOptions(gap: Gap, n: number, opts: { contrast?: boolean; r
   add(wrongForm(gap.particle, gap.noun))
   const extra: ParticleId[] = opts.contrast && gap.particle === 'ga' ? ['neun'] : opts.contrast && gap.particle === 'neun' ? ['ga'] : []
   for (const c of [...extra, ...CONFUSIONS[gap.particle]]) {
-    if (interchangeable(gap.particle, c, !!opts.contrast)) continue
+    if (!ok(c) || interchangeable(gap.particle, c, !!opts.contrast)) continue
     add(formFor(c, gap.noun))
   }
   // Auffüllen mit weiteren Partikeln
   for (const c of PARTICLE_IDS) {
-    if (c === gap.particle || interchangeable(gap.particle, c, !!opts.contrast)) continue
+    if (c === gap.particle || !ok(c) || interchangeable(gap.particle, c, !!opts.contrast)) continue
     add(formFor(c, gap.noun))
   }
   // Die falsche Form zuerst behalten (häufigster Fehler), dann mischen
@@ -237,10 +258,11 @@ export function specialForm(base: string, form: string): string | null {
   return SPECIAL[base]?.[form] ?? null
 }
 
-function specialOptions(gap: Gap, n: number, rnd: () => number): string[] {
+function specialOptions(gap: Gap, n: number, rnd: () => number, ok: (c: ParticleId) => boolean = () => true): string[] {
   const base = gap.base!
   const form = gap.particle === 'ga' ? '가' : '의'
-  const cand = [`${base}${form}`, ...Object.keys(SPECIAL).map((b) => SPECIAL[b][form]), `${base}${gap.particle === 'ga' ? '는' : '를'}`]
+  const other: ParticleId = gap.particle === 'ga' ? 'neun' : 'reul'
+  const cand = [`${base}${form}`, ...Object.keys(SPECIAL).map((b) => SPECIAL[b][form]), ...(ok(other) ? [`${base}${gap.particle === 'ga' ? '는' : '를'}`] : [])]
   const out = [...new Set(cand)].filter((x) => x !== gap.answer)
   return shuffle([gap.answer, ...shuffle(out, rnd).slice(0, n - 1)], rnd)
 }

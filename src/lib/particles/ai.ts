@@ -5,16 +5,9 @@
 import { callGeminiWithFallback, DEFAULT_MODEL } from '../gemini'
 import { chapterOf, LEVEL_NAMES, type Level } from './content'
 import { validateSentence } from './engine'
-import { PARTICLE_IDS, type ParticleId } from './forms'
+import { PARTICLE_IDS, restrictGaps, type ParticleId } from './forms'
 import type { PoolSentence } from './pool'
 import type { WordItem } from '../../types'
-
-/** Wie viele neue Wörter die KI einbauen darf (nach Lernstand 1–10) */
-export function newWordLimits(learnLevel: number, vocabSize: number): { perSentence: number; perRound: number } {
-  if (learnLevel <= 3) return { perSentence: 1, perRound: vocabSize >= 40 ? 0 : 3 } // nur bei Bedarf
-  if (learnLevel <= 7) return { perSentence: 1, perRound: 5 }
-  return { perSentence: 2, perRound: 8 }
-}
 
 const LEVEL_DESC: Record<Level, string> = {
   1: '3–4 Wörter, eine Lücke, Präsens höflich (-아요/어요), Grundwortschatz',
@@ -24,8 +17,8 @@ const LEVEL_DESC: Record<Level, string> = {
   5: 'mehrere Lücken, Höflichkeitsformen, feine Bedeutungsunterschiede',
 }
 
-/** Wörter, aus denen die Sätze gebaut werden sollen: zuletzt geübte zuerst, dann zufällig */
-export function pickVocab(words: WordItem[], n = 40): WordItem[] {
+/** Wörter, aus denen die Sätze gebaut werden sollen: zuletzt geübte zuerst */
+export function pickVocab(words: WordItem[], n = 150): WordItem[] {
   const usable = words.filter((w) => w.german && /[가-힣]/.test(w.korean))
   const sorted = [...usable].sort((a, b) => (b.stats.lastReviewed ?? 0) - (a.stats.lastReviewed ?? 0))
   return sorted.slice(0, n)
@@ -36,28 +29,39 @@ export function buildGeneratePrompt(opts: {
   level: Level
   count: number
   vocab: Pick<WordItem, 'korean' | 'german'>[]
-  newWords: { perSentence: number; perRound: number }
+  newWords: { perSentence: number; perRound: number; buildUp?: boolean; need?: 'noun' | 'verb' | null }
 }): string {
   const lines = opts.particles.map((p) => {
     const c = chapterOf(p)
     return `- ${p}: ${c.forms} (${c.name}); Lektionen: ${c.lessons.map((l) => `${l.id} = ${l.title}`).join(', ')}`
   })
+  const allowedForms = opts.particles.map((p) => chapterOf(p).forms).join(', ')
   const vocab = opts.vocab.map((w) => `${w.korean}=${w.german}`).join('; ')
+  const nw = opts.newWords
+  const needText = nw.need === 'verb' ? ' Wähle dafür vor allem häufige Verben und Adjektive.' : nw.need === 'noun' ? ' Wähle dafür vor allem häufige Nomen.' : ''
+  const wordRule =
+    nw.perRound <= 0
+      ? `Verwende AUSSCHLIESSLICH Wörter aus dieser Liste (auch Pronomen wie 저 und Verben wie 있다/하다 nur, wenn sie in der Liste stehen). "vocab" bleibt leer. Lass lieber einen Satz weg, als ein anderes Wort zu benutzen.`
+      : nw.buildUp
+        ? `Der Wortschatz der lernenden Person ist noch klein. Führe in dieser Runde insgesamt ${nw.perRound} neue, sehr häufige Grundwörter ein (höchstens ${nw.perSentence} pro Satz) und verwende jedes neue Wort möglichst in mehreren Sätzen.${needText} Alle übrigen Wörter MÜSSEN aus der Liste stammen.`
+        : `Verwende vor allem Wörter aus der Liste. Nur wenn es nicht anders geht, darfst du insgesamt höchstens ${nw.perRound} neue Wörter einbauen (höchstens ${nw.perSentence} pro Satz) – nie einen Satz aus lauter neuen Wörtern.`
   return [
     `Du erstellst Übungssätze für einen Koreanisch-Partikel-Trainer (Lernende sprechen Deutsch).`,
     `Erstelle genau ${opts.count} verschiedene, natürliche, grammatisch einwandfreie koreanische Sätze, gleichmäßig verteilt auf diese Partikeln:`,
     ...lines,
+    `STRENG: Lücken in geschweiften Klammern setzt du AUSSCHLIESSLICH für diese Partikeln (${allowedForms}). Jede andere Partikel schreibst du ganz normal ohne Klammern – und vermeide andere Partikeln möglichst ganz.`,
     `Schwierigkeit: Stufe ${opts.level} (${LEVEL_NAMES[opts.level - 1]}): ${LEVEL_DESC[opts.level]}.`,
-    `Baue die Sätze vor allem aus diesen Wörtern der Lernenden: ${vocab || '(keine – nutze Grundwortschatz)'}.`,
-    opts.newWords.perRound > 0
-      ? `Du darfst insgesamt höchstens ${opts.newWords.perRound} Wörter verwenden, die nicht in der Liste stehen (höchstens ${opts.newWords.perSentence} pro Satz); gib sie in "vocab" mit deutscher Bedeutung an. Grundwörter wie 저, 이, 그, 있다, 가다, 하다 zählen nicht.`
-      : `Verwende nur Wörter aus der Liste und absoluten Grundwortschatz (저, 이, 그, 있다, 가다, 하다 …); "vocab" bleibt leer.`,
+    `Wörter der lernenden Person: ${vocab || '(noch keine)'}.`,
+    wordRule,
+    nw.perRound > 0
+      ? `JEDES Wort, das nicht in der Liste steht, MUSS in "vocab" stehen – in der Grundform (Verben auf -다, Nomen ohne Partikel) mit deutscher Bedeutung. Fehlt ein Wort dort, wird der Satz verworfen.`
+      : '',
     `Markiere jede abgefragte Partikel mit geschweiften Klammern direkt am Wort, z. B. 친구{가} 와요. Bei mehreren richtigen Lösungen: 오늘{은|도} (nur wenn die deutsche Übersetzung beide erlaubt – besser vermeiden).`,
     `Sonderformen schreibst du so: {저+가=제가}, {나+의=내}.`,
     `Wichtig: Die Form muss zum letzten Laut passen (이/을/은/과 nach Konsonant, 가/를/는/와 nach Vokal). Kein 에 nach 어제, 오늘, 내일, 모레, 지금.`,
     `Die deutsche Übersetzung muss die Bedeutung eindeutig machen (도 = „auch“, 만 = „nur“), damit nur eine Partikel passt.`,
-    `Antworte nur als JSON-Array: [{"ko":"…","de":"…","particle":"<${PARTICLE_IDS.join('|')}>","lesson":"<Lektions-ID>","tip":"<kurzer Tipp auf Deutsch, ohne die Lösung zu verraten>","vocab":[{"ko":"…","de":"…"}]}]`,
-  ].join('\n')
+    `Antworte nur als JSON-Array: [{"ko":"…","de":"…","particle":"<${PARTICLE_IDS.join('|')}>","lesson":"<Lektions-ID>","tip":"<kurzer Tipp auf Deutsch, ohne die Lösung zu verraten>","vocab":[{"ko":"<Grundform>","de":"…"}]}]`,
+  ].filter(Boolean).join('\n')
 }
 
 function parseJsonArray(text: string): unknown[] {
@@ -93,7 +97,8 @@ export function parseGenerated(text: string, particles: ParticleId[], level: Lev
       particle,
       lesson,
       level,
-      ko: String(o.ko ?? '').trim(),
+      // Fremde Lücken (nicht gewünschte Partikeln) werden zu normalem Text
+      ko: restrictGaps(String(o.ko ?? '').trim(), particles),
       de: String(o.de ?? '').trim(),
       source: 'ai',
       tip: typeof o.tip === 'string' ? o.tip.trim().slice(0, 200) : undefined,
