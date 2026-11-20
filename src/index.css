@@ -197,6 +197,21 @@ select option, select optgroup { background-color: var(--color-surface); color: 
 .bubble-grow { animation: bubble-grow .42s cubic-bezier(.25, .9, .3, 1) both; }
 @keyframes bubble-content { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 .bubble-grow > * { animation: bubble-content .26s ease-out .2s both; }
+/* Strichreihenfolge: öffnet sich genau aus der Knopfleiste (Breite --bw) und schrumpft beim Schließen dorthin zurück */
+@keyframes bubble-open {
+  0% { clip-path: inset(calc(100% - 3.25rem) 0 0 calc(100% - var(--bw, 21rem)) round 999px); }
+  100% { clip-path: inset(0 0 0 0 round 22px); }
+}
+@keyframes bubble-close {
+  0% { clip-path: inset(0 0 0 0 round 22px); opacity: 1; }
+  80% { opacity: 1; }
+  100% { clip-path: inset(calc(100% - 3.25rem) 0 0 calc(100% - var(--bw, 21rem)) round 999px); opacity: .4; }
+}
+@keyframes bubble-content-out { from { opacity: 1; } to { opacity: 0; transform: translateY(6px); } }
+.bubble-open { animation: bubble-open .45s cubic-bezier(.25, .9, .3, 1) both; }
+.bubble-open > * { animation: bubble-content .26s ease-out .2s both; }
+.bubble-close { animation: bubble-close .34s cubic-bezier(.5, 0, .75, .2) both; }
+.bubble-close > * { animation: bubble-content-out .14s ease-in both; }
 @keyframes bubble-in { 0% { opacity: 0; transform: scale(.6); } 100% { opacity: 1; transform: none; } }
 .bubble-in { transform-origin: 100% 100%; animation: bubble-in .35s cubic-bezier(.3, 1.35, .5, 1) both; }
 /* Während des Zeichnens nichts markieren (iOS) */

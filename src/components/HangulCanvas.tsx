@@ -99,16 +99,28 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
   const aside = useQuestionAside()
   const landscape = useLandscapePhone()
   /** Größe der Strichreihenfolge-Karte im Querformat: von der Oberkante der Schreibfläche bis zur Blase */
-  const [helpBox, setHelpBox] = useState({ w: 480, h: 260 })
+  const [helpBox, setHelpBox] = useState({ w: 480, h: 260, bw: 340 })
+  const [helpClosing, setHelpClosing] = useState(false)
+  const helpClosedAt = useRef(0)
   const toggleHelp = () => {
     if (!showHelp && landscape && wrapRef.current) {
       const r = wrapRef.current.getBoundingClientRect()
       const bar = barRef.current?.getBoundingClientRect()
       const right = bar ? bar.right : window.innerWidth - 12
       const bottom = bar ? bar.bottom : window.innerHeight - 12
-      setHelpBox({ w: Math.round(right - r.left), h: Math.round(bottom - r.top) })
+      setHelpBox({ w: Math.round(right - r.left), h: Math.round(bottom - r.top), bw: Math.round(bar?.width ?? 340) })
     }
     setShowHelp((s) => !s)
+  }
+  /** Karte schrumpft zurück in die Knopfleiste, danach ist die Leiste wieder da */
+  const closeHelp = () => {
+    if (helpClosing) return
+    setHelpClosing(true)
+    setTimeout(() => {
+      helpClosedAt.current = Date.now()
+      setShowHelp(false)
+      setHelpClosing(false)
+    }, 340)
   }
   // Enter = Hauptaktion (Prüfen / Weiter), solange kein Feld, Knopf oder Dialog den Fokus hat
   useEffect(() => {
@@ -154,7 +166,8 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
   const chars = Array.from(target).filter((c) => c.trim())
   const firstMethod = settings.checkOrder.find((s) => s.enabled)?.method
   useEffect(() => setTemplate(settings.showTemplate && !testMode), [settings.showTemplate, testMode])
-  useEffect(() => setShowHelp(settings.showStrokeOrder && !testMode), [settings.showStrokeOrder, testMode])
+  // Im Querformat nie automatisch: dort öffnet sie sich nur auf Tipp (sonst verdeckt sie die Schreibfläche)
+  useEffect(() => setShowHelp(settings.showStrokeOrder && !testMode && !landscape), [settings.showStrokeOrder, testMode, landscape])
 
   const redraw = useCallback(() => {
     const c = canvasRef.current
@@ -670,18 +683,18 @@ export function HangulCanvas({ target, onResult, onRevise, onNext, nextLabel = '
             key="help"
             role="dialog"
             aria-label="Strichreihenfolge"
-            className="bubble-grow pointer-events-auto relative overflow-y-auto rounded-[22px] border border-separator bg-[color-mix(in_srgb,var(--color-surface),white_8%)] p-3 pl-4 shadow-xl"
-            style={{ width: helpBox.w, height: helpBox.h, maxWidth: 'calc(100vw - 1.5rem)' }}
+            className={`${helpClosing ? 'bubble-close' : 'bubble-open'} pointer-events-auto relative overflow-y-auto rounded-[22px] border border-separator bg-[color-mix(in_srgb,var(--color-surface),white_8%)] p-3 pl-4 shadow-xl`}
+            style={{ width: helpBox.w, height: helpBox.h, maxWidth: 'calc(100vw - 1.5rem)', ['--bw' as string]: `${helpBox.bw}px` }}
           >
             <div>
-              <button className="absolute right-3 top-3 z-10 grid h-9 w-9 place-items-center rounded-full bg-fill-2 text-label transition hover:bg-fill-3" onClick={() => setShowHelp(false)} aria-label="Strichreihenfolge schließen">
+              <button className="absolute right-3 top-3 z-10 grid h-9 w-9 place-items-center rounded-full bg-fill-2 text-label transition hover:bg-fill-3" onClick={closeHelp} aria-label="Strichreihenfolge schließen">
                 <X size={18} />
               </button>
               <div className="pr-11"><StrokeOrder text={target} mode={settings.strokeOrderStyle} embedded /></div>
             </div>
           </div>
         ) : !expanded ? (
-          <div className="bubble-in glass pointer-events-auto flex max-w-full items-center gap-1.5 rounded-full p-1.5 shadow-lg">
+          <div className={`${Date.now() - helpClosedAt.current < 600 ? '' : 'bubble-in'} glass pointer-events-auto flex max-w-full items-center gap-1.5 rounded-full p-1.5 shadow-lg`}>
             {!keyboard && phase === 'idle' && (
               <span className="truncate pl-2.5 pr-1 text-xs text-label-2 landscape-phone:hidden">
                 {firstMethod === 'inputtools' ? 'Input Tools' : firstMethod === 'gemini' ? 'Gemini' : 'Selbst-Check'}
