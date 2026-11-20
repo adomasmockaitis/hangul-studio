@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { Play, RotateCcw } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { RotateCcw } from 'lucide-react'
 import { ChoiceQuestion, TypeQuestion, WriteQuestion } from '../components/questions'
 import { Runner, type Q } from '../components/Runner'
 import { SelectionPicker } from '../components/SelectionPicker'
-import { Group, Segmented } from '../components/ui'
+import { CountPicker, Group, OptionCards, Segmented, StartButton, SubOption } from '../components/ui'
 import { askable, fastLimit, type Dir } from '../lib/fsrs'
 import { EXTRA_SIZE, resolveSelection, smartPick, smartSummary, SMART, SMART_MAX, weakestPick, type Pick, type Selection } from '../lib/selection'
 import { navigate } from '../lib/route'
@@ -68,10 +68,6 @@ function makeQuestion(word: WordItem, kind: Kind, answerType: AnswerType, all: W
   }
 }
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
-  return <Group title={title}>{children}</Group>
-}
-
 export function QuizSetup({ onDashboard, extra = false }: { onDashboard: () => void; /** von der Startseite: gleich eine Extra-Runde starten */ extra?: boolean }) {
   const { words, folders } = useApp()
   const [selection, setSelection] = useState<Selection>(SMART)
@@ -122,7 +118,7 @@ export function QuizSetup({ onDashboard, extra = false }: { onDashboard: () => v
   const usesChoice = direction === 'ko-de' || direction === 'mixed'
   return (
     <div className="space-y-6">
-      <Section title="Welche Wörter?">
+      <Group title="Welche Wörter?">
         <SelectionPicker
           value={selection}
           onChange={setSelection}
@@ -130,55 +126,41 @@ export function QuizSetup({ onDashboard, extra = false }: { onDashboard: () => v
           folders={folders}
           smartNote={ready.length ? `${ready.length} bereit: ${smartSummary(ready)}.${ready.length > SMART_MAX ? ` Diese Runde: die ${SMART_MAX} dringendsten.` : ''} Smart lädt alle Wörter, die gerade dran sind – fällig, oft falsch oder lange nicht geübt –, dazu bis zu 5 neue. Nur Ordner, die du aktiv lernst.` : `Gerade ist nichts dran. Smart lädt alle Wörter, die gerade dran sind – fällig, oft falsch oder lange nicht geübt –, dazu bis zu 5 neue. Nur Ordner, die du aktiv lernst.`}
         />
-        {selection.mode !== 'smart' && <div className="mt-3 flex flex-wrap items-center gap-3">
-          <span className="text-sm text-label-2">Anzahl</span>
-          <Segmented<string>
-            label="Anzahl"
-            value={String(count)}
-            onChange={(v) => setCount(Number(v))}
-            options={[{ value: '10', label: '10' }, { value: '20', label: '20' }, { value: '0', label: 'Alle' }]}
-          />
-        </div>}
-      </Section>
+        {selection.mode !== 'smart' && <CountPicker value={count} onChange={setCount} />}
+      </Group>
 
-      <Section title="Abfragerichtung">
-        <div className="grid gap-2 sm:grid-cols-2">
-          {([
-            ['de-ko', 'Deutsch → Koreanisch', 'Schreiben im Zeichenfeld'],
-            ['ko-de', 'Koreanisch → Deutsch', 'Tippen oder Multiple Choice'],
-            ['mixed', 'Gemischt', 'Smart: je Wort die dringendere Richtung'],
-          ] as [Direction, string, string][]).map(([v, t, d]) => (
-            <button key={v} onClick={() => setDirection(v)}
-              className={`rounded-xl border p-3 text-left transition ${direction === v ? 'border-blue bg-blue/10' : 'border-separator hover:bg-fill-4'}`}>
-              <p className="font-medium">{t}</p>
-              <p className="text-xs text-label-2">{d}</p>
-            </button>
-          ))}
-        </div>
+      <Group title="Wie üben?">
+        <OptionCards<Direction>
+          label="Abfragerichtung"
+          value={direction}
+          onChange={setDirection}
+          options={[
+            { value: 'de-ko', title: 'Deutsch → Koreanisch', text: 'Schreiben im Zeichenfeld' },
+            { value: 'ko-de', title: 'Koreanisch → Deutsch', text: 'Tippen oder Multiple Choice' },
+            { value: 'mixed', title: 'Gemischt', text: 'Smart: je Wort die dringendere Richtung' },
+          ]}
+        />
         {usesChoice && (
-          <div className="mt-3 flex flex-wrap items-center gap-3">
-            <span className="text-sm text-label-2">Antwort bei Koreanisch → Deutsch:</span>
+          <SubOption label="Antwort bei Koreanisch → Deutsch">
             <Segmented<AnswerType>
               label="Antwortart"
               value={answerType}
               onChange={setAnswerType}
               options={[{ value: 'type', label: 'Eintippen' }, { value: 'choice', label: 'Multiple Choice' }]}
             />
-          </div>
+          </SubOption>
         )}
-      </Section>
+      </Group>
 
       {smartEmpty ? (
         <>
-          <button className="btn-primary w-full !py-3.5 !text-base" onClick={startExtra} disabled={!activeOnly(words, folders).some(askable)}>
-            <RotateCcw size={18} /> Nochmal wiederholen ({Math.min(EXTRA_SIZE, activeOnly(words, folders).filter(askable).length)} schwächste)
-          </button>
+          <StartButton onClick={startExtra} disabled={!activeOnly(words, folders).some(askable)} icon={<RotateCcw size={18} />}>
+            Nochmal wiederholen ({Math.min(EXTRA_SIZE, activeOnly(words, folders).filter(askable).length)} schwächste)
+          </StartButton>
           <p className="text-center text-xs text-label-2">Alles wiederholt – die Extra-Runde nimmt die Wörter, die du am häufigsten falsch machst.</p>
         </>
       ) : (
-        <button className="btn-primary w-full !py-3.5 !text-base" disabled={!total} onClick={start}>
-          <Play size={18} fill="currentColor" /> Quiz starten ({total} {total === 1 ? 'Frage' : 'Fragen'})
-        </button>
+        <StartButton onClick={start} disabled={!total}>Quiz starten ({total} {total === 1 ? 'Frage' : 'Fragen'})</StartButton>
       )}
     </div>
   )

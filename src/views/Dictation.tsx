@@ -1,9 +1,9 @@
-import { useMemo, useState, type ReactNode } from 'react'
-import { Ear, PenLine, Play, Type } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { Ear } from 'lucide-react'
 import { ListenTypeQuestion, WriteQuestion } from '../components/questions'
 import { Runner, type Q } from '../components/Runner'
 import { SelectionPicker } from '../components/SelectionPicker'
-import { Group, Segmented } from '../components/ui'
+import { CountPicker, Group, OptionCards, StartButton } from '../components/ui'
 import { askable, fastLimit, type Dir } from '../lib/fsrs'
 import { resolveSelection, smartPick, smartSummary, SMART, SMART_MAX, type Selection } from '../lib/selection'
 import { activeOnly } from '../lib/folders'
@@ -48,10 +48,6 @@ function makeQuestion(word: WordItem, variant: Variant, n: number): Q {
   }
 }
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
-  return <Group title={title}>{children}</Group>
-}
-
 /** Diktat: Koreanisch hören und aufschreiben bzw. die Bedeutung tippen */
 export function DictationSetup({ onDashboard }: { onDashboard: () => void }) {
   const { words, folders } = useApp()
@@ -78,29 +74,7 @@ export function DictationSetup({ onDashboard }: { onDashboard: () => void }) {
 
   return (
     <div className="space-y-6">
-      <Section title="Was möchtest du üben?">
-        <div className="grid gap-2 sm:grid-cols-2">
-          {([
-            ['ko', PenLine, 'Hören → Koreanisch schreiben', 'Das gehörte Wort von Hand oder per Tastatur aufschreiben'],
-            ['de', Type, 'Hören → Bedeutung tippen', 'Hörverstehen: die deutsche Bedeutung eintippen'],
-          ] as [Variant, typeof PenLine, string, string][]).map(([v, Icon, t, d]) => (
-            <button
-              key={v}
-              onClick={() => setVariant(v)}
-              aria-pressed={variant === v}
-              className={`flex gap-3 rounded-xl border p-3 text-left transition ${variant === v ? 'border-blue bg-blue/10' : 'border-separator hover:bg-fill-4'}`}
-            >
-              <Icon size={20} className="mt-0.5 shrink-0 text-blue" />
-              <span>
-                <span className="block font-medium">{t}</span>
-                <span className="block text-xs text-label-2">{d}</span>
-              </span>
-            </button>
-          ))}
-        </div>
-      </Section>
-
-      <Section title="Welche Wörter?">
+      <Group title="Welche Wörter?">
         <SelectionPicker
           value={selection}
           onChange={setSelection}
@@ -108,20 +82,22 @@ export function DictationSetup({ onDashboard }: { onDashboard: () => void }) {
           folders={folders}
           smartNote={ready.length ? `${ready.length} bereit: ${smartSummary(ready)}.${ready.length > SMART_MAX ? ` Diese Runde: die ${SMART_MAX} dringendsten.` : ''} Smart lädt alle Wörter, die gerade dran sind – fällig, oft falsch oder lange nicht geübt –, dazu bis zu 5 neue. Nur Ordner, die du aktiv lernst.` : `Gerade ist nichts dran. Smart lädt alle Wörter, die gerade dran sind – fällig, oft falsch oder lange nicht geübt –, dazu bis zu 5 neue. Nur Ordner, die du aktiv lernst.`}
         />
-        {selection.mode !== 'smart' && <div className="mt-3 flex flex-wrap items-center gap-3">
-          <span className="text-sm text-label-2">Anzahl</span>
-          <Segmented<string>
-            label="Anzahl"
-            value={String(count)}
-            onChange={(v) => setCount(Number(v))}
-            options={[{ value: '10', label: '10' }, { value: '20', label: '20' }, { value: '0', label: 'Alle' }]}
-          />
-        </div>}
-      </Section>
+        {selection.mode !== 'smart' && <CountPicker value={count} onChange={setCount} />}
+      </Group>
 
-      <button className="btn-primary w-full !py-3.5 !text-base" disabled={!total} onClick={start}>
-        <Play size={18} fill="currentColor" /> Diktat starten ({total} {total === 1 ? 'Wort' : 'Wörter'})
-      </button>
+      <Group title="Wie üben?">
+        <OptionCards<Variant>
+          label="Übungsart"
+          value={variant}
+          onChange={setVariant}
+          options={[
+            { value: 'ko', title: 'Hören → Koreanisch schreiben', text: 'Das gehörte Wort von Hand oder per Tastatur aufschreiben' },
+            { value: 'de', title: 'Hören → Bedeutung tippen', text: 'Hörverstehen: die deutsche Bedeutung eintippen' },
+          ]}
+        />
+      </Group>
+
+      <StartButton onClick={start} disabled={!total}>Diktat starten ({total} {total === 1 ? 'Wort' : 'Wörter'})</StartButton>
       <p className="flex items-center justify-center gap-1.5 text-xs text-label-2"><Ear size={14} /> Tipp: Kopfhörer helfen, die Endungen genau zu hören.</p>
     </div>
   )

@@ -1,4 +1,4 @@
-﻿import { useEffect, useRef, useState } from 'react'
+﻿import { Fragment, useEffect, useRef, useState } from 'react'
 import { BookOpen, GraduationCap, House, Settings as SettingsIcon, type LucideIcon } from 'lucide-react'
 import { AiStatusPill } from './components/AiStatusPill'
 import { isOnboarded, Onboarding } from './components/Onboarding'
@@ -27,6 +27,15 @@ const NAV: { id: Tab; label: string; icon: LucideIcon }[] = [
   { id: 'ueben', label: 'Üben', icon: GraduationCap },
   { id: 'woerter', label: 'Wörter', icon: BookOpen },
   { id: 'einstellungen', label: 'Einstellungen', icon: SettingsIcon },
+]
+
+/** Übungsarten als zweite Ebene unter „Üben“ in der Seitenleiste */
+const PRACTICE_NAV = [
+  { id: 'lernen', label: 'Lernen' },
+  { id: 'quiz', label: 'Quiz' },
+  { id: 'diktat', label: 'Diktat' },
+  { id: 'partikel', label: 'Partikel' },
+  { id: 'beugung', label: 'Beugung' },
 ]
 
 function Shell() {
@@ -105,8 +114,8 @@ function Shell() {
             {/* Auswahl gleitet zur gewählten Zeile (44 px Zeile + 4 px Abstand) */}
             <span aria-hidden className="ease-spring pointer-events-none absolute inset-x-0 top-0 h-11 rounded-full bg-fill-2 transition-transform duration-300" style={{ transform: `translateY(${idx * 48}px)`, opacity: idx < 0 ? 0 : 1 }} />
             {NAV.map((n) => (
+              <Fragment key={n.id}>
               <button
-                key={n.id}
                 onClick={() => go(n.id)}
                 aria-current={tab === n.id ? 'page' : undefined}
                 aria-label={n.label}
@@ -116,6 +125,29 @@ function Shell() {
               >
                 <n.icon key={tab === n.id ? 'on' : 'off'} size={20} className={tab === n.id ? 'tab-bounce text-blue' : ''} /> <span className="landscape-phone:hidden">{n.label}</span>
               </button>
+              {/* Üben: Übungsarten klappen darunter auf (zweite Ebene, nur wenn Üben offen ist) */}
+              {n.id === 'ueben' && (
+                <div className={`grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(.32,.72,0,1)] landscape-phone:hidden ${tab === 'ueben' ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
+                  <div className="overflow-hidden" inert={tab !== 'ueben'}>
+                    <div className="space-y-0.5 py-1 pl-6">
+                      {PRACTICE_NAV.map((m) => {
+                        const on = tab === 'ueben' && (sub || 'lernen') === m.id
+                        return (
+                          <button
+                            key={m.id}
+                            onClick={() => navigate(m.id === 'lernen' ? '/ueben' : `/ueben/${m.id}`)}
+                            aria-current={on ? 'page' : undefined}
+                            className={`flex min-h-9 w-full items-center rounded-full px-3.5 text-left text-[15px] transition-colors active:opacity-60 ${on ? 'font-semibold text-blue' : 'text-label-2 hover:bg-fill-4'}`}
+                          >
+                            {m.label}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+              </Fragment>
             ))}
           </nav>
           <div className="mt-auto pt-4 landscape-phone:hidden"><AiStatusPill className="w-full" /></div>

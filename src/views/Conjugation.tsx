@@ -1,10 +1,10 @@
 ﻿import { useMemo, useState } from 'react'
-import { ArrowLeft, ArrowRight, Play, Volume2 } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Volume2 } from 'lucide-react'
 import { HangulCanvas } from '../components/HangulCanvas'
 import { DoneCard } from '../components/DoneCard'
 import { WriteQuestion } from '../components/questions'
 import { Runner, type Q } from '../components/Runner'
-import { Group, Segmented } from '../components/ui'
+import { CountPicker, Group, OptionCards, Segmented, StartButton, SubOption } from '../components/ui'
 import { speak, prepareSentences } from '../lib/speech'
 import { useApp } from '../store'
 import { CONJUGATION_KEYS, CONJUGATION_LABELS, type ConjugationKey, type WordItem } from '../types'
@@ -157,17 +157,10 @@ export function ConjugationTrainer({ onDashboard }: { onDashboard: () => void })
   return (
     <div>
       <div className="space-y-6">
-        <Group title="Modus">
-          <Segmented<Mode>
-            value={mode}
-            onChange={setMode}
-            options={[{ value: 'test', label: 'Testmodus' }, { value: 'learn', label: 'Lernmodus' }]}
-          />
-        </Group>
-        <Group title="Beugungsformen">
+        <Group title="Welche Formen?">
           <div className="grid gap-2 sm:grid-cols-2">
             {CONJUGATION_KEYS.map((k) => (
-              <label key={k} className="flex cursor-pointer items-center gap-3 rounded-xl bg-fill-4 px-3 py-2.5">
+              <label key={k} className="flex min-h-11 cursor-pointer items-center gap-3 rounded-xl bg-fill-4 px-3 py-2.5">
                 <input type="checkbox" className="accent-blue" checked={forms.includes(k)} onChange={() => toggle(k)} />
                 <span className="text-sm">
                   <span className="font-medium">{CONJUGATION_LABELS[k].label}</span>
@@ -176,24 +169,27 @@ export function ConjugationTrainer({ onDashboard }: { onDashboard: () => void })
               </label>
             ))}
           </div>
+          {mode === 'test' && <CountPicker value={count} onChange={setCount} options={[5, 10, 20, 0]} />}
         </Group>
-        <Group title={mode === 'test' ? 'Frage und Anzahl' : 'Grundwort in der Frage'}>
-          <p className="mb-2 text-[13px] text-label-2">Grundwort in der Frage</p>
-          <Segmented<Show>
-            value={show}
-            onChange={setShow}
-            options={[{ value: 'de', label: 'Deutsch' }, { value: 'ko', label: 'Koreanisch' }, { value: 'both', label: 'Beides' }]}
+
+        <Group title="Wie üben?">
+          <OptionCards<Mode>
+            label="Übungsart"
+            value={mode}
+            onChange={setMode}
+            options={[
+              { value: 'test', title: 'Testen', text: 'Formen selbst bilden und schreiben – wird geprüft' },
+              { value: 'learn', title: 'Lernen', text: 'Formen ansehen, anhören und nachschreiben' },
+            ]}
           />
-          {mode === 'test' && (
-            <>
-              <p className="mb-2 mt-4 text-[13px] text-label-2">Anzahl Aufgaben</p>
-              <Segmented<string>
-                value={String(count)}
-                onChange={(v) => setCount(Number(v))}
-                options={[{ value: '5', label: '5' }, { value: '10', label: '10' }, { value: '20', label: '20' }, { value: '0', label: 'Alle' }]}
-              />
-            </>
-          )}
+          <SubOption label="Grundwort in der Frage">
+            <Segmented<Show>
+              label="Grundwort in der Frage"
+              value={show}
+              onChange={setShow}
+              options={[{ value: 'de', label: 'Deutsch' }, { value: 'ko', label: 'Koreanisch' }, { value: 'both', label: 'Beides' }]}
+            />
+          </SubOption>
         </Group>
 
         {pool.length === 0 ? (
@@ -201,9 +197,9 @@ export function ConjugationTrainer({ onDashboard }: { onDashboard: () => void })
             Keine passenden Verben/Adjektive mit den gewählten Beugungen. Ergänze sie im Wörterbuch.
           </div>
         ) : (
-          <button className="btn-primary w-full !py-3.5 !text-base" onClick={start}>
-            <Play size={18} fill="currentColor" /> {mode === 'test' ? 'Test starten' : 'Lernen starten'} ({mode === 'test' ? Math.min(pool.length, count || pool.length) : pool.length} Aufgaben)
-          </button>
+          <StartButton onClick={start}>
+            {mode === 'test' ? 'Test starten' : 'Lernen starten'} ({mode === 'test' ? Math.min(pool.length, count || pool.length) : pool.length} Aufgaben)
+          </StartButton>
         )}
       </div>
     </div>

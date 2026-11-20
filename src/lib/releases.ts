@@ -24,6 +24,14 @@ export interface Release {
 }
 export const RELEASES: Release[] = [
   {
+    id: '2026-11-practice-unified',
+    size: 'minor',
+    title: 'Neu in Hangul Studio',
+    subtitle: 'Üben aufgeräumt',
+    features: [],
+    summary: 'Quiz, Diktat, Partikel und Beugung sind gleich aufgebaut: erst „Welche …?“, dann „Wie üben?“, dann Starten. In der Seitenleiste klappen die Übungsarten unter „Üben“ auf.',
+  },
+  {
     id: '2026-11-word-voice-regen',
     size: 'minor',
     title: 'Neu in Hangul Studio',

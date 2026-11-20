@@ -8,7 +8,7 @@ import {
   PenLine, RotateCcw, Shuffle, Snail, Sparkles, Volume2, X,
 } from 'lucide-react'
 import { HangulCanvas } from '../components/HangulCanvas'
-import { Group, Segmented, SessionBar, Sheet } from '../components/ui'
+import { Group, Segmented, SessionBar, Sheet, StartButton } from '../components/ui'
 import { SentenceWriter, type SentenceResult } from '../components/SentenceWriter'
 import { sameSentence } from '../lib/ink'
 import { useToast } from '../components/Toasts'
@@ -66,22 +66,12 @@ function Hub() {
   const toggle = (p: ParticleId) => setSel((s) => (s.includes(p) ? s.filter((x) => x !== p) : [...s, p]))
   return (
     <div className="space-y-6">
-      <LevelCard />
+      <Group
+        bare
+        title="Welche Partikeln?"
+        footer="Kapitel antippen zum Lernen und Üben. Für gemischtes Üben mehrere über den Kreis rechts auswählen – schwache Partikeln und Verwechslungen kommen öfter."
+      >
 
-      <Group title="Gemischt üben" footer="Wähle unten mehrere Partikeln aus (Kreis antippen) oder mische alle gelernten. Schwache Partikeln und Verwechslungen kommen öfter.">
-        <div className="flex flex-wrap gap-2">
-          <button className="btn-primary" disabled={!sel.length} onClick={() => setSession(sel)}>
-            <Play size={16} /> {sel.length ? `${sel.length} ausgewählte üben` : 'Partikeln auswählen'}
-          </button>
-          <button className="btn-soft" disabled={!learned.length} onClick={() => setSession(learned)}>
-            <Shuffle size={16} /> Alle gelernten mischen{learned.length ? ` (${learned.length})` : ''}
-          </button>
-          {sel.length > 0 && <button className="btn-soft" onClick={() => setSel([])}>Auswahl aufheben</button>}
-        </div>
-      </Group>
-
-      <div>
-        <h2 className="mb-1.5 px-4 text-[13px] font-medium text-label-2">Kapitel · empfohlene Reihenfolge</h2>
         <div className="stagger space-y-2">
           {CHAPTERS.map((c) => {
             const cp = chapterProgress(particles, c.id)
@@ -124,6 +114,20 @@ function Hub() {
             )
           })}
         </div>
+      </Group>
+
+      <LevelCard title="Wie üben?" />
+
+      <div className="space-y-2">
+        <StartButton onClick={() => setSession(sel)} disabled={!sel.length}>
+          {sel.length ? `Training starten (${sel.length} ${sel.length === 1 ? 'Partikel' : 'Partikeln'})` : 'Partikeln oben auswählen'}
+        </StartButton>
+        <div className="flex flex-wrap justify-center gap-2">
+          <button className="btn-soft" disabled={!learned.length} onClick={() => setSession(learned)}>
+            <Shuffle size={16} /> Alle gelernten mischen{learned.length ? ` (${learned.length})` : ''}
+          </button>
+          {sel.length > 0 && <button className="btn-soft" onClick={() => setSel([])}>Auswahl aufheben</button>}
+        </div>
       </div>
     </div>
   )
@@ -134,14 +138,14 @@ function StatusPill({ status }: { status: ChapterStatus }) {
   return <span className={`hidden shrink-0 rounded-full px-2 py-0.5 text-xs font-medium sm:inline ${cls}`}>{STATUS_LABEL[status]}</span>
 }
 
-function LevelCard() {
+function LevelCard({ title = 'Schwierigkeit' }: { title?: string }) {
   const { particles, updateParticles } = useApp()
   const lvl = effectiveLevel(particles)
   const win = particles.recent.slice(-20)
   const rate = win.length ? Math.round((win.filter((r) => r.ok).length / win.length) * 100) : null
   return (
     <Group
-      title="Schwierigkeit"
+      title={title}
       footer="1 Einsteiger · 2 Anfänger · 3 Mittel · 4 Fortgeschritten · 5 Profi. Auto steigt bei über 85 % richtig und sinkt unter 60 % (letzte 20 Aufgaben)."
       className="space-y-3"
     >

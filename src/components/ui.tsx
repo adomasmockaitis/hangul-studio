@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
-import { ChevronRight, X } from 'lucide-react'
+import { ChevronRight, Play, X } from 'lucide-react'
 import { playSound } from '../lib/sounds'
 
 export function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label?: string }) {
@@ -434,5 +434,69 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
         </div>
       )}
     </ConfirmContext.Provider>
+  )
+}
+
+/* ---------- Bausteine für die Übungs-Einstellungen (Quiz, Diktat, Partikel, Beugung) ---------- */
+
+/** Auswahl „Wie üben?“: große Kacheln mit Titel und kurzer Erklärung, eine ist gewählt */
+export function OptionCards<T extends string>({ value, onChange, options, label }: {
+  value: T
+  onChange: (v: T) => void
+  options: { value: T; title: string; text?: string }[]
+  label: string
+}) {
+  return (
+    <div role="radiogroup" aria-label={label} className="grid gap-2 sm:grid-cols-2">
+      {options.map((o) => {
+        const on = o.value === value
+        return (
+          <button
+            key={o.value}
+            type="button"
+            role="radio"
+            aria-checked={on}
+            onClick={() => onChange(o.value)}
+            className={`min-h-11 rounded-xl border p-3 text-left transition ${on ? 'border-blue bg-blue/10' : 'border-separator hover:bg-fill-4'}`}
+          >
+            <span className="block font-medium">{o.title}</span>
+            {o.text && <span className="block text-xs text-label-2">{o.text}</span>}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+/** Zusatz-Einstellung unter einer Auswahl: kleine Überschrift + Inhalt (z. B. Anzahl, Antwortart) */
+export function SubOption({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="mt-4">
+      <p className="mb-2 text-[13px] text-label-2">{label}</p>
+      {children}
+    </div>
+  )
+}
+
+/** Anzahl der Aufgaben (0 = alle) */
+export function CountPicker({ value, onChange, options = [10, 20, 0] }: { value: number; onChange: (n: number) => void; options?: number[] }) {
+  return (
+    <SubOption label="Anzahl">
+      <Segmented<string>
+        label="Anzahl"
+        value={String(value)}
+        onChange={(v) => onChange(Number(v))}
+        options={options.map((n) => ({ value: String(n), label: n ? String(n) : 'Alle' }))}
+      />
+    </SubOption>
+  )
+}
+
+/** Großer Startknopf am Ende jeder Übungs-Einstellung */
+export function StartButton({ children, onClick, disabled, icon }: { children: ReactNode; onClick: () => void; disabled?: boolean; icon?: ReactNode }) {
+  return (
+    <button className="btn-primary w-full !py-3.5 !text-base" onClick={onClick} disabled={disabled}>
+      {icon ?? <Play size={18} fill="currentColor" />} {children}
+    </button>
   )
 }
