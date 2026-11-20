@@ -24,6 +24,14 @@ export interface Release {
 }
 export const RELEASES: Release[] = [
   {
+    id: '2026-11-particles-write-fix',
+    size: 'minor',
+    title: 'Neu in Hangul Studio',
+    subtitle: 'Schreib-Lücken korrigiert',
+    summary: 'Bei Partikel-Lücken zum Schreiben steht jetzt groß, welches Wort du mit Partikel schreibst. Bei einem Fehler siehst du, was gelesen wurde – und ein Widerspruch gegen die Erkennung zählt jetzt auch.',
+    features: [],
+  },
+  {
     id: '2026-11-handwriting-sentences',
     size: 'major',
     title: 'Neu in Hangul Studio',

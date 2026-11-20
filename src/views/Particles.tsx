@@ -518,6 +518,8 @@ function GapTask({ task, onDone, last, finishLabel }: { task: Task; onDone: (a: 
   const [writeDone, setWriteDone] = useState(false)
   /** Ergebnis der Handschrift zwischen onResult und „Weiter“ */
   const writeOk = useRef(false)
+  /** Was beim Schreiben gelesen wurde (ganzes Wort mit Partikel) – wird bei einem Fehler angezeigt */
+  const writeRead = useRef('')
   const complete = given.length === task.ask.length
   const gapIndex = task.ask[Math.min(step, task.ask.length - 1)]
   const gap = parsed.gaps[gapIndex]
@@ -599,13 +601,19 @@ function GapTask({ task, onDone, last, finishLabel }: { task: Task; onDone: (a: 
 
       {!complete && task.kind === 'write' && (
         <div className="card p-4 sm:p-5">
-          <p className="mb-2 text-center text-sm text-label-2">Schreib das ganze Wort mit Partikel{gap.base ? '' : <> – <span lang="ko" className="font-semibold text-label">{gap.noun}</span> + ?</>}</p>
+          <div className="mb-3 text-center">
+            <p className="text-base text-label-2">Schreib das ganze Wort mit Partikel</p>
+            <p lang="ko" className="mt-1 text-4xl font-bold">
+              {gap.base ? `${gap.base} + ${gap.particle === 'ga' ? '가' : '의'}` : <>{gap.noun} <span className="text-blue">+ ?</span></>}
+            </p>
+          </div>
           <HangulCanvas
             key={`${task.key}-${step}`}
             target={gap.base ? gap.answer : gap.noun + gap.answer}
             testMode
-            onResult={(correct) => { setWriteDone(true); writeOk.current = correct }}
-            onNext={() => answer(gap.answer, writeOk.current)}
+            onResult={(correct, info) => { setWriteDone(true); writeOk.current = correct; writeRead.current = info?.read ?? '' }}
+            onRevise={(correct) => { writeOk.current = correct }}
+            onNext={() => answer(writeOk.current ? gap.answer : writeRead.current || '?', writeOk.current)}
             nextLabel={step + 1 < task.ask.length ? 'Nächste Lücke' : 'Auswertung'}
           />
           {writeDone && gap.accept.length > 1 && (
@@ -642,9 +650,12 @@ function GapTask({ task, onDone, last, finishLabel }: { task: Task; onDone: (a: 
 function explainGap(g: Gap, given: string): string {
   const right = g.base ? g.answer : `${g.noun}${g.answer}`
   const tip = formTip(g) || `${chapterOf(g.particle).forms} = ${chapterOf(g.particle).short}.`
-  const wrongFam = given && !g.base ? familyOf(given) : null
+  // Bei Schreib-Aufgaben ist `given` das ganze gelesene Wort (숙제는) – die Partikel steht dahinter
+  const particlePart = given && !g.base && given.startsWith(g.noun) ? given.slice(g.noun.length) : given
+  const wrongFam = particlePart && !g.base ? familyOf(particlePart) : null
   const why = wrongFam && wrongFam !== g.particle ? `${chapterOf(wrongFam).forms} = ${chapterOf(wrongFam).short}; hier passt ${chapterOf(g.particle).forms} (${chapterOf(g.particle).short}).` : tip
-  return `Richtig ist ${right}${g.accept.length > 1 ? ` (auch: ${g.accept.filter((a) => a !== g.answer).join(', ')})` : ''}. ${why}`
+  const read = given && given !== '?' && given.length > g.answer.length ? `Gelesen wurde ${given}. ` : ''
+  return `${read}Richtig ist ${right}${g.accept.length > 1 ? ` (auch: ${g.accept.filter((a) => a !== g.answer).join(', ')})` : ''}. ${why}`
 }
 
 /** Neues Wort im Satz: gepunktet unterstrichen, Antippen zeigt die Bedeutung */
@@ -713,13 +724,13 @@ function SentenceView({ parsed, ask, current, given, okList, complete, newWords,
           const ok = okList[pos]
           return (
             <span key={k} className={`mx-0.5 rounded-lg px-1.5 ${ok ? 'bg-green/15 text-green' : 'bg-red/15 text-red'}`}>
-              {ok ? word + g.answer : <><s className="opacity-60">{word}{ans}</s>{complete && <span className="ml-1 text-green">{word}{g.answer}</span>}</>}
+              {ok ? word + g.answer : <><s className="opacity-60">{ans}</s>{complete && <span className="ml-1 text-green">{word}{g.answer}</span>}</>}
             </span>
           )
         }
         const active = part.gap === current
         return (
-          <span key={k} className={`mx-0.5 inline-flex min-w-12 items-center justify-center rounded-lg border-2 border-dashed px-1.5 align-middle text-base leading-8 ${active ? 'border-blue bg-blue/10 text-blue' : 'border-separator text-label-3'}`}>
+          <span key={k} className={`mx-0.5 inline-flex min-w-12 items-center justify-center rounded-lg border-2 border-dashed px-1.5 align-middle ${word ? 'text-2xl leading-10 sm:text-3xl' : 'text-base leading-8'} ${active ? 'border-blue bg-blue/10 text-blue' : 'border-separator text-label-3'}`}>
             {g.base ? `${g.base} + ${g.particle === 'ga' ? '가' : '의'}` : word ? `${word} + ?` : '?'}
           </span>
         )
