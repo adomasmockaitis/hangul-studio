@@ -1,21 +1,25 @@
 import { BookCheck, Flame, Gauge, Play, Plus, Target } from 'lucide-react'
 import { List, ListRow, PageHeader } from '../components/ui'
 import { navigate } from '../lib/route'
-import { currentStreak, dateKey, successRate } from '../lib/srs'
-import { isDue } from '../lib/fsrs'
+import { useMemo } from 'react'
+import { currentStreak, dateKey, LEARNED_DAYS, quizStats } from '../lib/srs'
+import { activeOnly } from '../lib/folders'
+import { smartPick, smartSummary, SMART_MAX } from '../lib/selection'
 import { computeLevel, LEVEL_STEPS } from '../lib/level'
 import { useApp } from '../store'
 
 export function Dashboard() {
-  const { words, activity, reviewLog, retention } = useApp()
+  const { words, folders, activity, reviewLog, retention } = useApp()
   const lv = computeLevel(words, reviewLog)
   const stepFrom = LEVEL_STEPS[Math.min(lv.level, LEVEL_STEPS.length) - 1]
   const stepTo = lv.toNext === null ? null : lv.secure + lv.toNext
   const progress = stepTo === null ? 1 : Math.min(1, Math.max(0, (lv.secure - stepFrom) / Math.max(1, stepTo - stepFrom)))
   const { days, doneToday } = currentStreak(activity)
-  const learned = words.filter((w) => w.stats.correctCount > 0).length
-  const rate = successRate(words)
-  const due = words.filter((w) => isDue(w)).length
+  // Nur Abfragen zählen (im Lernmodus ist die Lösung sichtbar)
+  const { learned, rate } = useMemo(() => quizStats(reviewLog, words), [reviewLog, words])
+  // Genau das, was das Smart-Quiz (Deutsch → Koreanisch) jetzt laden würde – ohne Obergrenze gezählt
+  const ready = useMemo(() => smartPick(activeOnly(words, folders), 'deko', Infinity, Date.now()), [words, folders])
+  const due = ready.length
   const topErrors = [...words]
     .filter((w) => w.stats.wrongCount > 0)
     .sort((a, b) => b.stats.wrongCount - a.stats.wrongCount)
@@ -38,8 +42,8 @@ export function Dashboard() {
 
   const stats = [
     { icon: Flame, color: 'var(--color-orange)', value: String(days), unit: days === 1 ? 'Tag' : 'Tage', label: 'Streak', note: doneToday ? 'Heute erledigt' : days ? 'Heute noch offen' : 'Starte heute' },
-    { icon: BookCheck, color: 'var(--color-green)', value: String(learned), unit: `von ${words.length}`, label: 'Gelernt', note: 'mind. 1× richtig' },
-    { icon: Target, color: 'var(--color-blue)', value: rate === null ? '–' : `${rate} %`, unit: '', label: 'Erfolgsquote', note: 'alle Versuche' },
+    { icon: BookCheck, color: 'var(--color-green)', value: String(learned), unit: `von ${words.length}`, label: 'Gelernt', note: `Quiz: an ${LEARNED_DAYS} Tagen richtig` },
+    { icon: Target, color: 'var(--color-blue)', value: rate === null ? '–' : `${rate} %`, unit: '', label: 'Erfolgsquote', note: 'alle Quiz-Antworten' },
   ]
 
   return (
@@ -61,10 +65,12 @@ export function Dashboard() {
         ) : (
           <>
             <h2 id="today-title" className="mt-1 text-2xl font-bold">
-              {due === 0 ? 'Alles wiederholt' : due === 1 ? '1 Wort ist fällig' : `${due} Wörter sind fällig`}
+              {due === 0 ? 'Alles wiederholt' : due === 1 ? '1 Wort ist bereit' : `${due} Wörter sind bereit`}
             </h2>
             <p className="mt-1 max-w-md text-sm text-label-2">
-              Der Smart-Test fragt bis zu 10 Wörter ab – zuerst die, die du am ehesten vergisst, dazu ein paar neue.
+              {due === 0
+                ? 'Gerade ist nichts fällig. Neue Wörter oder pausierte Ordner kannst du im Wörterbuch aktivieren.'
+                : <>{smartSummary(ready)}{due > SMART_MAX ? ` – das Smart-Quiz nimmt die ${SMART_MAX} dringendsten zuerst.` : '.'} Nur Ordner, die du aktiv lernst.</>}
             </p>
             <button className="btn-primary mt-5 !px-6 !text-base" onClick={() => navigate('/ueben/quiz')}>
               <Play size={18} fill="currentColor" /> Test starten

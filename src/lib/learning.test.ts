@@ -3,6 +3,7 @@ import { cardOf, gradeFrom, isDue, personalRetention, retrievability, schedule, 
 import { computeLevel, SECURE_DAYS } from './level'
 import { mergeWord } from './merge'
 import { NO_FOLDER, resolveSelection, smartPick } from './selection'
+import { activeOnly } from './folders'
 import type { Folder, WordItem } from '../types'
 
 const DAY = 86_400_000
@@ -92,6 +93,22 @@ describe('Auswahl', () => {
   it('Smart „beide“: je Wort die dringendere Richtung', () => {
     const w = word('w', { srs: { deko: card({ due: NOW + 5 * DAY, last: NOW - DAY, stability: 9 }), kode: card({ due: NOW - DAY, last: NOW - 9 * DAY }) } })
     expect(smartPick([w], 'both', 5, NOW)[0].dir).toBe('kode')
+  })
+})
+
+describe('Smart: bereite Wörter', () => {
+  const notDue = { due: NOW + 9 * DAY, last: NOW - 2 * DAY, stability: 10 }
+  it('nimmt oft falsch gemachte und lange nicht geübte Wörter, auch wenn nicht fällig', () => {
+    const errors = word('e', { stats: { correctCount: 1, wrongCount: 3, lastReviewed: NOW - 2 * DAY, streak: 0, easeFactor: 2.5 }, srs: { deko: card(notDue) } })
+    const old = word('o', { srs: { deko: card({ due: NOW + 9 * DAY, last: NOW - 30 * DAY, stability: 60 }) } })
+    const fine = word('f', { stats: { correctCount: 5, wrongCount: 0, lastReviewed: NOW - 2 * DAY, streak: 5, easeFactor: 2.5 }, srs: { deko: card(notDue) } })
+    const picks = smartPick([fine, old, errors], 'deko', 40, NOW)
+    expect(picks.map((p) => [p.word.id, p.reason])).toEqual([['e', 'errors'], ['o', 'old']])
+  })
+  it('nur aktiv gelernte Ordner', () => {
+    const folders: Folder[] = [{ id: 'p', name: 'Neu', parentId: null, createdAt: 1, updatedAt: 1, paused: true }, { id: 'c', name: 'Unter', parentId: 'p', createdAt: 1, updatedAt: 1 }]
+    const ws = [word('a', { folderId: 'p' }), word('b', { folderId: 'c' }), word('z')]
+    expect(smartPick(activeOnly(ws, folders), 'deko', 40, NOW).map((p) => p.word.id)).toEqual(['z'])
   })
 })
 

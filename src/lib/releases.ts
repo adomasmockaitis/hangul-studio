@@ -24,6 +24,17 @@ export interface Release {
 }
 export const RELEASES: Release[] = [
   {
+    id: '2026-11-smart-v2',
+    size: 'major',
+    title: 'Neu in Hangul Studio',
+    subtitle: 'Ein klügerer Smart-Modus',
+    features: [
+      { icon: 'gauge', color: '#007aff', title: 'Smart nimmt, was dran ist', text: 'Wörter, die fällig sind, die du oft falsch machst oder lange nicht geübt hast – dazu bis zu 5 neue. Nur aus Ordnern, die du aktiv lernst. Eine Anzahl musst du nicht mehr wählen.' },
+      { icon: 'check', color: '#34c759', title: 'Startseite zeigt, was bereit ist', text: 'Du siehst sofort, wie viele Wörter bereit sind und warum. Genau diese lädt das Smart-Quiz.' },
+      { icon: 'shield', color: '#ff9500', title: 'Ehrliche Statistik', text: '„Gelernt“ und die Erfolgsquote zählen nur noch Quiz-Antworten. Gelernt heißt: Deutsch → Koreanisch an 3 verschiedenen Tagen ohne Hilfe richtig.' },
+    ],
+  },
+  {
     id: '2026-11-writing-flow',
     size: 'major',
     title: 'Neu in Hangul Studio',

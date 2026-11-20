@@ -4,8 +4,8 @@ import { ChoiceQuestion, TypeQuestion, WriteQuestion } from '../components/quest
 import { Runner, type Q } from '../components/Runner'
 import { SelectionPicker } from '../components/SelectionPicker'
 import { Group, Segmented } from '../components/ui'
-import { askable, fastLimit, isDueDir, type Dir } from '../lib/fsrs'
-import { resolveSelection, smartPick, SMART, type Pick, type Selection } from '../lib/selection'
+import { askable, fastLimit, type Dir } from '../lib/fsrs'
+import { resolveSelection, smartPick, smartSummary, SMART, SMART_MAX, type Pick, type Selection } from '../lib/selection'
 import { activeOnly } from '../lib/folders'
 import { useApp } from '../store'
 import type { WordItem } from '../types'
@@ -81,17 +81,18 @@ export function QuizSetup({ onDashboard }: { onDashboard: () => void }) {
 
   const smartDir: Dir | 'both' = direction === 'mixed' ? 'both' : direction === 'ko-de' ? 'kode' : 'deko'
   const now = Date.now()
+  // Smart: alle bereiten Wörter (ohne Obergrenze gezählt, pro Runde höchstens SMART_MAX)
+  const ready = useMemo(() => (selection.mode === 'smart' ? smartPick(activeOnly(words, folders), smartDir, Infinity, now) : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [words, folders, selection, smartDir])
   // Für Smart: was die App jetzt abfragen würde; sonst die feste Auswahl
   const picks: Pick[] = useMemo(() => {
-    if (selection.mode === 'smart') return smartPick(activeOnly(words, folders), smartDir, count || 50, now)
+    if (selection.mode === 'smart') return ready.slice(0, SMART_MAX)
     const list = resolveSelection(selection, words, folders).filter(askable)
     return list.map((w) => ({ word: w, dir: smartDir === 'both' ? (Math.random() < 0.5 ? 'deko' : 'kode') : smartDir }) as Pick)
     // now bewusst nicht als Abhängigkeit: die Vorschau soll nicht ständig springen
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [words, folders, selection, smartDir, count])
-  const dueCount = useMemo(() => words.filter((w) => askable(w) && (smartDir === 'both' ? isDueDir(w, 'deko', now) || isDueDir(w, 'kode', now) : isDueDir(w, smartDir, now))).length,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [words, smartDir])
+  }, [words, folders, selection, smartDir, ready])
 
   const total = selection.mode === 'smart' ? picks.length : Math.min(picks.length, count || picks.length)
 
@@ -113,9 +114,9 @@ export function QuizSetup({ onDashboard }: { onDashboard: () => void }) {
           onChange={setSelection}
           words={words}
           folders={folders}
-          smartNote={`${dueCount} ${dueCount === 1 ? 'Wort ist' : 'Wörter sind'} in dieser Richtung fällig. Die App fragt zuerst die ab, die du am ehesten vergisst, dazu bis zu 5 neue.`}
+          smartNote={ready.length ? `${ready.length} bereit: ${smartSummary(ready)}.${ready.length > SMART_MAX ? ` Diese Runde: die ${SMART_MAX} dringendsten.` : ''} Smart lädt alle Wörter, die gerade dran sind – fällig, oft falsch oder lange nicht geübt –, dazu bis zu 5 neue. Nur Ordner, die du aktiv lernst.` : `Gerade ist nichts dran. Smart lädt alle Wörter, die gerade dran sind – fällig, oft falsch oder lange nicht geübt –, dazu bis zu 5 neue. Nur Ordner, die du aktiv lernst.`}
         />
-        <div className="mt-3 flex flex-wrap items-center gap-3">
+        {selection.mode !== 'smart' && <div className="mt-3 flex flex-wrap items-center gap-3">
           <span className="text-sm text-label-2">Anzahl</span>
           <Segmented<string>
             label="Anzahl"
@@ -123,7 +124,7 @@ export function QuizSetup({ onDashboard }: { onDashboard: () => void }) {
             onChange={(v) => setCount(Number(v))}
             options={[{ value: '10', label: '10' }, { value: '20', label: '20' }, { value: '0', label: 'Alle' }]}
           />
-        </div>
+        </div>}
       </Section>
 
       <Section title="Abfragerichtung">

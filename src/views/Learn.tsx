@@ -29,7 +29,7 @@ function mastery(w: WordItem, now: number): number {
 
 /** Reihenfolge einmal festlegen (sonst würde Smart beim Lernen ständig umsortieren) */
 function computeIds(sel: Selection, sort: Sort, words: WordItem[], folders: Folder[]): string[] {
-  if (sel.mode === 'smart') return smartPick(activeOnly(words, folders), 'both', 20, Date.now(), 10).map((p) => p.word.id)
+  if (sel.mode === 'smart') return smartPick(activeOnly(words, folders), 'both').map((p) => p.word.id)
   const list = resolveSelection(sel, words, folders)
   if (sort === 'random') return shuffle(list).map((w) => w.id)
   if (sort === 'weak' || sort === 'strong') {

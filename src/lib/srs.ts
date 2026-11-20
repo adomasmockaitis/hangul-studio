@@ -1,4 +1,5 @@
 import type { WordItem, WordStats } from '../types'
+import type { ReviewLogEntry } from './fsrs'
 
 export const DAY = 86_400_000
 
@@ -48,4 +49,32 @@ export function currentStreak(activity: Record<string, number>): { days: number;
     d.setDate(d.getDate() - 1)
   }
   return { days, doneToday }
+}
+
+/** „Gelernt“ = so oft richtig Deutsch → Koreanisch im Quiz, an so vielen verschiedenen Tagen (Glückstreffer zählen nicht) */
+export const LEARNED_DAYS = 3
+
+/**
+ * Kennzahlen nur aus Abfragen (Quiz/Diktat), nicht aus dem Lernmodus – dort ist die Lösung sichtbar.
+ * gelernt: Wörter, die du Deutsch → Koreanisch an mindestens LEARNED_DAYS verschiedenen Tagen ohne Hilfe richtig hattest.
+ * Erfolgsquote: Anteil richtiger Antworten an allen Abfragen (beide Richtungen).
+ */
+export function quizStats(log: ReviewLogEntry[], words: WordItem[]): { learned: number; rate: number | null } {
+  const ids = new Set(words.map((w) => w.id))
+  const days = new Map<string, Set<string>>()
+  let ok = 0
+  let total = 0
+  for (const e of log) {
+    if (!ids.has(e.w)) continue
+    total++
+    if (e.g >= 2) ok++
+    if (e.d === 'deko' && e.g >= 3) {
+      const d = new Date(e.t)
+      const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
+      if (!days.has(e.w)) days.set(e.w, new Set())
+      days.get(e.w)!.add(key)
+    }
+  }
+  const learned = [...days.values()].filter((s) => s.size >= LEARNED_DAYS).length
+  return { learned, rate: total ? Math.round((ok / total) * 100) : null }
 }

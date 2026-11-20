@@ -45,39 +45,77 @@ export function resolveSelection(sel: Selection, words: WordItem[], folders: Fol
   return words.filter((w) => wanted.has(effectiveFolder(w, folderIds) ?? NO_FOLDER))
 }
 
+export type SmartReason = 'due' | 'errors' | 'old' | 'new'
+
 export interface Pick {
   word: WordItem
   dir: Dir
+  /** Warum Smart das Wort gewählt hat */
+  reason?: SmartReason
+}
+
+const DAY = 86_400_000
+/** So viele Wörter höchstens pro Smart-Runde (der Rest kommt in der nächsten Runde) */
+export const SMART_MAX = 40
+/** Neue (nie geübte) Wörter pro Smart-Runde */
+export const SMART_NEW = 5
+/** So lange nicht geübt = auf jeden Fall wieder dran */
+const OLD_DAYS = 21
+
+/** Fehlerquote eines Wortes (0–1), erst ab 2 Fehlern aussagekräftig */
+function errorRate(w: WordItem): number {
+  const { correctCount: c, wrongCount: f } = w.stats
+  return f >= 2 ? f / Math.max(1, c + f) : 0
 }
 
 /**
- * Smart-Auswahl: zuerst fällige Karten mit der geringsten Erinnerungswahrscheinlichkeit,
- * dann neue Wörter (begrenzt), zuletzt – falls noch Platz – die am ehesten vergessenen übrigen.
+ * Smart-Auswahl: alle Wörter, die gerade „bereit“ sind – fällig laut Wiederholungsplan, oft falsch gemacht
+ * oder lange nicht geübt –, dazu bis zu `maxNew` neue. Wörter aus pausierten Ordnern vorher mit `activeOnly`
+ * herausfiltern. Reihenfolge: zuerst, was du am ehesten vergisst bzw. oft falsch machst.
  * dir = 'both': je Wort die dringendere Richtung.
  */
-export function smartPick(words: WordItem[], dir: Dir | 'both', size: number, now: number, maxNew = 5): Pick[] {
+export function smartPick(words: WordItem[], dir: Dir | 'both', size: number = SMART_MAX, now: number = Date.now(), maxNew = SMART_NEW): Pick[] {
   const dirs = dir === 'both' ? DIRS : [dir]
-  const cands: { p: Pick; due: boolean; isNew: boolean; r: number }[] = []
+  const ready: { p: Pick; score: number }[] = []
+  const fresh: Pick[] = []
   for (const w of words) {
     if (!askable(w)) continue
-    // je Wort nur eine Richtung: die mit der geringsten Erinnerungswahrscheinlichkeit
-    let best: { p: Pick; due: boolean; isNew: boolean; r: number } | null = null
+    const err = errorRate(w)
+    // zuletzt geübt: Statistik oder Wiederholungsplan (je nachdem, was jünger ist)
+    const last = Math.max(w.stats.lastReviewed ?? 0, ...DIRS.map((d) => cardOf(w, d)?.last ?? 0))
+    const days = last ? (now - last) / DAY : Infinity
+    let best: { p: Pick; score: number; ok: boolean } | null = null
+    let isNew = true
     for (const d of dirs) {
       const c = cardOf(w, d)
-      const item = { p: { word: w, dir: d }, due: isDueDir(w, d, now), isNew: !c, r: retrievability(c, now) }
-      if (!best || (item.due && !best.due) || (item.due === best.due && item.r < best.r)) best = item
+      if (c) isNew = false
+      if (!c) continue
+      const r = retrievability(c, now)
+      const due = isDueDir(w, d, now)
+      const reason: SmartReason | null = due ? 'due' : err >= 0.4 && days >= 0.5 ? 'errors' : days >= OLD_DAYS ? 'old' : null
+      const lastWrong = w.stats.streak === 0 && w.stats.wrongCount > 0 ? 1 : 0
+      const score = 0.5 * (1 - r) + 0.35 * err + 0.15 * Math.min(1, days / 30) + 0.1 * lastWrong
+      const item = { p: { word: w, dir: d, reason: reason ?? undefined }, score, ok: !!reason }
+      if (!best || (item.ok && !best.ok) || (item.ok === best.ok && item.score > best.score)) best = item
     }
-    if (best) cands.push(best)
+    if (isNew) fresh.push({ word: w, dir: dirs[Math.floor(Math.random() * dirs.length)], reason: 'new' })
+    else if (best?.ok) ready.push(best)
   }
-  const due = cands.filter((c) => c.due && !c.isNew).sort((a, b) => a.r - b.r)
-  const fresh = cands.filter((c) => c.isNew).sort((a, b) => a.p.word.createdAt - b.p.word.createdAt).slice(0, maxNew)
-  const out = [...due, ...fresh].slice(0, size)
-  if (out.length < Math.min(size, 5)) {
-    const used = new Set(out.map((c) => c.p.word.id))
-    const rest = cands.filter((c) => !used.has(c.p.word.id)).sort((a, b) => a.r - b.r)
-    out.push(...rest.slice(0, Math.min(size, 5) - out.length))
-  }
-  return out.map((c) => c.p)
+  ready.sort((a, b) => b.score - a.score)
+  fresh.sort((a, b) => a.word.createdAt - b.word.createdAt)
+  return [...ready.map((x) => x.p), ...fresh.slice(0, maxNew)].slice(0, size)
+}
+
+/** Was Smart gerade abfragen würde, zusammengefasst (für Startseite und Hinweise) */
+export function smartSummary(picks: Pick[]): string {
+  const n = (r: SmartReason) => picks.filter((p) => p.reason === r).length
+  const parts = [
+    n('due') && `${n('due')} fällig`,
+    n('errors') && `${n('errors')} oft falsch`,
+    n('old') && `${n('old')} lange nicht geübt`,
+    n('new') && `${n('new')} neu`,
+  ].filter(Boolean)
+  return parts.join(' · ')
 }
 
 /** Kurzbeschreibung einer Auswahl für Knöpfe */

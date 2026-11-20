@@ -4,8 +4,8 @@ import { ListenTypeQuestion, WriteQuestion } from '../components/questions'
 import { Runner, type Q } from '../components/Runner'
 import { SelectionPicker } from '../components/SelectionPicker'
 import { Group, Segmented } from '../components/ui'
-import { askable, fastLimit, isDueDir, type Dir } from '../lib/fsrs'
-import { resolveSelection, smartPick, SMART, type Selection } from '../lib/selection'
+import { askable, fastLimit, type Dir } from '../lib/fsrs'
+import { resolveSelection, smartPick, smartSummary, SMART, SMART_MAX, type Selection } from '../lib/selection'
 import { activeOnly } from '../lib/folders'
 import { useApp } from '../store'
 import type { WordItem } from '../types'
@@ -61,11 +61,12 @@ export function DictationSetup({ onDashboard }: { onDashboard: () => void }) {
   const [questions, setQuestions] = useState<Q[] | null>(null)
   const dir = DIR_OF[variant]
 
+  // Smart: alle bereiten Wörter (ohne Obergrenze gezählt, pro Runde höchstens SMART_MAX)
+  const ready = useMemo(() => (selection.mode === 'smart' ? smartPick(activeOnly(words, folders), dir, Infinity, Date.now()) : []), [words, folders, selection, dir])
   const pool: WordItem[] = useMemo(() => {
-    if (selection.mode === 'smart') return smartPick(activeOnly(words, folders), dir, count || 50, Date.now()).map((p) => p.word)
+    if (selection.mode === 'smart') return ready.slice(0, SMART_MAX).map((p) => p.word)
     return resolveSelection(selection, words, folders).filter(askable)
-  }, [words, folders, selection, dir, count])
-  const dueCount = useMemo(() => words.filter((w) => askable(w) && isDueDir(w, dir, Date.now())).length, [words, dir])
+  }, [words, folders, selection, ready])
   const total = selection.mode === 'smart' ? pool.length : Math.min(pool.length, count || pool.length)
 
   const start = () => {
@@ -105,9 +106,9 @@ export function DictationSetup({ onDashboard }: { onDashboard: () => void }) {
           onChange={setSelection}
           words={words}
           folders={folders}
-          smartNote={`${dueCount} ${dueCount === 1 ? 'Wort ist' : 'Wörter sind'} fällig. Die App wählt zuerst die, die du am ehesten vergisst, dazu bis zu 5 neue.`}
+          smartNote={ready.length ? `${ready.length} bereit: ${smartSummary(ready)}.${ready.length > SMART_MAX ? ` Diese Runde: die ${SMART_MAX} dringendsten.` : ''} Smart lädt alle Wörter, die gerade dran sind – fällig, oft falsch oder lange nicht geübt –, dazu bis zu 5 neue. Nur Ordner, die du aktiv lernst.` : `Gerade ist nichts dran. Smart lädt alle Wörter, die gerade dran sind – fällig, oft falsch oder lange nicht geübt –, dazu bis zu 5 neue. Nur Ordner, die du aktiv lernst.`}
         />
-        <div className="mt-3 flex flex-wrap items-center gap-3">
+        {selection.mode !== 'smart' && <div className="mt-3 flex flex-wrap items-center gap-3">
           <span className="text-sm text-label-2">Anzahl</span>
           <Segmented<string>
             label="Anzahl"
@@ -115,7 +116,7 @@ export function DictationSetup({ onDashboard }: { onDashboard: () => void }) {
             onChange={(v) => setCount(Number(v))}
             options={[{ value: '10', label: '10' }, { value: '20', label: '20' }, { value: '0', label: 'Alle' }]}
           />
-        </div>
+        </div>}
       </Section>
 
       <button className="btn-primary w-full !py-3.5 !text-base" disabled={!total} onClick={start}>
