@@ -723,6 +723,12 @@ function TranslateTask({ task, onDone, last, finishLabel, selfCheck }: {
     setSubmitted(answer)
     speak(fillSentence(task.sentence.ko))
   }
+  const particles = [...new Set(parseSentence(task.sentence.ko).gaps.map((g) => chapterOf(g.particle).forms))]
+  useEffect(() => {
+    speakGerman(task.sentence.de)
+    // nur beim Erscheinen
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   if (submitted !== null) {
     const model = fillSentence(task.sentence.ko)
     return (
@@ -746,12 +752,6 @@ function TranslateTask({ task, onDone, last, finishLabel, selfCheck }: {
       </div>
     )
   }
-  const particles = [...new Set(parseSentence(task.sentence.ko).gaps.map((g) => chapterOf(g.particle).forms))]
-  useEffect(() => {
-    speakGerman(task.sentence.de)
-    // nur beim Erscheinen
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
   return (
     <div className="card fade-up space-y-4 p-5 sm:p-6">
       <p className="label text-center">Übersetze ins Koreanische · {selfCheck ? 'danach vergleichst du mit dem Mustersatz' : 'wird am Ende gesammelt bewertet'}</p>
