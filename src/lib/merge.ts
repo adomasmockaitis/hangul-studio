@@ -1,6 +1,7 @@
 import type { Activity, Folder, Settings, WordItem } from '../types'
 import { newerCard } from './fsrs'
 import { emptyParticleState, mergeParticleStates, sanitizeParticleState, type ParticleState } from './particles/engine'
+import type { ReviewLogEntry } from './fsrs'
 
 /** Einstellungen, die nur auf dem jeweiligen Gerät bleiben und nie synchronisiert werden */
 export const LOCAL_ONLY_SETTINGS = ['googleClientId', 'syncApiKey', 'systemVoiceKo', 'systemVoiceDe'] as const
@@ -23,6 +24,19 @@ export interface SyncPayload {
   deletedFolders?: Record<string, number>
   /** Partikel-Trainer (ab Etappe 5) */
   particles?: ParticleState
+  /** Protokoll der Quiz-Antworten (für Gelernt, Erfolgsquote, Stufe, persönliche Abstände) */
+  reviewLog?: ReviewLogEntry[]
+}
+
+/** So viele Quiz-Antworten werden höchstens aufbewahrt (die ältesten fallen weg) */
+export const REVIEW_LOG_MAX = 5000
+
+/** Protokolle zweier Geräte vereinigen: gleiche Antwort (Wort, Richtung, Zeitpunkt) nur einmal, nach Zeit sortiert */
+export function mergeReviewLogs(a: ReviewLogEntry[], b: ReviewLogEntry[], max = REVIEW_LOG_MAX): ReviewLogEntry[] {
+  const map = new Map<string, ReviewLogEntry>()
+  // erst das andere Gerät, dann dieses: eine hier nachträglich korrigierte Bewertung gewinnt
+  for (const e of [...b, ...a]) map.set(`${e.w}|${e.d}|${e.t}`, e)
+  return [...map.values()].sort((x, y) => x.t - y.t).slice(-max)
 }
 
 const DAY = 86_400_000
@@ -129,6 +143,7 @@ export function mergePayloads(local: SyncPayload, remote: SyncPayload, now = Dat
     updatedAt: Math.max(local.updatedAt, remote.updatedAt),
     folders,
     deletedFolders,
+    reviewLog: local.reviewLog || remote.reviewLog ? mergeReviewLogs(local.reviewLog ?? [], remote.reviewLog ?? []) : undefined,
     particles: local.particles || remote.particles ? mergeParticleStates(local.particles ?? emptyParticleState(), remote.particles ?? emptyParticleState()) : undefined,
     words: [...map.values()].sort((x, y) => x.createdAt - y.createdAt || x.korean.localeCompare(y.korean)),
     deleted,
@@ -150,6 +165,7 @@ export function fingerprint(p: SyncPayload): string {
     f: [...(p.folders ?? [])].sort((a, b) => a.id.localeCompare(b.id)),
     fd: sortKeys(p.deletedFolders ?? {}),
     pa: p.particles ? particleFingerprint(p.particles) : null,
+    rl: p.reviewLog ? [p.reviewLog.length, p.reviewLog[p.reviewLog.length - 1]?.t ?? 0, p.reviewLog.reduce((n, e) => n + e.g, 0)] : null,
   })
 }
 
@@ -189,5 +205,8 @@ export function parsePayload(raw: unknown): SyncPayload | null {
     folders: Array.isArray(r.folders) ? (r.folders as Folder[]).filter((f) => f && typeof f.id === 'string' && typeof f.name === 'string') : [],
     deletedFolders: r.deletedFolders && typeof r.deletedFolders === 'object' ? r.deletedFolders : {},
     particles: r.particles ? sanitizeParticleState(r.particles) : undefined,
+    reviewLog: Array.isArray(r.reviewLog)
+      ? (r.reviewLog as ReviewLogEntry[]).filter((e) => e && typeof e.w === 'string' && (e.d === 'deko' || e.d === 'kode') && typeof e.t === 'number' && typeof e.g === 'number')
+      : undefined,
   }
 }

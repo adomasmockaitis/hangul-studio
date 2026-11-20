@@ -83,7 +83,7 @@ function persist(enabled: boolean, lastSync: number | null) {
 }
 
 export function AccountProvider({ children }: { children: ReactNode }) {
-  const { words, deleted, activity, settings, folders, deletedFolders, particles, applySyncPayload } = useApp()
+  const { words, deleted, activity, settings, folders, deletedFolders, particles, reviewLog, applySyncPayload } = useApp()
   const sync = useSync()
   const toast = useToast()
   const cfg0 = useMemo(loadCfg, [])
@@ -94,8 +94,8 @@ export function AccountProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AccountState>(cfg0.enabled ? 'idle' : 'off')
   const [error, setError] = useState('')
 
-  const live = useRef({ words, deleted, activity, settings, folders, deletedFolders, particles })
-  live.current = { words, deleted, activity, settings, folders, deletedFolders, particles }
+  const live = useRef({ words, deleted, activity, settings, folders, deletedFolders, particles, reviewLog })
+  live.current = { words, deleted, activity, settings, folders, deletedFolders, particles, reviewLog }
   const busy = useRef(false)
   const lastFp = useRef('')
   const lastRun = useRef(0)
@@ -132,6 +132,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
       app: 'hangul-studio', kind: 'sync', version: 2, updatedAt: Date.now(),
       words: live.current.words, deleted: live.current.deleted, activity: live.current.activity, settings: out,
       settingsUpdatedAt: s.settingsUpdatedAt ?? 0, folders: live.current.folders, deletedFolders: live.current.deletedFolders, particles: live.current.particles,
+      reviewLog: live.current.reviewLog,
     }
   }, [])
 
@@ -202,7 +203,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
       if (fingerprint(getLocal()) !== lastFp.current) void run(user.uid)
     }, 4000)
     return () => clearTimeout(id)
-  }, [words, deleted, activity, settings, folders, deletedFolders, particles, enabled, user, getLocal, run])
+  }, [words, deleted, activity, settings, folders, deletedFolders, particles, reviewLog, enabled, user, getLocal, run])
 
   // Live: speichert ein anderes Gerät, sofort abgleichen (ohne Neuladen)
   useEffect(() => {

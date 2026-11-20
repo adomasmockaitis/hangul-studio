@@ -6,7 +6,7 @@ import { configureSounds } from './lib/sounds'
 import { configureSpeech, forgetWordClips, prepareWords, voiceTexts } from './lib/speech'
 import { setSyncTexts } from './lib/audio/voice'
 import { applyReview, dateKey } from './lib/srs'
-import { LOCAL_ONLY_SETTINGS, maxStamp, type SyncPayload } from './lib/merge'
+import { LOCAL_ONLY_SETTINGS, maxStamp, type SyncPayload, REVIEW_LOG_MAX } from './lib/merge'
 import { canAddSubfolder, descendantIds, planChapterConversion } from './lib/folders'
 import { getItem, setItem } from './lib/storage'
 import { mergeParticleStates, sanitizeParticleState, type ParticleState } from './lib/particles/engine'
@@ -22,7 +22,7 @@ const K_DELETED_FOLDERS = 'hangul-studio:deleted-folders'
 const K_PARTICLES = 'hangul-studio:particles'
 /** Protokoll der Antworten (nur auf diesem Gerät) für Lernstand und persönliche Anpassung */
 const K_REVIEW_LOG = 'hangul-studio:review-log'
-const MAX_LOG = 5000
+const MAX_LOG = REVIEW_LOG_MAX
 
 const ALL_METHODS: CheckMethod[] = ['gemini', 'inputtools', 'manual']
 const DEFAULT_ORDER: CheckStep[] = ALL_METHODS.map((method) => ({ method, enabled: true }))
@@ -508,6 +508,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setFolders(p.folders ?? [])
     setDeletedFolders(p.deletedFolders ?? {})
     if (p.particles) setParticles(p.particles)
+    if (p.reviewLog) setReviewLog(p.reviewLog)
     setActivity(p.activity)
     setSettings((s) => {
       const incoming: Partial<Settings> = { ...p.settings }

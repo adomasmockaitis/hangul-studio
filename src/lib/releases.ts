@@ -24,6 +24,14 @@ export interface Release {
 }
 export const RELEASES: Release[] = [
   {
+    id: '2026-11-sync-review-log',
+    size: 'minor',
+    title: 'Neu in Hangul Studio',
+    subtitle: 'Statistik auf allen Geräten',
+    features: [],
+    summary: 'Deine Quiz-Antworten werden jetzt mit abgeglichen – Gelernt, Erfolgsquote und Stufe sind auf allen Geräten gleich.',
+  },
+  {
     id: '2026-11-dict-duplicates',
     size: 'minor',
     title: 'Neu in Hangul Studio',
