@@ -5,16 +5,16 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
   ArrowLeft, ArrowRight, BookOpen, Check, CheckCircle2, ChevronRight, Circle, KeyRound, Lightbulb, Loader2, Play,
-  RotateCcw, Shuffle, Sparkles, Volume2, X,
+  PenLine, RotateCcw, Shuffle, Snail, Sparkles, Volume2, X,
 } from 'lucide-react'
 import { HangulCanvas } from '../components/HangulCanvas'
-import { Segmented } from '../components/ui'
+import { Segmented, Sheet } from '../components/ui'
 import { useToast } from '../components/Toasts'
 import { newStats } from '../data/demo'
 import { computeLevel } from '../lib/level'
 import { navigate } from '../lib/route'
 import { playSound } from '../lib/sounds'
-import { prepareSentences, speak, speakGerman } from '../lib/speech'
+import { prepareRound, prepareSentences, speak, speakGerman, speakSlow } from '../lib/speech'
 import { generateSentences, gradeTranslations, pickVocab, type TranslationGrade } from '../lib/particles/ai'
 import { covers, makeRoundVocab, newWordBudget, vocabSize, type NewWord } from '../lib/particles/vocab'
 import { GLOSSARY } from '../lib/particles/glossary'
@@ -421,6 +421,8 @@ function Session({
   const [done, setDone] = useState<Answered[]>([])
   const [translations, setTranslations] = useState<TranslationAnswer[]>([])
   const finished = useRef(false)
+  /** Neue Wörter, die in dieser Sitzung schon vorgestellt wurden */
+  const [introduced, setIntroduced] = useState<Set<string>>(() => new Set())
   // Aktuelle und die nächsten 3 Sätze schon mit der Gemini-Stimme vorbereiten (spielen dann ohne Wartezeit natürlich)
   useEffect(() => {
     prepareSentences(tasks.slice(i, i + 4).map((t) => fillSentence(t.sentence.ko)))
@@ -442,8 +444,13 @@ function Session({
     return <div className="card p-6 text-center text-label-2">Für diese Auswahl gibt es gerade keine passenden Sätze.</div>
   }
   const task = tasks[i]
+  // Neues Wort zum ersten Mal in diesem Satz: vorher als Pop-up vorstellen
+  const pending = (task.newWords ?? []).filter((w) => !introduced.has(w.ko))
   return (
     <div className="space-y-4">
+      {pending[0] && (
+        <NewWordSheet key={pending[0].ko} word={pending[0]} more={pending.length - 1} onDone={() => setIntroduced((s) => new Set(s).add(pending[0].ko))} />
+      )}
       <div className="h-1.5 overflow-hidden rounded-full bg-fill-2">
         <div className="h-full rounded-full bg-blue transition-all" style={{ width: `${(i / tasks.length) * 100}%` }} />
       </div>
@@ -453,12 +460,44 @@ function Session({
         </p>
         {onCancel && <button className="text-xs font-medium text-label-3 hover:text-label" onClick={onCancel}>Abbrechen</button>}
       </div>
-      {task.kind === 'translate' ? (
+      {pending.length ? (
+        <div className="card p-8 text-center text-sm text-label-3">Neues Wort …</div>
+      ) : task.kind === 'translate' ? (
         <TranslateTask key={task.key} task={task} onDone={(answer) => next(null, { task, answer })} last={i + 1 >= tasks.length} finishLabel={finishLabel} />
       ) : (
         <GapTask key={task.key} task={task} onDone={(a) => next(a)} last={i + 1 >= tasks.length} finishLabel={finishLabel} />
       )}
     </div>
+  )
+}
+
+/** Pop-up „Neues Wort“: Bedeutung, Aussprache (normal/langsam), auf Wunsch einmal schreiben */
+function NewWordSheet({ word, more, onDone }: { word: NewWord; more: number; onDone: () => void }) {
+  const [write, setWrite] = useState(false)
+  useEffect(() => {
+    speak(word.ko)
+  }, [word.ko])
+  return (
+    <Sheet open onClose={onDone} title="Neues Wort">
+      <div className="space-y-4 text-center">
+        <div className="pop-in">
+          <p lang="ko" className="text-5xl font-bold">{word.ko}</p>
+          <p className="mt-2 text-xl text-label-2">{word.de}</p>
+        </div>
+        <div className="flex flex-wrap justify-center gap-2">
+          <button className="btn-soft" onClick={() => speak(word.ko)}><Volume2 size={16} /> Anhören</button>
+          <button className="btn-soft" onClick={() => speakSlow(word.ko)}><Snail size={16} /> Langsam</button>
+          {!write && <button className="btn-soft" onClick={() => setWrite(true)}><PenLine size={16} /> Einmal schreiben</button>}
+        </div>
+        {write && (
+          <div className="text-left">
+            <HangulCanvas target={word.ko} onResult={() => undefined} />
+          </div>
+        )}
+        <p className="text-xs text-label-3">Kommt im nächsten Satz vor{more > 0 ? ` – zusammen mit ${more} weiteren neuen ${more === 1 ? 'Wort' : 'Wörtern'}` : ''}. Im Satz ist es unterstrichen.</p>
+        <button className="btn-primary w-full !py-3" onClick={onDone} autoFocus>Verstanden <ArrowRight size={16} /></button>
+      </div>
+    </Sheet>
   )
 }
 
@@ -720,7 +759,7 @@ function TrainSession({ particles: selection, onExit }: { particles: ParticleId[
   const toast = useToast()
   const key = settings.geminiApiKey.trim()
   const level = effectiveLevel(particles)
-  const [phase, setPhase] = useState<'prepare' | 'intro' | 'run' | 'done'>('prepare')
+  const [phase, setPhase] = useState<'prepare' | 'run' | 'done'>('prepare')
   // Wortschatz-Regeln dieser Runde: nur eigene Wörter, neue Wörter je Stufe begrenzt (Aufbau-Modus bei kleinem Wortschatz)
   const size = vocabSize(words)
   const budget = settings.particleNewWords ? newWordBudget(level, size) : { perRound: 0, perSentence: 1, buildUp: false }
@@ -740,9 +779,13 @@ function TrainSession({ particles: selection, onExit }: { particles: ParticleId[
     const build = (st = stateRef.current) => {
       if (!alive) return
       const t = buildRound(st, selection, { n: 10, level, hasKey: !!key, vocab: rv })
-      setTasks(t)
-      // Jedes neue Wort wird vor der Runde vorgestellt
-      setPhase(t.some((x) => x.newWords?.length) ? 'intro' : 'run')
+      // Aussprache schon während der Wartezeit erzeugen: alle Sätze und neuen Wörter, auf den ersten Satz kurz warten
+      const fresh = t.flatMap((x) => x.newWords ?? []).map((w) => ({ korean: w.ko, german: w.de }))
+      void prepareRound(t.filter((x) => x.kind !== 'translate').map((x) => fillSentence(x.sentence.ko)), fresh).then(() => {
+        if (!alive) return
+        setTasks(t)
+        setPhase('run')
+      })
     }
     const unseen = stateRef.current.ai.filter((s) => selection.includes(s.particle) && s.level === level && !stateRef.current.stats[s.id] && rv.newOf(s)).length
     if (!key || unseen >= 8) {
@@ -750,7 +793,8 @@ function TrainSession({ particles: selection, onExit }: { particles: ParticleId[
       return
     }
     // Mehr Sätze anfordern als nötig: was die Wortprüfung nicht besteht, fällt weg
-    generateSentences(key, { particles: selection, level, count: 15, vocab: pickVocab(words), newWords: { ...budget, need: size.need } })
+    const avoid = stateRef.current.ai.filter((s) => selection.includes(s.particle)).slice(-30).map((s) => fillSentence(s.ko))
+    generateSentences(key, { particles: selection, level, count: 15, vocab: pickVocab(words), newWords: { ...budget, need: size.need }, avoid })
       .then(({ sentences }) => {
         if (!alive) return
         let next = stateRef.current
@@ -828,37 +872,10 @@ function TrainSession({ particles: selection, onExit }: { particles: ParticleId[
     )
   }
 
-  if (phase === 'intro') {
-    return (
-      <div className="space-y-3">
-        {buildUpNote}
-        <div className="card fade-up space-y-4 p-5 sm:p-6">
-          <div className="text-center">
-            <p className="label">Bevor es losgeht</p>
-            <p className="text-xl font-bold">Neue Wörter in dieser Runde</p>
-            <p className="text-sm text-label-2">Im Satz sind sie unterstrichen – antippen zeigt die Bedeutung.</p>
-          </div>
-          <div className="divide-y divide-separator rounded-2xl bg-fill-4">
-            {roundNew.map((w) => (
-              <div key={w.ko} className="flex items-center gap-3 px-4 py-3">
-                <span lang="ko" className="text-2xl font-bold">{w.ko}</span>
-                <span className="min-w-0 flex-1 text-label-2">{w.de}</span>
-                <button className="btn-soft !p-2.5" onClick={() => speak(w.ko)} aria-label={`${w.ko} anhören`}><Volume2 size={18} /></button>
-              </div>
-            ))}
-          </div>
-          <div className="flex justify-end">
-            <button className="btn-primary" onClick={() => setPhase('run')} autoFocus>Los geht's <ArrowRight size={16} /></button>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
   if (phase === 'run') {
     return (
       <div className="space-y-3">
-        {!roundNew.length && buildUpNote}
+        {round === 0 && buildUpNote}
         {tasks.length < 10 && (
           <div className="rounded-2xl bg-fill-4 px-3 py-2 text-xs text-label-2">
             Nur {tasks.length} passende {tasks.length === 1 ? 'Satz' : 'Sätze'} aus deinen Wörtern – mit mehr Wörtern im Wörterbuch werden die Runden länger.

@@ -24,6 +24,14 @@ export interface Release {
 }
 export const RELEASES: Release[] = [
   {
+    id: '2026-11-particles-newword-popup',
+    size: 'minor',
+    title: 'Neu in Hangul Studio',
+    subtitle: 'Neue Wörter im Partikel-Training',
+    summary: 'Neue Wörter erscheinen jetzt als Pop-up direkt vor dem Satz, in dem sie vorkommen – mit Aussprache und auf Wunsch einmal schreiben. Die Prüfung, welche Wörter du schon kennst, ist deutlich strenger, die KI bekommt dein ganzes Wörterbuch für abwechslungsreichere Sätze, und die Aussprache wird schon während der Vorbereitung erzeugt.',
+    features: [],
+  },
+  {
     id: '2026-11-particles-strict',
     size: 'major',
     title: 'Neu in Hangul Studio',

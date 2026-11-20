@@ -17,11 +17,15 @@ const LEVEL_DESC: Record<Level, string> = {
   5: 'mehrere Lücken, Höflichkeitsformen, feine Bedeutungsunterschiede',
 }
 
-/** Wörter, aus denen die Sätze gebaut werden sollen: zuletzt geübte zuerst */
-export function pickVocab(words: WordItem[], n = 150): WordItem[] {
+/** Das ganze Wörterbuch für die KI, in zufälliger Reihenfolge (sonst greift sie immer zu denselben ersten Wörtern) */
+export function pickVocab(words: WordItem[], n = 1500, rnd: () => number = Math.random): WordItem[] {
   const usable = words.filter((w) => w.german && /[가-힣]/.test(w.korean))
-  const sorted = [...usable].sort((a, b) => (b.stats.lastReviewed ?? 0) - (a.stats.lastReviewed ?? 0))
-  return sorted.slice(0, n)
+  const a = [...usable]
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(rnd() * (i + 1))
+    ;[a[i], a[j]] = [a[j], a[i]]
+  }
+  return a.slice(0, n)
 }
 
 export function buildGeneratePrompt(opts: {
@@ -30,6 +34,8 @@ export function buildGeneratePrompt(opts: {
   count: number
   vocab: Pick<WordItem, 'korean' | 'german'>[]
   newWords: { perSentence: number; perRound: number; buildUp?: boolean; need?: 'noun' | 'verb' | null }
+  /** Zuletzt geübte Sätze – nicht wiederholen */
+  avoid?: string[]
 }): string {
   const lines = opts.particles.map((p) => {
     const c = chapterOf(p)
@@ -53,6 +59,8 @@ export function buildGeneratePrompt(opts: {
     `Schwierigkeit: Stufe ${opts.level} (${LEVEL_NAMES[opts.level - 1]}): ${LEVEL_DESC[opts.level]}.`,
     `Wörter der lernenden Person: ${vocab || '(noch keine)'}.`,
     wordRule,
+    `Abwechslung: Jeder Satz hat ein anderes Thema und eine andere Situation (Alltag, Schule, Arbeit, Familie, Essen, Reisen, Hobbys …) und andere Wörter. Verwende kein Wort in mehr als zwei Sätzen und wechsle die Satzbauweise.`,
+    opts.avoid?.length ? `Diese Sätze gab es schon – nicht wiederholen und nicht nur leicht abwandeln: ${opts.avoid.join(' / ')}` : '',
     nw.perRound > 0
       ? `JEDES Wort, das nicht in der Liste steht, MUSS in "vocab" stehen – in der Grundform (Verben auf -다, Nomen ohne Partikel) mit deutscher Bedeutung. Fehlt ein Wort dort, wird der Satz verworfen.`
       : '',

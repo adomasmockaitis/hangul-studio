@@ -218,7 +218,19 @@ describe('Eigene Wörter und neue Wörter', () => {
     expect(covers('공부해요', { ko: '공부하다', kind: 'verb' })).toBe(true)
     expect(covers('학생이에요', { ko: '학생', kind: 'noun' })).toBe(true)
     expect(covers('학교에', { ko: '학생', kind: 'noun' })).toBe(false)
-    expect(covers('가방', { ko: '가다', kind: 'verb' })).toBe(true) // bekannte Grenze: lieber großzügig beim Stamm
+    // streng: keine Zufallstreffer über gleichen Anlaut oder Wortanfang
+    expect(covers('가방', { ko: '가다', kind: 'verb' })).toBe(false)
+    expect(covers('학교에', { ko: '하다', kind: 'verb' })).toBe(false)
+    expect(covers('한국어를', { ko: '하다', kind: 'verb' })).toBe(false)
+    expect(covers('이름이', { ko: '이', kind: 'noun' })).toBe(false)
+    expect(covers('오늘', { ko: '오다', kind: 'verb' })).toBe(false)
+    // echte Beugungen bleiben erkannt
+    for (const [t, l] of [['해요', '하다'], ['했어요', '하다'], ['합니다', '하다'], ['와요', '오다'], ['봐요', '보다'], ['줘요', '주다'], ['써요', '쓰다'],
+      ['바빠요', '바쁘다'], ['추워요', '춥다'], ['몰라요', '모르다'], ['돼요', '되다'], ['갔어요', '가다'], ['먹는', '먹다'], ['살아요', '살다']] as const) {
+      expect(covers(t, { ko: l, kind: 'verb' }), `${t} ← ${l}`).toBe(true)
+    }
+    expect(covers('친구들과', { ko: '친구', kind: 'noun' })).toBe(true)
+    expect(covers('의사예요', { ko: '의사', kind: 'noun' })).toBe(true)
   })
   it('zählt Wörter, die nicht im Wörterbuch stehen', () => {
     const known = knownLemmas([{ korean: '친구', wordType: 'noun' }, { korean: '오다', wordType: 'verb' }])

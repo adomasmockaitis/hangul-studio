@@ -24,9 +24,42 @@ export function tokensOf(ko: string): string[] {
   return plain.split(/\s+/).map((t) => t.trim()).filter((t) => /[가-힣]/.test(t))
 }
 
-const CHO = (ch: string): number => {
+/** Silbe zerlegen: Anlaut, Vokal, Auslaut (Indizes nach Unicode); null für Nicht-Hangul */
+function jamo(ch: string): { cho: number; jung: number; jong: number } | null {
   const c = ch.charCodeAt(0) - 0xac00
-  return c >= 0 && c < 11172 ? Math.floor(c / 588) : -1
+  if (c < 0 || c >= 11172) return null
+  return { cho: Math.floor(c / 588), jung: Math.floor((c % 588) / 28), jong: c % 28 }
+}
+
+// Vokal-Indizes
+const V = { a: 0, ae: 1, eo: 4, yeo: 6, o: 8, wa: 9, wae: 10, oe: 11, u: 13, wo: 14, wi: 16, eu: 18, i: 20 }
+/** Vokal der letzten Stammsilbe → Vokale, die beim Beugen daraus werden dürfen (가요, 와요, 줘요, 마셔요, 써요, 해요, 돼요) */
+const VOWEL_VARIANTS: Record<number, number[]> = {
+  [V.a]: [V.a, V.ae], // 하 → 해
+  [V.o]: [V.o, V.wa],
+  [V.u]: [V.u, V.wo],
+  [V.i]: [V.i, V.yeo],
+  [V.eu]: [V.eu, V.eo, V.a],
+  [V.oe]: [V.oe, V.wae],
+  [V.eo]: [V.eo, V.ae], // ㅎ-unregelmäßig: 어떻다 → 어때, 그렇다 → 그래
+}
+// Auslaute, die Endungen anhängen: ㄴ(4) ㄹ(8) ㅁ(16) ㅂ(17) ㅆ(20)
+const ENDING_JONG = [0, 4, 8, 16, 17, 20]
+/** Silben, mit denen eine Verbendung beginnen kann (먹어요, 가고, 갔지만, 추워요 …) */
+const VERB_ENDING_START = new Set([...'아어여요고서지는니면세시셔셨습겠기게도며러려자죠네나던든라냐다야거걸까께은을음군구래대잖워와우줘주봐보있놓버십신실의았었였웠운울으읍냈길쇼느'])
+/** Silben, mit denen nach einem Nomen eine Partikel, Kopula oder Endung beginnen kann (학교에서, 학생이에요, 친구들과, 공부해요) */
+const NOUN_SUFFIX_START = new Set([...'이가은는을를에의도만와과랑께들처보부까마로으예입였야아요씩쯤님한밖조뿐나든라하해했할합되돼됐시적스인일'])
+
+/** Ist `syl` eine Beugungsform der Stammsilbe `stem` (gleicher Anlaut, passender Vokal und Auslaut)? */
+function inflects(syl: string, stem: string): boolean {
+  if (syl === stem) return true
+  const a = jamo(syl)
+  const b = jamo(stem)
+  if (!a || !b || a.cho !== b.cho) return false
+  const vowelOk = a.jung === b.jung || (VOWEL_VARIANTS[b.jung] ?? []).includes(a.jung)
+  // ㄷ-unregelmäßig (듣다 → 들어요), ㅂ/ㅅ-unregelmäßig (춥다 → 추워요, 낫다 → 나아요): Auslaut fällt weg oder wird ㄹ
+  const jongOk = a.jong === b.jong || ENDING_JONG.includes(a.jong)
+  return vowelOk && jongOk
 }
 
 /** Grundformen eines Wörterbuch-Eintrags (ohne Klammern, Varianten mit / oder , getrennt) */
@@ -44,15 +77,27 @@ export function lemmasOfEntry(korean: string, wordType?: WordItem['wordType']): 
   return out
 }
 
-/** Deckt das Grundwort diese Wortgruppe ab? */
+/**
+ * Deckt das Grundwort diese Wortgruppe ab? Streng: nach einem Nomen muss eine Partikel/Endung folgen,
+ * ein Verb muss als echte Beugung erkennbar sein (sonst wären 학교 ← 하다 oder 이름 ← 이 „bekannt“).
+ */
 export function covers(token: string, lemma: Lemma): boolean {
-  if (lemma.kind !== 'verb' || !/다$/.test(lemma.ko) || lemma.ko.length < 2) return token.startsWith(lemma.ko)
+  if (lemma.kind !== 'verb' || !/다$/.test(lemma.ko) || lemma.ko.length < 2) {
+    if (!token.startsWith(lemma.ko)) return false
+    const rest = token.slice(lemma.ko.length)
+    return !rest || NOUN_SUFFIX_START.has(rest[0])
+  }
   const stem = lemma.ko.slice(0, -1)
   const head = stem.slice(0, -1)
   const last = stem.slice(-1)
-  if (!token.startsWith(head) || token.length <= head.length) return false
-  const next = token[head.length]
-  return next === last || (CHO(next) >= 0 && CHO(next) === CHO(last))
+  if (token.length <= head.length) return false
+  // 르-unregelmäßig: 모르다 → 몰라요 (vorletzte Silbe bekommt ㄹ)
+  const headOk = token.startsWith(head) || (head.length > 0 && token.slice(0, head.length - 1) === head.slice(0, -1) && inflects(token[head.length - 1], head.slice(-1)))
+  if (!headOk) return false
+  const syl = token[head.length]
+  if (!inflects(syl, last)) return false
+  const rest = token.slice(head.length + 1)
+  return !rest || VERB_ENDING_START.has(rest[0])
 }
 
 /** Bestes (längstes) passendes Grundwort für eine Wortgruppe */

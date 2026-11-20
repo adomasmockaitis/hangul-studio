@@ -242,6 +242,20 @@ export function prepareSentences(texts: string[], lang: ClipLang = 'ko') {
   if (geminiVoiceActive()) prefetchClips(texts.filter(isSpeakable).map((text) => ({ text: lang === 'ko' ? cleanKo(text) : text.trim(), lang })), 'now')
 }
 
+/**
+ * Ganze Runde vorbereiten (alle Sätze in Reihenfolge, dahinter neue Wörter) und auf die erste Aufnahme warten –
+ * höchstens `timeoutMs`, damit die Wartezeit nicht länger wird als nötig.
+ */
+export async function prepareRound(sentences: string[], words: { korean: string; german: string }[] = [], timeoutMs = 6000): Promise<void> {
+  if (!geminiVoiceActive()) return
+  const items = sentences.filter(isSpeakable).map((text) => ({ text: cleanKo(text), lang: 'ko' as ClipLang }))
+  if (!items.length) return
+  const first = requestClip(items[0].text, 'ko', 'now')
+  prefetchClips(items.slice(1), 'now')
+  if (words.length) prefetchClips(voiceItems(words), 'background')
+  await Promise.race([first, new Promise((r) => setTimeout(r, timeoutMs))])
+}
+
 /** Wörter, die gleich drankommen (Quiz, Lernkarten, Diktat), mit Vorrang vorbereiten */
 export function prepareUpcomingWords(words: { korean: string; german: string }[]) {
   if (!geminiVoiceActive()) return
