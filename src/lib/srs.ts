@@ -78,3 +78,57 @@ export function quizStats(log: ReviewLogEntry[], words: WordItem[]): { learned: 
   const learned = [...days.values()].filter((s) => s.size >= LEARNED_DAYS).length
   return { learned, rate: total ? Math.round((ok / total) * 100) : null }
 }
+
+/** Kennung des automatischen Ordners „Noch unsicher“ (kein echter Ordner, wird aus dem Quiz-Protokoll abgeleitet) */
+export const WEAK_FOLDER = 'unsicher'
+export const WEAK_FOLDER_NAME = 'Noch unsicher'
+
+const dayKey = (t: number) => {
+  const d = new Date(t)
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
+}
+
+/**
+ * „Noch unsicher“: Wörter, die du im Quiz falsch hattest und seitdem noch nicht an LEARNED_DAYS
+ * verschiedenen Tagen Deutsch → Koreanisch ohne Hilfe richtig hattest. Ein neuer Fehler setzt das Zählen zurück.
+ * Das Wort bleibt dabei in seinem eigentlichen Ordner.
+ */
+export function weakWordIds(log: ReviewLogEntry[], words: WordItem[]): Set<string> {
+  const ids = new Set(words.map((w) => w.id))
+  const sorted = [...log].sort((a, b) => a.t - b.t)
+  const sinceWrong = new Map<string, Set<string>>()
+  for (const e of sorted) {
+    if (!ids.has(e.w)) continue
+    if (e.g === 1) sinceWrong.set(e.w, new Set())
+    else if (e.d === 'deko' && e.g >= 3) sinceWrong.get(e.w)?.add(dayKey(e.t))
+  }
+  const out = new Set<string>()
+  for (const [w, days] of sinceWrong) if (days.size < LEARNED_DAYS) out.add(w)
+  return out
+}
+
+export interface QuizWordStat {
+  word: WordItem
+  /** richtige Antworten (beide Richtungen) */
+  ok: number
+  total: number
+  wrong: number
+  /** Tage mit richtiger Antwort Deutsch → Koreanisch ohne Hilfe */
+  days: number
+}
+
+/** Quiz-Kennzahlen je Wort (nur Abfragen) – für die Listen hinter Gelernt, Erfolgsquote und Fehlern */
+export function quizBreakdown(log: ReviewLogEntry[], words: WordItem[]): QuizWordStat[] {
+  const byId = new Map(words.map((w) => [w.id, w]))
+  const m = new Map<string, { ok: number; total: number; wrong: number; days: Set<string> }>()
+  for (const e of log) {
+    if (!byId.has(e.w)) continue
+    const s = m.get(e.w) ?? { ok: 0, total: 0, wrong: 0, days: new Set<string>() }
+    s.total++
+    if (e.g >= 2) s.ok++
+    if (e.g === 1) s.wrong++
+    if (e.d === 'deko' && e.g >= 3) s.days.add(dayKey(e.t))
+    m.set(e.w, s)
+  }
+  return [...m.entries()].map(([id, s]) => ({ word: byId.get(id)!, ok: s.ok, total: s.total, wrong: s.wrong, days: s.days.size }))
+}

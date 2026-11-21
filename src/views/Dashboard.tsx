@@ -1,8 +1,8 @@
 import { BookCheck, Flame, Gauge, Play, Plus, RotateCcw, Target } from 'lucide-react'
-import { List, ListRow, PageHeader } from '../components/ui'
+import { List, ListRow, PageHeader, Sheet } from '../components/ui'
 import { navigate } from '../lib/route'
-import { useMemo } from 'react'
-import { currentStreak, dateKey, LEARNED_DAYS, quizStats } from '../lib/srs'
+import { useMemo, useState } from 'react'
+import { currentStreak, dateKey, LEARNED_DAYS, quizBreakdown, quizStats, type QuizWordStat } from '../lib/srs'
 import { activeOnly } from '../lib/folders'
 import { smartPick, smartSummary, SMART_MAX } from '../lib/selection'
 import { computeLevel, LEVEL_STEPS } from '../lib/level'
@@ -20,10 +20,11 @@ export function Dashboard() {
   // Genau das, was das Smart-Quiz (Deutsch → Koreanisch) jetzt laden würde – ohne Obergrenze gezählt
   const ready = useMemo(() => smartPick(activeOnly(words, folders), 'deko', Infinity, Date.now()), [words, folders])
   const due = ready.length
-  const topErrors = [...words]
-    .filter((w) => w.stats.wrongCount > 0)
-    .sort((a, b) => b.stats.wrongCount - a.stats.wrongCount)
-    .slice(0, 5)
+  // Je Wort aus dem Quiz-Protokoll (wie Gelernt und Erfolgsquote – der Lernmodus zählt nicht)
+  const perWord = useMemo(() => quizBreakdown(reviewLog, words), [reviewLog, words])
+  const errorsAll = useMemo(() => perWord.filter((x) => x.wrong > 0).sort((a, b) => b.wrong - a.wrong || a.ok / a.total - b.ok / b.total), [perWord])
+  const topErrors = errorsAll.slice(0, 5)
+  const [detail, setDetail] = useState<'learned' | 'rate' | 'errors' | null>(null)
 
   const week = Array.from({ length: 7 }, (_, i) => {
     const d = new Date()
@@ -109,8 +110,16 @@ export function Dashboard() {
       )}
 
       <div className="mb-5 grid grid-cols-3 gap-3 sm:gap-4">
-        {stats.map((s, i) => (
-          <div key={s.label} className="card fade-up p-3.5 sm:p-5" style={{ animationDelay: `${i * 60}ms` }}>
+        {stats.map((s, i) => {
+          const open = s.label === 'Gelernt' ? 'learned' : s.label === 'Erfolgsquote' ? 'rate' : null
+          const Tag = open ? 'button' : 'div'
+          return (
+          <Tag
+            key={s.label}
+            {...(open ? { type: 'button' as const, onClick: () => setDetail(open), 'aria-label': `${s.label}: Liste anzeigen` } : {})}
+            className={`card fade-up p-3.5 text-left sm:p-5 ${open ? 'transition hover:bg-fill-4 active:scale-[0.98]' : ''}`}
+            style={{ animationDelay: `${i * 60}ms` }}
+          >
             <div className="mb-2.5 grid h-8 w-8 place-items-center rounded-[10px] text-white" style={{ background: s.color }} aria-hidden>
               <s.icon size={18} />
             </div>
@@ -119,8 +128,9 @@ export function Dashboard() {
             </p>
             <p className="text-xs font-semibold sm:text-sm">{s.label}</p>
             <p className="text-caption text-label-2 sm:text-xs">{s.note}</p>
-          </div>
-        ))}
+          </Tag>
+          )
+        })}
       </div>
 
       <div className="grid gap-x-4 sm:grid-cols-2">
@@ -128,14 +138,17 @@ export function Dashboard() {
           {topErrors.length === 0 ? (
             <ListRow title={<span className="text-label-2">Noch keine Fehler – weiter so!</span>} />
           ) : (
-            topErrors.map((w) => (
+            topErrors.map(({ word: w, wrong }) => (
               <ListRow
                 key={w.id}
                 title={<span lang="ko" className="text-lg font-semibold">{w.korean}</span>}
                 subtitle={w.german}
-                right={<span className="shrink-0 rounded-full bg-red/15 px-2.5 py-0.5 text-xs font-semibold text-red">{w.stats.wrongCount}× falsch</span>}
+                right={<span className="shrink-0 rounded-full bg-red/15 px-2.5 py-0.5 text-xs font-semibold text-red">{wrong}× falsch</span>}
               />
             ))
+          )}
+          {errorsAll.length > 0 && (
+            <ListRow title={<span className="text-blue">Alle {errorsAll.length} {errorsAll.length === 1 ? 'Wort' : 'Wörter'} mit Fehlern</span>} onClick={() => setDetail('errors')} />
           )}
         </List>
 
@@ -158,6 +171,59 @@ export function Dashboard() {
           </div>
         </section>
       </div>
+      <Sheet
+        open={detail !== null}
+        onClose={() => setDetail(null)}
+        title={detail === 'learned' ? 'Gelernte Wörter' : detail === 'rate' ? 'Erfolgsquote je Wort' : 'Wörter mit Fehlern'}
+      >
+        <StatsDetail kind={detail} perWord={perWord} errors={errorsAll} />
+      </Sheet>
+    </div>
+  )
+}
+
+/** Liste hinter einer Kennzahl der Startseite (nur Quiz-Antworten) */
+function StatsDetail({ kind, perWord, errors }: { kind: 'learned' | 'rate' | 'errors' | null; perWord: QuizWordStat[]; errors: QuizWordStat[] }) {
+  if (!kind) return null
+  const learned = perWord.filter((x) => x.days >= LEARNED_DAYS).sort((a, b) => a.word.korean.localeCompare(b.word.korean, 'ko'))
+  const byRate = [...perWord].sort((a, b) => a.ok / a.total - b.ok / b.total || b.total - a.total)
+  const list = kind === 'learned' ? learned : kind === 'rate' ? byRate : errors
+  const ok = perWord.reduce((n, x) => n + x.ok, 0)
+  const total = perWord.reduce((n, x) => n + x.total, 0)
+  const intro =
+    kind === 'learned'
+      ? `Deutsch → Koreanisch an ${LEARNED_DAYS} verschiedenen Tagen ohne Hilfe richtig – ${learned.length} ${learned.length === 1 ? 'Wort' : 'Wörter'}.`
+      : kind === 'rate'
+        ? `${ok} von ${total} Quiz-Antworten richtig${total ? ` (${Math.round((ok / total) * 100)} %)` : ''}. Schwächste zuerst.`
+        : 'Alle Wörter, die du im Quiz mindestens einmal falsch hattest – die häufigsten zuerst.'
+  return (
+    <div>
+      <p className="mb-3 text-sm text-label-2">{intro}</p>
+      {list.length === 0 ? (
+        <p className="py-6 text-center text-sm text-label-2">
+          {kind === 'learned' ? 'Noch keins – mach ein paar Quizze an verschiedenen Tagen.' : kind === 'rate' ? 'Noch keine Quiz-Antworten.' : 'Noch keine Fehler – weiter so!'}
+        </p>
+      ) : (
+        <List>
+          {list.map((x) => {
+            const pct = Math.round((x.ok / x.total) * 100)
+            const badge =
+              kind === 'learned'
+                ? <span className="shrink-0 rounded-full bg-green/15 px-2.5 py-0.5 text-xs font-semibold text-green">{x.days} Tage</span>
+                : kind === 'rate'
+                  ? <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold tabular-nums ${pct >= 80 ? 'bg-green/15 text-green' : pct >= 50 ? 'bg-orange/15 text-orange' : 'bg-red/15 text-red'}`}>{x.ok}/{x.total} · {pct} %</span>
+                  : <span className="shrink-0 rounded-full bg-red/15 px-2.5 py-0.5 text-xs font-semibold text-red">{x.wrong}× falsch</span>
+            return (
+              <ListRow
+                key={x.word.id}
+                title={<span lang="ko" className="text-lg font-semibold">{x.word.korean}</span>}
+                subtitle={x.word.german}
+                right={badge}
+              />
+            )
+          })}
+        </List>
+      )}
     </div>
   )
 }

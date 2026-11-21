@@ -7,6 +7,7 @@ import { CountPicker, Group, OptionCards, StartButton } from '../components/ui'
 import { askable, fastLimit, type Dir } from '../lib/fsrs'
 import { resolveSelection, smartPick, smartSummary, SMART, SMART_MAX, type Selection } from '../lib/selection'
 import { activeOnly } from '../lib/folders'
+import { weakWordIds } from '../lib/srs'
 import { useApp } from '../store'
 import type { WordItem } from '../types'
 
@@ -50,7 +51,7 @@ function makeQuestion(word: WordItem, variant: Variant, n: number): Q {
 
 /** Diktat: Koreanisch hören und aufschreiben bzw. die Bedeutung tippen */
 export function DictationSetup({ onDashboard }: { onDashboard: () => void }) {
-  const { words, folders } = useApp()
+  const { words, folders, reviewLog } = useApp()
   const [variant, setVariant] = useState<Variant>('ko')
   const [selection, setSelection] = useState<Selection>(SMART)
   const [count, setCount] = useState(10)
@@ -61,8 +62,8 @@ export function DictationSetup({ onDashboard }: { onDashboard: () => void }) {
   const ready = useMemo(() => (selection.mode === 'smart' ? smartPick(activeOnly(words, folders), dir, Infinity, Date.now()) : []), [words, folders, selection, dir])
   const pool: WordItem[] = useMemo(() => {
     if (selection.mode === 'smart') return ready.slice(0, SMART_MAX).map((p) => p.word)
-    return resolveSelection(selection, words, folders).filter(askable)
-  }, [words, folders, selection, ready])
+    return resolveSelection(selection, words, folders, weakWordIds(reviewLog, words)).filter(askable)
+  }, [words, folders, selection, ready, reviewLog])
   const total = selection.mode === 'smart' ? pool.length : Math.min(pool.length, count || pool.length)
 
   const start = () => {

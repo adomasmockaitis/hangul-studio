@@ -1,12 +1,14 @@
 ﻿import { useMemo, useState } from 'react'
 import {
-  Check, ChevronLeft, ChevronRight, CircleDashed, Copy, Folder as FolderIcon, FolderInput, FolderPlus, GraduationCap, Loader2, Pencil, Plus, ScanText, Search, Sparkles, Tag, Trash2, Volume2,
+  AlertCircle, Check, ChevronLeft, ChevronRight, CircleDashed, Copy, Folder as FolderIcon, FolderInput, FolderPlus, GraduationCap, Loader2, Pencil, Plus, ScanText, Search, Sparkles, Tag, Trash2, Volume2,
 } from 'lucide-react'
 import { List, ListRow, PageHeader, Sheet, Toggle, useConfirm } from '../components/ui'
 import { parseTags } from '../components/UploadScanner'
 import { openScanner, useScanState } from '../components/ScanHost'
 import { DuplicateGroups } from '../components/DuplicateGroups'
 import { WordVoiceRows } from '../components/WordVoiceRows'
+import { setPendingLearn } from '../lib/selection'
+import { WEAK_FOLDER, WEAK_FOLDER_NAME, weakWordIds } from '../lib/srs'
 import { findDictDuplicates, type DupEntry, type DupGroup } from '../lib/scanDuplicates'
 import { canAddSubfolder, chapterTagSuggestions, countWords, effectiveFolder, folderPath, pausedFolderIds, sortFolders } from '../lib/folders'
 import { completeWord } from '../lib/gemini'
@@ -65,7 +67,7 @@ function flatTree(folders: Folder[]): { f: Folder; depth: number }[] {
 
 export function Dictionary() {
   const {
-    words, settings, folders, addWord, updateWord, deleteWord, addFolder, renameFolder, setFolderPaused, deleteFolder, moveWords, addTagToWords, convertChapterTags,
+    words, settings, folders, reviewLog, addWord, updateWord, deleteWord, addFolder, renameFolder, setFolderPaused, deleteFolder, moveWords, addTagToWords, convertChapterTags,
   } = useApp()
   const confirm = useConfirm()
 
@@ -102,8 +104,10 @@ export function Dictionary() {
   const { sub } = useRoute()
   const folderIds = useMemo(() => new Set(folders.map((f) => f.id)), [folders])
   // Ort: '' = Übersicht, 'ohne' = ohne Ordner, sonst Ordner-ID
-  const place = sub === NO_FOLDER ? NO_FOLDER : sub && folderIds.has(sub) ? sub : ''
-  const current = place && place !== NO_FOLDER ? folders.find((f) => f.id === place)! : null
+  const place = sub === NO_FOLDER ? NO_FOLDER : sub === WEAK_FOLDER ? WEAK_FOLDER : sub && folderIds.has(sub) ? sub : ''
+  const current = place && place !== NO_FOLDER && place !== WEAK_FOLDER ? folders.find((f) => f.id === place)! : null
+  // Automatischer Ordner: im Quiz falsch, noch nicht an 3 Tagen richtig (Wörter bleiben zusätzlich in ihrem Ordner)
+  const weak = useMemo(() => weakWordIds(reviewLog, words), [reviewLog, words])
   const path = useMemo(() => folderPath(folders, current?.id ?? null), [folders, current])
 
   const [q, setQ] = useState('')
@@ -125,7 +129,7 @@ export function Dictionary() {
   const counts = useMemo(() => countWords(folders, words), [folders, words])
   const paused = useMemo(() => pausedFolderIds(folders), [folders])
   const noFolderCount = useMemo(() => words.filter((w) => !effectiveFolder(w, folderIds)).length, [words, folderIds])
-  const childFolders = useMemo(() => (place === NO_FOLDER ? [] : sortFolders(folders.filter((f) => f.parentId === (current?.id ?? null)))), [folders, current, place])
+  const childFolders = useMemo(() => (place === NO_FOLDER || place === WEAK_FOLDER ? [] : sortFolders(folders.filter((f) => f.parentId === (current?.id ?? null)))), [folders, current, place])
   const chapterTags = useMemo(() => chapterTagSuggestions(words, folderIds), [words, folderIds])
 
   const tags = useMemo(() => [...new Set(words.flatMap((w) => w.tags))].sort(), [words])
@@ -135,13 +139,14 @@ export function Dictionary() {
       const f = effectiveFolder(w, folderIds)
       if (place === '') return true
       if (place === NO_FOLDER) return f === null
+      if (place === WEAK_FOLDER) return weak.has(w.id)
       return f === place
     }
     const f = words.filter((w) => inPlace(w) && (!tag || w.tags.includes(tag)) && (!s || w.korean.includes(s) || w.german.toLowerCase().includes(s)))
     return f.sort((a, b) =>
       sort === 'new' ? b.createdAt - a.createdAt : sort === 'old' ? a.createdAt - b.createdAt : errorRate(b) - errorRate(a) || b.stats.wrongCount - a.stats.wrongCount,
     )
-  }, [words, q, tag, sort, place, folderIds])
+  }, [words, q, tag, sort, place, folderIds, weak])
   const folderName = (w: WordItem) => {
     const id = effectiveFolder(w, folderIds)
     return id ? folderPath(folders, id).map((f) => f.name).join(' › ') : ''
@@ -239,7 +244,7 @@ export function Dictionary() {
   }
 
   const canSub = current ? canAddSubfolder(folders, current.id) : place === ''
-  const title = place === NO_FOLDER ? 'Ohne Ordner' : current ? current.name : 'Wörter'
+  const title = place === NO_FOLDER ? 'Ohne Ordner' : place === WEAK_FOLDER ? WEAK_FOLDER_NAME : current ? current.name : 'Wörter'
   const backTo = path.length > 1 ? path[path.length - 2] : null
 
   return (
@@ -345,9 +350,34 @@ export function Dictionary() {
         </List>
       )}
 
+      {/* Automatischer Ordner „Noch unsicher“: Erklärung und direkt lernen */}
+      {place === WEAK_FOLDER && (
+        <div className="card fade-up mb-6 p-5">
+          <p className="text-sm text-label-2">
+            Hier landen automatisch die Wörter, die du im Quiz falsch hattest. Sobald du eins danach an 3 verschiedenen Tagen
+            richtig hattest (Deutsch → Koreanisch, ohne Hilfe), verschwindet es wieder. Die Wörter bleiben dabei in ihrem eigenen Ordner.
+          </p>
+          {list.length > 0 && (
+            <button className="btn-primary mt-4" onClick={() => { setPendingLearn(list.map((w) => w.id)); navigate('/ueben') }}>
+              <GraduationCap size={16} /> {list.length} {list.length === 1 ? 'Wort' : 'Wörter'} lernen
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Ordner */}
-      {(childFolders.length > 0 || (place === '' && folders.length > 0)) && (
+      {(childFolders.length > 0 || (place === '' && (folders.length > 0 || weak.size > 0))) && (
         <List title={current ? 'Unterordner' : 'Ordner'}>
+          {place === '' && weak.size > 0 && (
+            <ListRow
+              icon={<AlertCircle size={17} />}
+              iconColor="var(--color-orange)"
+              title={WEAK_FOLDER_NAME}
+              subtitle="Automatisch: im Quiz falsch, noch nicht sicher"
+              value={weak.size}
+              onClick={() => go(WEAK_FOLDER)}
+            />
+          )}
           {childFolders.map((f) => (
             <ListRow
               key={f.id}

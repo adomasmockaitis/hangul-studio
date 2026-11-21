@@ -8,6 +8,7 @@ import { askable, fastLimit, type Dir } from '../lib/fsrs'
 import { EXTRA_SIZE, resolveSelection, smartPick, smartSummary, SMART, SMART_MAX, weakestPick, type Pick, type Selection } from '../lib/selection'
 import { navigate } from '../lib/route'
 import { activeOnly } from '../lib/folders'
+import { weakWordIds } from '../lib/srs'
 import { useApp } from '../store'
 import type { WordItem } from '../types'
 
@@ -69,7 +70,7 @@ function makeQuestion(word: WordItem, kind: Kind, answerType: AnswerType, all: W
 }
 
 export function QuizSetup({ onDashboard, extra = false }: { onDashboard: () => void; /** von der Startseite: gleich eine Extra-Runde starten */ extra?: boolean }) {
-  const { words, folders } = useApp()
+  const { words, folders, reviewLog } = useApp()
   const [selection, setSelection] = useState<Selection>(SMART)
   const [count, setCount] = useState(10)
   const [direction, setDirection] = useState<Direction>('de-ko')
@@ -85,11 +86,11 @@ export function QuizSetup({ onDashboard, extra = false }: { onDashboard: () => v
   // Für Smart: was die App jetzt abfragen würde; sonst die feste Auswahl
   const picks: Pick[] = useMemo(() => {
     if (selection.mode === 'smart') return ready.slice(0, SMART_MAX)
-    const list = resolveSelection(selection, words, folders).filter(askable)
+    const list = resolveSelection(selection, words, folders, weakWordIds(reviewLog, words)).filter(askable)
     return list.map((w) => ({ word: w, dir: smartDir === 'both' ? (Math.random() < 0.5 ? 'deko' : 'kode') : smartDir }) as Pick)
     // now bewusst nicht als Abhängigkeit: die Vorschau soll nicht ständig springen
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [words, folders, selection, smartDir, ready])
+  }, [words, folders, selection, smartDir, ready, reviewLog])
 
   const total = selection.mode === 'smart' ? picks.length : Math.min(picks.length, count || picks.length)
 

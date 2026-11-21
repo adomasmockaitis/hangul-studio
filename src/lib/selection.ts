@@ -5,6 +5,7 @@
 import { activeOnly, descendantIds, effectiveFolder } from './folders'
 import { askable, cardOf, DIRS, isDueDir, retrievability, type Dir } from './fsrs'
 import type { Folder, WordItem } from '../types'
+import { WEAK_FOLDER, WEAK_FOLDER_NAME } from './srs'
 
 export const NO_FOLDER = 'ohne'
 
@@ -18,8 +19,15 @@ export const SMART: Selection = { mode: 'smart' }
 
 /** Vorauswahl für den Lernmodus (z. B. „Falsche im Lernmodus üben“ nach einem Quiz); wird einmal abgeholt */
 let pendingLearn: string[] | null = null
+const pendingListeners = new Set<() => void>()
 export const setPendingLearn = (ids: string[]) => {
   pendingLearn = ids
+  // Der Lernmodus bleibt im Hintergrund geladen: er wird benachrichtigt und übernimmt die Auswahl sofort
+  pendingListeners.forEach((l) => l())
+}
+export function onPendingLearn(cb: () => void): () => void {
+  pendingListeners.add(cb)
+  return () => pendingListeners.delete(cb)
 }
 export function takePendingLearn(): Selection | null {
   const ids = pendingLearn
@@ -28,8 +36,11 @@ export function takePendingLearn(): Selection | null {
   return ids?.length ? { mode: 'words', ids } : null
 }
 
-/** Wörter einer festen Auswahl (Ordner inklusive Unterordner, „ohne“ = ohne Ordner) */
-export function resolveSelection(sel: Selection, words: WordItem[], folders: Folder[]): WordItem[] {
+/**
+ * Wörter einer festen Auswahl (Ordner inklusive Unterordner, „ohne“ = ohne Ordner).
+ * `weak`: Wörter im automatischen Ordner „Noch unsicher“ (aus dem Quiz-Protokoll).
+ */
+export function resolveSelection(sel: Selection, words: WordItem[], folders: Folder[], weak: Set<string> = new Set()): WordItem[] {
   if (sel.mode === 'smart') return activeOnly(words, folders).filter(askable)
   if (sel.mode === 'words') {
     const ids = new Set(sel.ids)
@@ -38,11 +49,13 @@ export function resolveSelection(sel: Selection, words: WordItem[], folders: Fol
   if (sel.mode === 'tags') return words.filter((w) => w.tags.some((t) => sel.tags.includes(t)))
   const folderIds = new Set(folders.map((f) => f.id))
   const wanted = new Set<string>()
+  const wantWeak = sel.ids.includes(WEAK_FOLDER)
   for (const id of sel.ids) {
+    if (id === WEAK_FOLDER) continue
     if (id === NO_FOLDER) wanted.add(NO_FOLDER)
     else for (const d of descendantIds(folders, id)) wanted.add(d)
   }
-  return words.filter((w) => wanted.has(effectiveFolder(w, folderIds) ?? NO_FOLDER))
+  return words.filter((w) => wanted.has(effectiveFolder(w, folderIds) ?? NO_FOLDER) || (wantWeak && weak.has(w.id)))
 }
 
 export type SmartReason = 'due' | 'errors' | 'old' | 'new'
@@ -154,6 +167,6 @@ export function describeSelection(sel: Selection, folders: Folder[]): string {
   if (sel.mode === 'smart') return 'Smart'
   if (sel.mode === 'words') return `${sel.ids.length} ${sel.ids.length === 1 ? 'Wort' : 'Wörter'}`
   if (sel.mode === 'tags') return sel.tags.join(', ') || 'Keine Tags'
-  const names = sel.ids.map((id) => (id === NO_FOLDER ? 'Ohne Ordner' : folders.find((f) => f.id === id)?.name ?? '?'))
+  const names = sel.ids.map((id) => (id === WEAK_FOLDER ? WEAK_FOLDER_NAME : id === NO_FOLDER ? 'Ohne Ordner' : folders.find((f) => f.id === id)?.name ?? '?'))
   return names.join(', ') || 'Keine Ordner'
 }

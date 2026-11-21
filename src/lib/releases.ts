@@ -24,6 +24,17 @@ export interface Release {
 }
 export const RELEASES: Release[] = [
   {
+    id: '2026-11-weak-folder',
+    size: 'major',
+    title: 'Neu in Hangul Studio',
+    subtitle: 'Schwache Wörter im Blick',
+    features: [
+      { icon: 'folder', color: '#ff9500', title: 'Ordner „Noch unsicher“', text: 'Wörter, die du im Quiz falsch hast, landen automatisch hier – zusätzlich zu ihrem Ordner. Sobald du sie an 3 Tagen richtig hattest, verschwinden sie wieder. Auch in Lernen, Quiz und Diktat auswählbar.' },
+      { icon: 'gauge', color: '#007aff', title: 'Zahlen zum Antippen', text: 'Auf der Startseite zeigen Gelernt, Erfolgsquote und Häufigste Fehler beim Antippen die Wörter dahinter.' },
+      { icon: 'check', color: '#34c759', title: 'Falsche üben repariert', text: '„Falsche im Lernmodus üben“ nach dem Quiz öffnet jetzt wieder genau die falschen Wörter.' },
+    ],
+  },
+  {
     id: '2026-11-practice-unified',
     size: 'minor',
     title: 'Neu in Hangul Studio',

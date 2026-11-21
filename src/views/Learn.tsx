@@ -4,12 +4,13 @@ import { DoneCard } from '../components/DoneCard'
 import { SelectionPicker } from '../components/SelectionPicker'
 import { Sheet } from '../components/ui'
 import { WordCard } from '../components/WordCard'
-import { describeSelection, resolveSelection, smartPick, SMART, takePendingLearn, type Selection } from '../lib/selection'
+import { describeSelection, onPendingLearn, resolveSelection, smartPick, SMART, takePendingLearn, type Selection } from '../lib/selection'
 import { activeOnly } from '../lib/folders'
 import { useApp } from '../store'
 import type { Folder, WordItem } from '../types'
 import { prepareSentences, prepareUpcomingWords } from '../lib/speech'
 import { retrievability } from '../lib/fsrs'
+import { weakWordIds } from '../lib/srs'
 
 function shuffle<T>(a: T[]): T[] {
   const r = [...a]
@@ -28,9 +29,9 @@ function mastery(w: WordItem, now: number): number {
 }
 
 /** Reihenfolge einmal festlegen (sonst würde Smart beim Lernen ständig umsortieren) */
-function computeIds(sel: Selection, sort: Sort, words: WordItem[], folders: Folder[]): string[] {
+function computeIds(sel: Selection, sort: Sort, words: WordItem[], folders: Folder[], weak: Set<string> = new Set()): string[] {
   if (sel.mode === 'smart') return smartPick(activeOnly(words, folders), 'both').map((p) => p.word.id)
-  const list = resolveSelection(sel, words, folders)
+  const list = resolveSelection(sel, words, folders, weak)
   if (sort === 'random') return shuffle(list).map((w) => w.id)
   if (sort === 'weak' || sort === 'strong') {
     const now = Date.now()
@@ -51,14 +52,14 @@ function computeIds(sel: Selection, sort: Sort, words: WordItem[], folders: Fold
  * nicht für die Wiederholungsplanung (nur Abfragen tun das), wohl aber für Statistik und Tages-Streak.
  */
 export function Browse({ onDashboard }: { onDashboard: () => void }) {
-  const { words, folders, reviseReview, recordReview, settings } = useApp()
+  const { words, folders, reviseReview, recordReview, settings, reviewLog } = useApp()
   // Vorauswahl aus dem Quiz („Falsche im Lernmodus üben“), sonst Smart
   const [initialSel] = useState<Selection>(() => takePendingLearn() ?? SMART)
   const [selection, setSelection] = useState<Selection>(initialSel)
   const [draftSel, setDraftSel] = useState<Selection>(initialSel)
   const [picker, setPicker] = useState(false)
   const [sort, setSort] = useState<Sort>('old')
-  const [ids, setIds] = useState<string[]>(() => computeIds(initialSel, 'old', words, folders))
+  const [ids, setIds] = useState<string[]>(() => computeIds(initialSel, 'old', words, folders, weakWordIds(reviewLog, words)))
   const [idx, setIdx] = useState(0)
   const [done, setDone] = useState(false)
 
@@ -70,10 +71,21 @@ export function Browse({ onDashboard }: { onDashboard: () => void }) {
   const apply = (sel: Selection, s: Sort) => {
     setSelection(sel)
     setSort(s)
-    setIds(computeIds(sel, s, words, folders))
+    setIds(computeIds(sel, s, words, folders, weakWordIds(reviewLog, words)))
     setIdx(0)
     setDone(false)
   }
+  // Vorauswahl von außen (z. B. „Falsche im Lernmodus üben“), auch wenn der Lernmodus schon offen ist
+  const [incoming, setIncoming] = useState<Selection | null>(null)
+  useEffect(() => onPendingLearn(() => setIncoming(takePendingLearn())), [])
+  useEffect(() => {
+    if (!incoming) return
+    setDraftSel(incoming)
+    apply(incoming, sort)
+    setIncoming(null)
+    // nur wenn eine neue Vorauswahl kommt
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [incoming])
 
   const i = Math.min(idx, Math.max(0, list.length - 1))
   const word = list[i]

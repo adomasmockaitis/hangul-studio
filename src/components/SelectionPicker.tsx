@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react'
-import { Check, CircleDashed, Folder as FolderIcon, Search } from 'lucide-react'
+import { Check, CircleDashed, Folder as FolderIcon, Search, AlertCircle } from 'lucide-react'
 import { countWords, effectiveFolder, sortFolders } from '../lib/folders'
 import { NO_FOLDER, type Selection } from '../lib/selection'
+import { WEAK_FOLDER, WEAK_FOLDER_NAME, weakWordIds } from '../lib/srs'
+import { useApp } from '../store'
 import type { Folder, WordItem } from '../types'
 import { Segmented } from './ui'
 
@@ -52,6 +54,8 @@ export function SelectionPicker({
   smartNote?: string
 }) {
   const [q, setQ] = useState('')
+  const { reviewLog } = useApp()
+  const weakCount = useMemo(() => weakWordIds(reviewLog, words).size, [reviewLog, words])
   const counts = useMemo(() => countWords(folders, words), [folders, words])
   const folderIds = useMemo(() => new Set(folders.map((f) => f.id)), [folders])
   const noFolder = useMemo(() => words.filter((w) => !effectiveFolder(w, folderIds)).length, [words, folderIds])
@@ -93,6 +97,13 @@ export function SelectionPicker({
 
       {value.mode === 'folders' && (
         <div className="card mt-3 max-h-80 divide-y divide-separator overflow-y-auto">
+          {weakCount > 0 && (
+            <CheckRow on={value.ids.includes(WEAK_FOLDER)} onClick={() => onChange({ mode: 'folders', ids: toggleIn(value.ids, WEAK_FOLDER) })}>
+              <AlertCircle size={16} className="shrink-0 text-orange" />
+              <span className="min-w-0 flex-1 truncate">{WEAK_FOLDER_NAME}</span>
+              <span className="text-sm text-label-2">{weakCount}</span>
+            </CheckRow>
+          )}
           {tree(folders).map(({ f, depth }) => (
             <CheckRow key={f.id} depth={depth} on={value.ids.includes(f.id)} onClick={() => onChange({ mode: 'folders', ids: toggleIn(value.ids, f.id) })}>
               <FolderIcon size={16} className="shrink-0 text-blue" />
