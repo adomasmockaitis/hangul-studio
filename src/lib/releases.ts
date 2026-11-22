@@ -24,6 +24,14 @@ export interface Release {
 }
 export const RELEASES: Release[] = [
   {
+    id: '2026-11-conj-learn-bar',
+    size: 'minor',
+    title: 'Neu in Hangul Studio',
+    subtitle: 'Beugung lernen',
+    features: [],
+    summary: 'Im Beugungs-Lernmodus steht die Form jetzt wie bei der Lernkarte direkt über dem Zeichenfeld – mit Bedeutung und Anhören.',
+  },
+  {
     id: '2026-11-weak-folder',
     size: 'major',
     title: 'Neu in Hangul Studio',

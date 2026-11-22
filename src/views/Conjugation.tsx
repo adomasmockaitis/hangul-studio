@@ -139,8 +139,30 @@ export function ConjugationTrainer({ onDashboard }: { onDashboard: () => void })
             <div className="mt-2 flex justify-center"><SlowButton text={p.answer} className="btn-soft !min-h-9 !px-2.5 !py-1 text-xs" /></div>
             <p className="mt-2 text-xs text-label-3">Schreibe die Form unten zum Üben nach.</p>
           </div>
-          <div className="card p-4 sm:p-5">
+          <div className="card p-4 sm:p-5 landscape-phone:!p-3">
+            {/* Wie bei der Lernkarte: Form und Wort direkt am Zeichenfeld, bleibt beim Scrollen sichtbar */}
+            <div className="glass top-2 z-10 mb-4 flex items-center justify-between gap-3 rounded-[22px] px-4 py-3 md:sticky landscape-phone:hidden">
+              <div className="min-w-0">
+                <p className="label">{CONJUGATION_LABELS[p.form].label}</p>
+                <p className="truncate text-2xl font-bold leading-tight sm:text-3xl">{p.word.german}</p>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <span lang="ko" className="text-3xl font-bold sm:text-4xl">{p.answer}</span>
+                <button className="btn-soft !p-2" onClick={() => speak(p.answer)} aria-label="Anhören"><Volume2 size={18} /></button>
+              </div>
+            </div>
+            {/* Querformat: schmale Leiste oben */}
+            <div className="glass mb-2 hidden items-center gap-3 rounded-[20px] py-1.5 pl-4 pr-1.5 landscape-phone:flex">
+              <span lang="ko" className="shrink-0 text-3xl font-bold leading-none">{p.answer}</span>
+              <span className="min-w-0 truncate text-xl font-semibold text-label-2">{p.word.german} · {CONJUGATION_LABELS[p.form].label}</span>
+              <div className="landscape-compact ml-auto flex shrink-0 items-center gap-1.5">
+                <button className="btn-soft" onClick={() => speak(p.answer)} aria-label="Anhören" title="Anhören"><Volume2 size={16} /></button>
+                <SlowButton text={p.answer} label={false} />
+              </div>
+            </div>
             <HangulCanvas
+              key={`${p.word.id}-${p.form}`}
+              practice
               target={p.answer}
               onResult={() => undefined}
               onNext={idx < learn.length - 1 ? () => setIdx(idx + 1) : () => setLearnDone(true)}
