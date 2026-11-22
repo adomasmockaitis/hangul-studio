@@ -1,7 +1,8 @@
 ﻿import { Fragment, useEffect, useRef, useState } from 'react'
 import { BookOpen, GraduationCap, House, Settings as SettingsIcon, type LucideIcon } from 'lucide-react'
 import { AiStatusPill } from './components/AiStatusPill'
-import { isOnboarded, Onboarding } from './components/Onboarding'
+import { isOnboarded, Onboarding, ONBOARDING_KEY } from './components/Onboarding'
+import { MovedNotice, shouldShowMovedNotice } from './components/MovedNotice'
 import { WhatsNew } from './components/WhatsNew'
 import { MissingTranslations } from './components/MissingTranslations'
 import { VoiceProgress } from './components/VoiceProgress'
@@ -42,6 +43,8 @@ function Shell() {
   const { settings } = useApp()
   const { tab, sub, rest } = useRoute()
   const [onboarding, setOnboarding] = useState(() => !isOnboarded())
+  // Umzug auf die eigene Domain: einmal erklären, wie man seine Daten zurückholt (vor der Begrüßung)
+  const [moved, setMoved] = useState(() => shouldShowMovedNotice(isOnboarded()))
   // Update-Fenster: nur für bestehende Nutzer, einmal pro neuem Release
   const [whatsNew, setWhatsNew] = useState(() => isOnboarded() && releasePopup() !== null)
   // Erneuter Tipp auf den aktiven Tab setzt die Seite zurück (z. B. laufendes Quiz → Auswahl)
@@ -175,7 +178,18 @@ function Shell() {
       <MissingTranslations suppressed={onboarding || whatsNew} />
       {!onboarding && <VoiceProgress />}
       <ScanHost />
-      {onboarding && <Onboarding onClose={() => { setOnboarding(false); navigate('/start') }} />}
+      {moved && (
+        <MovedNotice
+          onNew={() => setMoved(false)}
+          onRestore={() => {
+            try { localStorage.setItem(ONBOARDING_KEY, '1') } catch { /* privat */ }
+            setMoved(false)
+            setOnboarding(false)
+            navigate('/einstellungen/sync')
+          }}
+        />
+      )}
+      {onboarding && !moved && <Onboarding onClose={() => { setOnboarding(false); navigate('/start') }} />}
 
       {/* Tableiste (Handy / Tablet hoch): schwebende Glas-Kapsel */}
       <nav

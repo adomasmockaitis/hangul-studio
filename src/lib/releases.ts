@@ -24,6 +24,14 @@ export interface Release {
 }
 export const RELEASES: Release[] = [
   {
+    id: '2026-11-new-domain',
+    size: 'minor',
+    title: 'Neu in Hangul Studio',
+    subtitle: 'Neue Adresse',
+    features: [],
+    summary: 'Hangul Studio hat eine eigene Adresse: hangul.adomas-mockaitis.de – bitte Lesezeichen aktualisieren.',
+  },
+  {
     id: '2026-11-conj-learn-bar',
     size: 'minor',
     title: 'Neu in Hangul Studio',
