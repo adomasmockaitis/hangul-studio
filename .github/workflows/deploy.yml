@@ -27,7 +27,7 @@ jobs:
       - run: npm run typecheck
       - run: npm run build
         env:
-          VITE_BASE: /hangul-studio/
+          VITE_BASE: /
           # Öffentliche Google-Client-ID (kein Geheimnis); als Repository-Variable GOOGLE_CLIENT_ID setzen
           VITE_GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
       - uses: actions/configure-pages@v5
